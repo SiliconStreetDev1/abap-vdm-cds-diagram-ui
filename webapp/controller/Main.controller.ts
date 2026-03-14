@@ -32,6 +32,8 @@ import Dialog from "sap/m/Dialog";
 import MessageBox from "sap/m/MessageBox";
 import SegmentedButton from "sap/m/SegmentedButton";
 import VBox from "sap/m/VBox";
+import MultiInput from "sap/m/MultiInput";
+import Token from "sap/m/Token";
 
 // OData Framework
 import ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
@@ -78,6 +80,26 @@ export default class Main extends Controller {
         this.getView()?.setModel(new JSONModel({
             payload: "", extension: "", cdsName: "", engine: ""
         }), "diagramData");
+
+        // Wire up validators so typing text and pressing Enter creates a visual Token.
+        // Enforces strict CDS names and blocks wildcards.
+        const fnTokenValidator = (args: { text: string }) => {
+            const sCleanText = args.text.trim().toUpperCase();
+            
+            if (sCleanText.includes("*") || sCleanText.includes("%")) {
+                MessageToast.show("Wildcards are not supported. Please enter the full CDS view name.");
+                return null; // Reject the token creation
+            }
+            
+            if (!sCleanText) {
+                return null;
+            }
+            
+            return new Token({ key: sCleanText, text: sCleanText });
+        };
+        
+        (this.byId("inpInclude") as MultiInput).addValidator(fnTokenValidator);
+        (this.byId("inpExclude") as MultiInput).addValidator(fnTokenValidator);
 
         this._loadHistory();
         this._loadVariants();
@@ -176,8 +198,12 @@ export default class Main extends Controller {
             new Filter("DiscInherit", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscInherit") as Switch).getState() : false)
         ];
 
-        const sInclude = (this.byId("inpInclude") as Input).getValue().trim();
-        const sExclude = (this.byId("inpExclude") as Input).getValue().trim();
+        // Map visual Tokens to a comma-separated string for the ABAP backend
+        const aIncTokens = (this.byId("inpInclude") as MultiInput).getTokens();
+        const aExcTokens = (this.byId("inpExclude") as MultiInput).getTokens();
+        const sInclude = aIncTokens.map(t => t.getText()).join(",");
+        const sExclude = aExcTokens.map(t => t.getText()).join(",");
+
         if (sInclude) aFilters.push(new Filter("IncludeCds", FilterOperator.EQ, sInclude));
         if (sExclude) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, sExclude));
 
@@ -638,6 +664,9 @@ export default class Main extends Controller {
      * Reads all left-pane inputs and switches into a standardized object.
      */
     private _captureCurrentUiState(sName: string): any {
+        const aIncTokens = (this.byId("inpInclude") as MultiInput).getTokens();
+        const aExcTokens = (this.byId("inpExclude") as MultiInput).getTokens();
+
         return {
             name: sName,
             cdsName: (this.byId("cmbCdsName") as ComboBox).getValue().trim(),
@@ -659,8 +688,8 @@ export default class Main extends Controller {
             lineComp: (this.byId("swLineComp") as Switch).getState(),
             lineInherit: (this.byId("swLineInherit") as Switch).getState(),
             
-            includeCds: (this.byId("inpInclude") as Input).getValue().trim(),
-            excludeCds: (this.byId("inpExclude") as Input).getValue().trim()
+            includeCds: aIncTokens.map(t => t.getText()).join(","),
+            excludeCds: aExcTokens.map(t => t.getText()).join(",")
         };
     }
 
@@ -724,8 +753,23 @@ export default class Main extends Controller {
             (this.byId("swLineComp") as Switch).setState(oVariant.lineComp !== undefined ? oVariant.lineComp : true);
             (this.byId("swLineInherit") as Switch).setState(oVariant.lineInherit !== undefined ? oVariant.lineInherit : true);
             
-            (this.byId("inpInclude") as Input).setValue(oVariant.includeCds || "");
-            (this.byId("inpExclude") as Input).setValue(oVariant.excludeCds || "");
+            // Re-build visual Tokens from saved comma-separated strings
+            const oIncInput = this.byId("inpInclude") as MultiInput;
+            const oExcInput = this.byId("inpExclude") as MultiInput;
+            
+            oIncInput.removeAllTokens();
+            if (oVariant.includeCds) {
+                oVariant.includeCds.split(",").forEach((sTokenText: string) => {
+                    if (sTokenText.trim()) oIncInput.addToken(new Token({ key: sTokenText.trim(), text: sTokenText.trim() }));
+                });
+            }
+
+            oExcInput.removeAllTokens();
+            if (oVariant.excludeCds) {
+                oVariant.excludeCds.split(",").forEach((sTokenText: string) => {
+                    if (sTokenText.trim()) oExcInput.addToken(new Token({ key: sTokenText.trim(), text: sTokenText.trim() }));
+                });
+            }
 
             MessageToast.show(`Variant '${oVariant.name}' applied.`);
         }

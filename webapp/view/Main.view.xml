@@ -110,9 +110,15 @@
                                 </HBox>
                             </VBox>
 
-                            <Label text="Filters" design="Bold" class="sapUiSmallMarginTop" />
-                            <Input id="inpInclude" placeholder="Include (e.g., *BP*)" width="100%" />
-                            <Input id="inpExclude" placeholder="Exclude (e.g., *TEXT*)" width="100%" class="sapUiTinyMarginTop" />
+                            <VBox class="sapUiMediumMarginTop" width="100%">
+                                <Label text="Filters" design="Bold" />
+                                
+                                <Label text="Include Entities" class="sapUiTinyMarginTop" />
+                                <MultiInput id="inpInclude" placeholder="Enter full CDS Name and press Enter" width="100%" showValueHelp="false" />
+                                
+                                <Label text="Exclude Entities" class="sapUiTinyMarginTop" />
+                                <MultiInput id="inpExclude" placeholder="Enter full CDS Name and press Enter" width="100%" showValueHelp="false" />
+                            </VBox>
 
                         </Panel>
                     </VBox>
