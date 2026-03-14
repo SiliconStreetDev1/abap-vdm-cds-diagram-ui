@@ -19,7 +19,7 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 4. **Deploy:** `npm run deploy`
 
 ## Licensing
-Licensed under the **Silicon Street Limited License**. Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Commercial resale is permitted.
+Licensed under the **Silicon Street Limited License**. Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
 
 ---
 © 2026 Silicon Street Limited.
