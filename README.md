@@ -1,41 +1,25 @@
-## Application Details
-|               |
-| ------------- |
-|**Generation Date and Time**<br>Sat Mar 14 2026 09:43:14 GMT+1300 (New Zealand Daylight Time)|
-|**App Generator**<br>SAP Fiori Application Generator|
-|**App Generator Version**<br>1.20.4|
-|**Generation Platform**<br>Visual Studio Code|
-|**Template Used**<br>Basic V4|
-|**Service Type**<br>OData URL|
-|**Service URL**<br>http://192.168.1.30:50000/sap/opu/odata4/sap/zui_vdm_diagram_o4/srvd/sap/zui_vdm_diagram_sd/0001/|
-|**Module Name**<br>vdmdiagrammer|
-|**Application Title**<br>CDS/VDM Diagram Generator|
-|**Namespace**<br>nz.co.siliconstreet|
-|**UI5 Theme**<br>sap_horizon|
-|**UI5 Version**<br>1.120.14|
-|**Enable TypeScript**<br>True|
-|**Add Eslint configuration**<br>False|
+# SAP VDM CDS Diagrammer
 
-## vdmdiagrammer
+## What it is
+A Fiori application for visualizing SAP S/4HANA Virtual Data Models (VDM). It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
 
-An SAP Fiori application.
+## Why use it
+* **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
+* **Metadata Control:** Toggles Keys, Fields, and Data Sources on or off.
+* **Three Rendering Engines:** Supports Mermaid.js, Graphviz (WASM), and PlantUML.
+* **Export:** Downloads high-resolution SVG files for technical documentation.
 
-### Starting the generated app
+## Architecture
+This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram).
 
--   This app has been generated using the SAP Fiori tools - App Generator, as part of the SAP Fiori tools suite.  To launch the generated application, run the following from the generated application root folder:
+## Setup
+1. **Install:** `npm install`
+2. **Local Config:** Copy `ui5.yaml` to `ui5-local.yaml` (ignored by Git). Put your internal SAP IP in `ui5-local.yaml`.
+3. **Run:** `npm start`
+4. **Deploy:** `npm run deploy`
 
-```
-    npm start
-```
+## Licensing
+Licensed under the **Silicon Street Limited License**. Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Commercial resale is permitted.
 
-- It is also possible to run the application using mock data that reflects the OData Service URL supplied during application generation.  In order to run the application with Mock Data, run the following from the generated app root folder:
-
-```
-    npm run start-mock
-```
-
-#### Pre-requisites:
-
-1. Active NodeJS LTS (Long Term Support) version and associated supported NPM version.  (See https://nodejs.org)
-
-
+---
+© 2026 Silicon Street Limited.
