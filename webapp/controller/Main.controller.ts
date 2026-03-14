@@ -30,6 +30,8 @@ import Toolbar from "sap/m/Toolbar";
 import SplitterLayoutData from "sap/ui/layout/SplitterLayoutData";
 import Dialog from "sap/m/Dialog";
 import MessageBox from "sap/m/MessageBox";
+import SegmentedButton from "sap/m/SegmentedButton";
+import VBox from "sap/m/VBox";
 
 // OData Framework
 import ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
@@ -147,8 +149,12 @@ export default class Main extends Controller {
 
     /**
      * Reads all current UI inputs and converts them into OData Filters for the backend.
+     * Enforces mutual exclusivity: If in Lines mode, Discovery is forced false, and vice versa.
      */
     private _buildODataFilters(sCdsName: string, sEngine: string): Filter[] {
+        const sRelMode = (this.byId("segRelMode") as SegmentedButton).getSelectedKey();
+        const bIsLinesMode = (sRelMode === "LINES");
+
         const aFilters = [
             new Filter("CdsName", FilterOperator.EQ, sCdsName),
             new Filter("RendererEngine", FilterOperator.EQ, sEngine),
@@ -158,9 +164,16 @@ export default class Main extends Controller {
             new Filter("ShowAssocFields", FilterOperator.EQ, (this.byId("swAssocFields") as Switch).getState()),
             new Filter("ShowBase", FilterOperator.EQ, (this.byId("swBase") as Switch).getState()),
             new Filter("CustomDevOnly", FilterOperator.EQ, (this.byId("swCustomOnly") as Switch).getState()),
-            new Filter("LineAssoc", FilterOperator.EQ, (this.byId("swLineAssoc") as Switch).getState()),
-            new Filter("LineComp", FilterOperator.EQ, (this.byId("swLineComp") as Switch).getState()),
-            new Filter("LineInherit", FilterOperator.EQ, (this.byId("swLineInherit") as Switch).getState())
+            
+            // If in Lines mode, send actual Line states, otherwise send false.
+            new Filter("LineAssoc", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineAssoc") as Switch).getState() : false),
+            new Filter("LineComp", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineComp") as Switch).getState() : false),
+            new Filter("LineInherit", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineInherit") as Switch).getState() : false),
+
+            // If in Discovery mode, send actual Disc states, otherwise send false.
+            new Filter("DiscAssoc", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscAssoc") as Switch).getState() : false),
+            new Filter("DiscComp", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscComp") as Switch).getState() : false),
+            new Filter("DiscInherit", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscInherit") as Switch).getState() : false)
         ];
 
         const sInclude = (this.byId("inpInclude") as Input).getValue().trim();
@@ -284,7 +297,6 @@ export default class Main extends Controller {
      * Renders Graphviz using D3.js and a WASM worker.
      * Applies critical fixes to bypass math crashes on massive datasets.
      */
-
     private async _renderGraphviz(sPayload: string, sRenderId: string): Promise<void> {
         try {
             await this._loadScript(CONFIG.CDN.D3);
@@ -309,6 +321,7 @@ export default class Main extends Controller {
             this._showError(`Graphviz Error: ${e.message}`);
         }
     }
+
     /**
      * Compresses the payload via Zlib deflate, encodes to custom Base64, and fetches the SVG.
      */
@@ -395,6 +408,24 @@ export default class Main extends Controller {
     /* =========================================================== */
     /* 5. DOWNLOAD & UI WORKFLOW ACTIONS                           */
     /* =========================================================== */
+
+    /**
+     * Toggles the visibility of the granular switches based on the selected mode.
+     */
+    public onRelModeChange(oEvent: Event): void {
+        const sSelectedMode = (oEvent.getSource() as SegmentedButton).getSelectedKey();
+        
+        const oBoxLines = this.byId("boxLines") as VBox;
+        const oBoxDisc = this.byId("boxDiscovery") as VBox;
+        
+        if (sSelectedMode === "LINES") {
+            oBoxLines.setVisible(true);
+            oBoxDisc.setVisible(false);
+        } else {
+            oBoxLines.setVisible(false);
+            oBoxDisc.setVisible(true);
+        }
+    }
 
     /**
      * Extracts the SVG, resets view boundaries, enforces XML namespaces, and initiates file download.
@@ -617,9 +648,17 @@ export default class Main extends Controller {
             assocFields: (this.byId("swAssocFields") as Switch).getState(),
             base: (this.byId("swBase") as Switch).getState(),
             customOnly: (this.byId("swCustomOnly") as Switch).getState(),
+            
+            relMode: (this.byId("segRelMode") as SegmentedButton).getSelectedKey(),
+            
+            discAssoc: (this.byId("swDiscAssoc") as Switch).getState(),
+            discComp: (this.byId("swDiscComp") as Switch).getState(),
+            discInherit: (this.byId("swDiscInherit") as Switch).getState(),
+            
             lineAssoc: (this.byId("swLineAssoc") as Switch).getState(),
             lineComp: (this.byId("swLineComp") as Switch).getState(),
             lineInherit: (this.byId("swLineInherit") as Switch).getState(),
+            
             includeCds: (this.byId("inpInclude") as Input).getValue().trim(),
             excludeCds: (this.byId("inpExclude") as Input).getValue().trim()
         };
@@ -662,9 +701,29 @@ export default class Main extends Controller {
             (this.byId("swAssocFields") as Switch).setState(oVariant.assocFields);
             (this.byId("swBase") as Switch).setState(oVariant.base);
             (this.byId("swCustomOnly") as Switch).setState(oVariant.customOnly);
-            (this.byId("swLineAssoc") as Switch).setState(oVariant.lineAssoc);
-            (this.byId("swLineComp") as Switch).setState(oVariant.lineComp);
-            (this.byId("swLineInherit") as Switch).setState(oVariant.lineInherit);
+            
+            // Restore Mutually Exclusive Mode (Fallback to LINES for old variants)
+            const sMode = oVariant.relMode || "LINES";
+            (this.byId("segRelMode") as SegmentedButton).setSelectedKey(sMode);
+            
+            // Manually trigger the view toggle
+            if (sMode === "LINES") {
+                (this.byId("boxLines") as VBox).setVisible(true);
+                (this.byId("boxDiscovery") as VBox).setVisible(false);
+            } else {
+                (this.byId("boxLines") as VBox).setVisible(false);
+                (this.byId("boxDiscovery") as VBox).setVisible(true);
+            }
+
+            // Default to true for backward compatibility on older variants
+            (this.byId("swDiscAssoc") as Switch).setState(oVariant.discAssoc !== undefined ? oVariant.discAssoc : true);
+            (this.byId("swDiscComp") as Switch).setState(oVariant.discComp !== undefined ? oVariant.discComp : true);
+            (this.byId("swDiscInherit") as Switch).setState(oVariant.discInherit !== undefined ? oVariant.discInherit : true);
+
+            (this.byId("swLineAssoc") as Switch).setState(oVariant.lineAssoc !== undefined ? oVariant.lineAssoc : true);
+            (this.byId("swLineComp") as Switch).setState(oVariant.lineComp !== undefined ? oVariant.lineComp : true);
+            (this.byId("swLineInherit") as Switch).setState(oVariant.lineInherit !== undefined ? oVariant.lineInherit : true);
+            
             (this.byId("inpInclude") as Input).setValue(oVariant.includeCds || "");
             (this.byId("inpExclude") as Input).setValue(oVariant.excludeCds || "");
 

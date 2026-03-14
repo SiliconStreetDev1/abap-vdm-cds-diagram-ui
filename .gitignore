@@ -2,6 +2,7 @@
 ui5-local.yaml
 ui5-deploy.yaml
 ui5.yaml
+ui5-mock.yaml
 .env
 
 # --- Silicon Street UI5 Pattern ---

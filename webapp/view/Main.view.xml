@@ -72,19 +72,43 @@
                                 <Switch id="swCustomOnly" state="false" customTextOn="Yes" customTextOff="No" />
                             </HBox>
 
-                            <Label text="Draw Connection Lines" design="Bold" class="sapUiSmallMarginTop" />
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Associations" />
-                                <Switch id="swLineAssoc" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Compositions" />
-                                <Switch id="swLineComp" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Inheritance" />
-                                <Switch id="swLineInherit" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
+                            <Label text="Relationship Mode" design="Bold" class="sapUiSmallMarginTop" />
+                            <SegmentedButton id="segRelMode" selectedKey="LINES" selectionChange="onRelModeChange" width="100%" class="sapUiTinyMarginBottom">
+                                <items>
+                                    <SegmentedButtonItem key="LINES" text="Draw Lines" />
+                                    <SegmentedButtonItem key="DISCOVERY" text="Discovery Only" />
+                                </items>
+                            </SegmentedButton>
+
+                            <VBox id="boxLines" visible="true" width="100%">
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Line: Associations" />
+                                    <Switch id="swLineAssoc" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Line: Compositions" />
+                                    <Switch id="swLineComp" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Line: Inheritance" />
+                                    <Switch id="swLineInherit" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                            </VBox>
+
+                            <VBox id="boxDiscovery" visible="false" width="100%">
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Discover: Associations" />
+                                    <Switch id="swDiscAssoc" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Discover: Compositions" />
+                                    <Switch id="swDiscComp" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%">
+                                    <Label text="Discover: Inheritance" />
+                                    <Switch id="swDiscInherit" state="true" customTextOn="Yes" customTextOff="No" />
+                                </HBox>
+                            </VBox>
 
                             <Label text="Filters" design="Bold" class="sapUiSmallMarginTop" />
                             <Input id="inpInclude" placeholder="Include (e.g., *BP*)" width="100%" />
