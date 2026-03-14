@@ -21,7 +21,7 @@ builder:
           name: ZVDMDIAGRM
           description: VDM/CDS Diagram Visualizer
           package: ZVDM_PLANTUML_DIAGRAM
-          transport: A4HK900116
+          transport: <transport request number>
         exclude:
           - /test/
   resources:
