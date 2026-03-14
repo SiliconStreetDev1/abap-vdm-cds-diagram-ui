@@ -2,7 +2,7 @@
 
 ## What it is
 A Fiori application for visualizing SAP S/4HANA Virtual Data Models (VDM). It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
-
+![Image](https://github.com/user-attachments/assets/8410c470-f37d-424e-9e8a-8be6392038f2)
 ## Architecture
 This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
 
@@ -19,7 +19,19 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 4. **Deploy:** `npm run deploy`
 
 ## Licensing
-Licensed under the **Silicon Street Limited License**. Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). Commercial resale is permitted.
+© 2026 Silicon Street Limited. All Rights Reserved.
+
+Usage Terms:
+
+INTERNAL USE: Permission is granted to use this code for internal business documentation purposes within a single organization at no cost.
+NON-REDISTRIBUTION: You may NOT redistribute, sell, or include this source code (or derivatives thereof) in any commercial software, package, or library.
+PAID SERVICES: Use of this code to provide paid consulting or documentation services to third parties requires a Commercial License.
+MODIFICATIONS: Any modifications remain subject to this license.
+DISCLAIMER: THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+FOR COMMERCIAL LICENSING INQUIRIES: admin@siliconst.co.nz
+
+Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
 
 ---
 © 2026 Silicon Street Limited.
