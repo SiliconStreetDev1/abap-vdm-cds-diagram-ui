@@ -1,0 +1,120 @@
+<mvc:View controllerName="nz.co.siliconstreet.vdmdiagrammer.controller.Main"
+    xmlns:mvc="sap.ui.core.mvc" displayBlock="true"
+    xmlns="sap.m" xmlns:core="sap.ui.core" xmlns:layout="sap.ui.layout">
+    
+    <Page title="VDM Diagram Generator" showHeader="true" enableScrolling="false">
+        <headerContent>
+            <Button icon="sap-icon://full-screen" press="onToggleFullScreen" tooltip="Toggle Full Screen Canvas" />
+        </headerContent>
+        <content>
+            <layout:Splitter id="mainSplitter" height="100%" width="100%">
+                
+                <ScrollContainer vertical="true" horizontal="false" height="100%">
+                    <layoutData>
+                        <layout:SplitterLayoutData size="400px" id="leftPaneLayout" />
+                    </layoutData>
+
+                    <VBox class="sapUiSmallMargin">
+                        
+                        <Label text="CDS View Name" design="Bold" />
+                        <ComboBox id="cmbCdsName" width="100%" items="{history>/items}">
+                            <core:Item key="{history>name}" text="{history>name}" />
+                        </ComboBox>
+
+                        <Label text="Render Engine" class="sapUiSmallMarginTop" design="Bold" />
+                        <Select id="selEngine" width="100%">
+                            <core:Item key="MERMAID" text="Mermaid.js" />
+                            <core:Item key="GRAPHVIZ" text="Graphviz (WASM)" />
+                            <core:Item key="PLANTUML" text="PlantUML" />
+                            <core:Item key="D2" text="D2 Script" />
+                        </Select>
+
+                        <Label text="Number of Levels" class="sapUiSmallMarginTop" design="Bold" />
+                        <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" />
+
+                        <Label text="Saved Variants" class="sapUiSmallMarginTop" design="Bold" />
+                        <HBox width="100%" alignItems="Center" justifyContent="End">
+                            <Select id="selVariant" items="{variants>/items}" change="onVariantChange" forceSelection="false" 
+                                    visible="{= ${variants>/items}.length > 0 }" class="sapUiTinyMarginRight">
+                                <layoutData>
+                                    <FlexItemData growFactor="1" /> </layoutData>
+                                <core:Item key="{variants>name}" text="{variants>name}" />
+                            </Select>
+                            
+                            <Button icon="sap-icon://save" tooltip="Save Current Settings as Variant" press="onSaveVariant" type="Transparent" />
+                            <Button icon="sap-icon://delete" tooltip="Delete Selected Variant" press="onDeleteVariant" type="Transparent" 
+                                    visible="{= ${variants>/items}.length > 0 }" />
+                        </HBox>
+
+                        <Button id="btnGenerate" text="Generate Diagram" press="onGenerate" type="Emphasized" width="100%" class="sapUiSmallMarginTop sapUiMediumMarginBottom" />
+
+                        <Panel headerText="Advanced Settings" expandable="true" expanded="false" width="100%">
+                            
+                            <Label text="Entity Details" design="Bold" />
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Show Keys" />
+                                <Switch id="swKeys" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Show All Fields" />
+                                <Switch id="swFields" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Show Association Fields" />
+                                <Switch id="swAssocFields" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Show Base (Data Source)" />
+                                <Switch id="swBase" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Custom Dev Only (Z/Y)" />
+                                <Switch id="swCustomOnly" state="false" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+
+                            <Label text="Draw Connection Lines" design="Bold" class="sapUiSmallMarginTop" />
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Associations" />
+                                <Switch id="swLineAssoc" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Compositions" />
+                                <Switch id="swLineComp" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+                            <HBox justifyContent="SpaceBetween" width="100%">
+                                <Label text="Inheritance" />
+                                <Switch id="swLineInherit" state="true" customTextOn="Yes" customTextOff="No" />
+                            </HBox>
+
+                            <Label text="Filters" design="Bold" class="sapUiSmallMarginTop" />
+                            <Input id="inpInclude" placeholder="Include (e.g., *BP*)" width="100%" />
+                            <Input id="inpExclude" placeholder="Exclude (e.g., *TEXT*)" width="100%" class="sapUiTinyMarginTop" />
+
+                        </Panel>
+                    </VBox>
+                </ScrollContainer>
+
+                <VBox height="100%" width="100%">
+                    <layoutData>
+                        <layout:SplitterLayoutData size="auto" />
+                    </layoutData>
+                    
+                    <Toolbar id="toolbarActions" visible="false">
+                        <ToolbarSpacer />
+                        <Button id="btnCopy" icon="sap-icon://copy" text="Copy Source" press="onCopySyntax" />
+                        <Button id="btnDownloadSrc" icon="sap-icon://download" text="Download Source" press="onDownloadSource" />
+                        <Button id="btnDownloadImg" icon="sap-icon://camera" text="Download Image" press="onDownloadImage" type="Emphasized" />
+                    </Toolbar>
+                    
+                    <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
+                        <IllustratedMessage id="msgEmpty" visible="true" illustrationType="sapIllus-SearchEarth" title="No Diagram Generated" description="Select a CDS view and click Generate." />
+                        <MessageStrip id="msgError" visible="false" type="Error" showIcon="true" class="sapUiMargin" />
+                        
+                        <core:HTML id="htmlRenderer" visible="false" />
+                    </VBox>
+                </VBox>
+
+            </layout:Splitter>
+        </content>
+    </Page>
+</mvc:View>

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://sap.github.io/ui5-tooling/schema/ui5.yaml.json
+
+specVersion: "4.0"
+metadata:
+  name: nz.co.siliconstreet.vdmdiagrammer
+type: application
+builder:
+  customTasks:
+    - name: ui5-tooling-transpile-task
+      afterTask: replaceVersion
+      configuration:
+        debug: true
+        transformModulesToUI5:
+          overridesToOverride: true
+    - name: deploy-to-abap
+      afterTask: generateCachebusterInfo
+      configuration:
+        target:
+          url: http://<YOUR_SERVER>:<PORT>
+        app:
+          name: ZVDMDIAGRM
+          description: VDM/CDS Diagram Visualizer
+          package: ZVDM_PLANTUML_DIAGRAM
+          transport: A4HK900116
+        exclude:
+          - /test/
+  resources:
+    excludes:
+      - /test/**
+      - /localService/**
