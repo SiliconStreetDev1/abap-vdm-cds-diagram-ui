@@ -1,6 +1,6 @@
 /**
  * @fileoverview Main Controller for VDM Diagram Generator.
- * @version 1.0
+ * @version 1.2
  * @author Silicon Street Limited
  * @license Silicon Street Limited License
  * * Logic Summary:
@@ -9,6 +9,7 @@
  * - Orchestrates diagram rendering by delegating to utility modules.
  * - Handles local storage persistence for search history and variants.
  * - Provides export functionality for multiple file formats.
+ * - Implements modular, dynamic F4 Value Help (CDS Search) with smart UX focus.
  */
 import Controller from "sap/ui/core/mvc/Controller";
 import JSONModel from "sap/ui/model/json/JSONModel";
@@ -18,6 +19,7 @@ import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Filter from "sap/ui/model/Filter";
 import FilterOperator from "sap/ui/model/FilterOperator";
 import Event from "sap/ui/base/Event";
+import Control from "sap/ui/core/Control";
 
 import ComboBox from "sap/m/ComboBox";
 import Select from "sap/m/Select";
@@ -40,7 +42,7 @@ import ResourceBundle from "sap/base/i18n/ResourceBundle";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResponsivePopover from "sap/m/ResponsivePopover";
 import Text from "sap/m/Text";
-import Icon from "sap/ui/core/Icon"; // Ensure the Icon namespace is properly imported for TS compilation
+import Icon from "sap/ui/core/Icon"; 
 
 import ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
@@ -48,41 +50,44 @@ import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 // Custom Utility Classes
 import VariantManager from "../util/VariantManager";
 import Renderer from "../util/Renderer";
+import CdsValueHelpHandler from "./CdsValueHelpHandler";
 
 export default class Main extends Controller {
 
-    // Cache the popover so we don't create a new DOM element on every info icon click
+    // Global UI Caches
     private _oInfoPopover: ResponsivePopover | null = null;
+    
+    // F4 Value Help State Managers
+    private _oCdsValueHelpHandler: CdsValueHelpHandler | null = null;
+    private _oActiveSearchField: Control | null = null;
 
     /**
      * Controller initialization. Sets up base models, validators, and user history.
      */
     public onInit(): void {
         // UI Model handles transient screen state (like showing/hiding context help)
-        // Default is false so advanced users aren't bothered by icons
         this.getView()?.setModel(new JSONModel({
             showHelp: false
         }), "ui");
 
-        // This JSONModel stores the raw diagram payload required for the Download/Copy actions
+        // Stores the raw diagram payload required for the Download/Copy actions
         this.getView()?.setModel(new JSONModel({
             payload: "", extension: "", cdsName: "", engine: ""
         }), "diagramData");
 
         // Wire up validators for the Include/Exclude MultiInputs.
-        // This function intercepts text when the user presses 'Enter' and turns it into a visual UI Token.
+        // Intercepts text when the user presses 'Enter' and turns it into a Token.
         const fnTokenValidator = (args: { text: string }) => {
             const sCleanText = args.text.trim().toUpperCase();
             
             // Validation 1: Block Wildcards (Requires full CDS names)
             if (sCleanText.includes("*") || sCleanText.includes("%")) {
                 MessageToast.show(this._getText("msgWildcardWarn"));
-                return null; // Reject the token creation
+                return null; 
             }
             if (!sCleanText) return null;
 
-            // Validation 2: Block Duplicate Tokens (IMPROVEMENT)
-            // Checks both lists to ensure uniqueness globally.
+            // Validation 2: Block Duplicate Tokens across both lists
             const aIncTokens = (this.byId("inpInclude") as MultiInput).getTokens();
             const aExcTokens = (this.byId("inpExclude") as MultiInput).getTokens();
             const bIsDuplicate = [...aIncTokens, ...aExcTokens].some(t => t.getKey() === sCleanText);
@@ -92,7 +97,6 @@ export default class Main extends Controller {
                 return null;
             }
             
-            // Return a valid SAP Token object
             return new Token({ key: sCleanText, text: sCleanText });
         };
         
@@ -120,29 +124,35 @@ export default class Main extends Controller {
         const sEngine = (this.byId("selEngine") as Select).getSelectedKey();
         this._resetCanvasState();
         
-        // Show busy indicator to block user interaction during the backend call
+        // Block user interaction during the backend call
         BusyIndicator.show(0);
 
         const aFilters = this._buildODataFilters(sCdsName, sEngine);
         
-        // In OData V4, we don't use `.read()`. We create a list binding, apply filters, and request contexts.
+        // In OData V4, create a list binding, apply filters, and request contexts
         const oListBinding = (this.getView()?.getModel() as ODataModel).bindList("/Diagram") as ODataListBinding;
         oListBinding.filter(aFilters);
         
         // Execute OData Request
         oListBinding.requestContexts(0, 1)
             .then((aContexts: any[]) => this._handleGenerationSuccess(aContexts, sCdsName, sEngine))
-            .catch((oError: Error) => {
-                this._showError(this._getText("msgReqFailed", [oError.message]));
+            .catch((oError: any) => {
+                // UX IMPROVEMENT: Extract deep SAP ABAP errors if present in the payload
+                let sErrorMsg = oError.message;
+                if (oError.error && oError.error.message) {
+                    sErrorMsg = oError.error.message;
+                }
+                this._showError(this._getText("msgReqFailed", [sErrorMsg]));
             })
             .finally(() => {
-                // IMPROVEMENT: Guarantee the BusyIndicator always hides, even if an exception occurs in the chain.
+                // Guarantee the BusyIndicator always hides, even if an exception occurs
                 BusyIndicator.hide();
             });
     }
 
-    /**
+ /*
      * Helper to process the successful OData V4 response payload.
+     * Includes UX Gatekeeping to prevent browser crashes on massive diagrams.
      */
     private _handleGenerationSuccess(aContexts: any[], sCdsName: string, sEngine: string): void {
         if (!aContexts || aContexts.length === 0) {
@@ -150,38 +160,66 @@ export default class Main extends Controller {
             return;
         }
 
-        // Extract the entity object from the V4 Context
         const oResult = aContexts[0].getObject();
+        const sPayload = oResult.DiagramPayload;
 
         // Trap Custom ABAP-level errors returned dynamically inside the text payload
-        if (oResult.DiagramPayload.startsWith("Error:")) {
-            this._showError(oResult.DiagramPayload.replace("Error: ", ""));
+        if (sPayload.startsWith("Error:")) {
+            this._showError(sPayload.replace("Error: ", ""));
             return;
         }
 
         this._updateHistory(sCdsName);
         this._bindDownloadData(oResult, sEngine);
 
-        // Display the action toolbar (Copy/Download buttons)
+        // Always show the toolbar so they can at least Download/Copy the raw source code
         (this.byId("toolbarActions") as Toolbar).setVisible(true);
-        (this.byId("btnDownloadImg") as Button).setVisible(sEngine !== "D2");
 
-        // D2 cannot be rendered in the browser natively via WASM yet. Warn the user to download it.
+        // D2 Engine handling
         if (sEngine === "D2") {
+            (this.byId("btnDownloadImg") as Button).setVisible(false);
+            (this.byId("btnDownloadPng") as Button).setVisible(false);
             this._showError(this._getText("msgD2Warning"));
             return;
         }
+
+        // ====================================================================
+        // ENTERPRISE UX: THE SIZE GATEKEEPER
+        // ====================================================================
+        // If the payload is massive, rendering it will freeze the UI thread 
+        // and result in a blank canvas due to browser pixel/memory limits.
+        const MAX_PAYLOAD_CHARS = 100000; // Adjust this limit based on your users' hardware
+
+        if (sPayload.length > MAX_PAYLOAD_CHARS) {
+            // Hide the image download buttons since there will be no image to download
+            (this.byId("btnDownloadImg") as Button).setVisible(false);
+            (this.byId("btnDownloadPng") as Button).setVisible(false);
+            
+            // Calculate size in KB for a helpful error message
+            const iSizeKb = Math.round(sPayload.length / 1024);
+            
+            // Show a friendly error explaining the limit and providing next steps
+            this._showError(
+                `The generated diagram is too large to render safely in the browser (${iSizeKb} KB). ` +
+                `Please use the "Download Source" button to view it locally, or reduce the diagram scope using the Max Level or Exclude filters.`
+            );
+            return;
+        }
+
+        // If it's a safe size, ensure image download buttons are visible and proceed
+        (this.byId("btnDownloadImg") as Button).setVisible(true);
+        (this.byId("btnDownloadPng") as Button).setVisible(true);
 
         const oHtml = this.byId("htmlRenderer") as HTML;
         oHtml.setVisible(true);
 
         // Hand off complex rendering logic to the modular Utility class
-        Renderer.renderDiagram(sEngine, oResult.DiagramPayload, oHtml, (sMsg: string) => this._showError(sMsg));
+        Renderer.renderDiagram(sEngine, sPayload, oHtml, (sMsg: string) => this._showError(sMsg));
     }
 
     /**
      * Reads all current UI inputs and converts them into OData Filters for the backend.
-     * Enforces mutual exclusivity: If in "Lines" mode, "Discovery" parameters are forced to false, and vice versa.
+     * Enforces mutual exclusivity: If in "Lines" mode, "Discovery" parameters are forced to false.
      */
     private _buildODataFilters(sCdsName: string, sEngine: string): Filter[] {
         const sRelMode = (this.byId("segRelMode") as SegmentedButton).getSelectedKey();
@@ -197,19 +235,17 @@ export default class Main extends Controller {
             new Filter("ShowBase", FilterOperator.EQ, (this.byId("swBase") as Switch).getState()),
             new Filter("CustomDevOnly", FilterOperator.EQ, (this.byId("swCustomOnly") as Switch).getState()),
             
-            // MUTUAL EXCLUSION LOGIC:
-            // If in Lines mode, send actual Line states, otherwise send strict false.
+            // MUTUAL EXCLUSION LOGIC
             new Filter("LineAssoc", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineAssoc") as Switch).getState() : false),
             new Filter("LineComp", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineComp") as Switch).getState() : false),
             new Filter("LineInherit", FilterOperator.EQ, bIsLinesMode ? (this.byId("swLineInherit") as Switch).getState() : false),
 
-            // If in Discovery mode, send actual Disc states, otherwise send strict false.
             new Filter("DiscAssoc", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscAssoc") as Switch).getState() : false),
             new Filter("DiscComp", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscComp") as Switch).getState() : false),
             new Filter("DiscInherit", FilterOperator.EQ, !bIsLinesMode ? (this.byId("swDiscInherit") as Switch).getState() : false)
         ];
 
-        // Map visual Tokens back into a comma-separated string for the ABAP backend string parameters
+        // Map visual Tokens back into a comma-separated string for the ABAP backend
         const aIncTokens = (this.byId("inpInclude") as MultiInput).getTokens();
         const aExcTokens = (this.byId("inpExclude") as MultiInput).getTokens();
         const sInclude = aIncTokens.map(t => t.getText()).join(",");
@@ -222,7 +258,7 @@ export default class Main extends Controller {
     }
 
     /**
-     * Caches the payload and metadata locally so the Download/Copy buttons can access them later without re-triggering OData.
+     * Caches the payload and metadata locally so actions can access them without re-triggering OData.
      */
     private _bindDownloadData(oResult: any, sEngine: string): void {
         (this.getView()?.getModel("diagramData") as JSONModel).setData({
@@ -234,23 +270,84 @@ export default class Main extends Controller {
     }
 
     /* =========================================================== */
-    /* UI EVENTS & WORKFLOW ACTIONS                                */
+    /* 2. F4 VALUE HELP (CDS SEARCH) INTEGRATION                   */
+    /* =========================================================== */
+
+    /**
+     * Universal event handler for all CDS Value Help requests.
+     * Identifies the calling field and routes the selection via a callback.
+     */
+    public onCdsValueHelpRequest(oEvent: Event): void {
+        const oView = this.getView();
+        if (!oView) return;
+
+        // Capture the specific UI control the user clicked on
+        this._oActiveSearchField = oEvent.getSource() as Control;
+
+        // Lazy-load the modular handler class
+        if (!this._oCdsValueHelpHandler) {
+            this._oCdsValueHelpHandler = new CdsValueHelpHandler(oView, (sSelectedCds: string) => {
+                this._processValueHelpSelection(sSelectedCds);
+            });
+        }
+
+        this._oCdsValueHelpHandler.open();
+    }
+
+    /**
+     * Routes the selected CDS name to the correct UI control based on its type.
+     * Implements intelligent focus management for a seamless UX.
+     * @param {string} sSelectedCds - The CDS name selected from the F4 dialog.
+     */
+    private _processValueHelpSelection(sSelectedCds: string): void {
+        if (!this._oActiveSearchField) return;
+
+        // Scenario A: The user clicked a MultiInput (Include or Exclude fields)
+        if (this._oActiveSearchField.isA("sap.m.MultiInput")) {
+            const oMultiInput = this._oActiveSearchField as MultiInput;
+            
+            // Check for duplicates before adding
+            const aExistingTokens = oMultiInput.getTokens();
+            const bExists = aExistingTokens.some(t => t.getKey() === sSelectedCds);
+            
+            if (!bExists) {
+                oMultiInput.addToken(new Token({ key: sSelectedCds, text: sSelectedCds }));
+            }
+            
+            // UX: Keep focus on the multi-input so they can continue typing tokens
+            oMultiInput.focus();
+            
+        // Scenario B: The user clicked the standard Input (Main CDS field)
+        } else if (this._oActiveSearchField.isA("sap.m.Input") || this._oActiveSearchField.isA("sap.m.ComboBox")) {
+            const oInput = this._oActiveSearchField as any; 
+            oInput.setValue(sSelectedCds);
+            
+            // UX: Auto-focus the Generate button so the user can just hit 'Enter' to run the report
+            const oGenerateBtn = this.byId("btnGenerate") as Button;
+            if (oGenerateBtn) {
+                oGenerateBtn.focus();
+            }
+        }
+
+        // Clean up the reference to prevent memory leaks
+        this._oActiveSearchField = null;
+    }
+
+
+    /* =========================================================== */
+    /* 3. UI EVENTS & WORKFLOW ACTIONS                             */
     /* =========================================================== */
 
     /**
      * Dynamically creates and displays a localized info popover next to the clicked icon.
-     * * DESIGN RATIONALE: Single reuseable method driven by `customData:infoType` keeps XML clean.
      */
     public onShowInfo(oEvent: Event): void {
         const oIcon = oEvent.getSource() as Icon;
-        // Retrieve the customData key we set in the XML (e.g., "ShowKeys", "RelMode")
         const sInfoType = oIcon.data("infoType") as string;
         
-        // Fetch the corresponding text dynamically from i18n
         const sTitle = this._getText(`infoTitle${sInfoType}`);
         const sText = this._getText(`infoText${sInfoType}`);
 
-        // Lazy load the popover to save memory on initial app load
         if (!this._oInfoPopover) {
             this._oInfoPopover = new ResponsivePopover({
                 placement: "Right",
@@ -263,15 +360,13 @@ export default class Main extends Controller {
             this.getView()?.addDependent(this._oInfoPopover);
         }
 
-        // Update the popover content model and title, then open it directly next to the icon
         this._oInfoPopover.setModel(new JSONModel({ text: sText }), "popover");
         this._oInfoPopover.setTitle(sTitle);
         this._oInfoPopover.openBy(oIcon);
     }
 
-
     /**
-     * Event handler for PNG export.
+     * Event handler for PNG export via HTML5 Canvas.
      */
     public async onDownloadPng(): Promise<void> {
         const oData = (this.getView()?.getModel("diagramData") as JSONModel).getData();
@@ -285,14 +380,10 @@ export default class Main extends Controller {
         BusyIndicator.show(0);
 
         try {
-            // 1. Clone and "harden" the SVG exactly like we do for SVG export
             const oClone = oSvg.cloneNode(true) as SVGSVGElement;
             Renderer.hardenSvgForDownload(oClone, oSvg);
-
-            // 2. Convert to PNG Blob via Utility
             const oPngBlob = await Renderer.convertSvgToPng(oClone);
 
-            // 3. Trigger Download
             const url = URL.createObjectURL(oPngBlob);
             const link = document.createElement("a");
             link.href = url;
@@ -309,9 +400,8 @@ export default class Main extends Controller {
         }
     }
 
-
     /**
-     * Toggles the visibility of the granular switches based on the selected Relationship Mode.
+     * Toggles the visibility of the granular switches based on Relationship Mode.
      */
     public onRelModeChange(oEvent: Event): void {
         const sSelectedMode = (oEvent.getSource() as SegmentedButton).getSelectedKey();
@@ -340,9 +430,8 @@ export default class Main extends Controller {
         }
 
         const oClone = oSvg.cloneNode(true) as SVGSVGElement;
-        Renderer.hardenSvgForDownload(oClone, oSvg); // Clean up D3 transforms via Utility
+        Renderer.hardenSvgForDownload(oClone, oSvg); 
 
-        // Serialize and trigger standard browser blob download
         const sSvgData = new XMLSerializer().serializeToString(oClone);
         const blob = new Blob([sSvgData], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
@@ -358,7 +447,7 @@ export default class Main extends Controller {
     }
 
     /**
-     * Expands the right-pane canvas to cover the whole screen by collapsing the left control panel.
+     * Expands the right-pane canvas by collapsing the left control panel.
      */
     public onToggleFullScreen(oEvent: Event): void {
         const oButton = oEvent.getSource() as Button;
@@ -384,11 +473,10 @@ export default class Main extends Controller {
     }
 
     /**
-     * Downloads the raw text payload as a .mmd, .dot, .puml, or .d2 file.
+     * Downloads the raw text payload as a text file.
      */
     public onDownloadSource(): void {
         const oData = (this.getView()?.getModel("diagramData") as JSONModel).getData();
-        // File.save is a native UI5 core utility for handling text blobs cross-browser
         File.save(oData.payload, oData.cdsName, oData.extension.substring(1), "text/plain", "utf-8");
     }
 
@@ -407,7 +495,7 @@ export default class Main extends Controller {
     }
 
     /* =========================================================== */
-    /* VARIANT MANAGEMENT INTEGRATION                              */
+    /* 4. VARIANT MANAGEMENT INTEGRATION                           */
     /* =========================================================== */
 
     private _loadHistoryAndVariants(): void {
@@ -547,11 +635,10 @@ export default class Main extends Controller {
             (this.byId("swBase") as Switch).setState(oVariant.base);
             (this.byId("swCustomOnly") as Switch).setState(oVariant.customOnly);
             
-            // Restore Mutually Exclusive Mode (Fallback to LINES for old variants)
+            // Restore Mutually Exclusive Mode 
             const sMode = oVariant.relMode || "LINES";
             (this.byId("segRelMode") as SegmentedButton).setSelectedKey(sMode);
             
-            // Manually trigger the view toggle to match the state
             if (sMode === "LINES") {
                 (this.byId("boxLines") as VBox).setVisible(true);
                 (this.byId("boxDiscovery") as VBox).setVisible(false);
@@ -560,7 +647,6 @@ export default class Main extends Controller {
                 (this.byId("boxDiscovery") as VBox).setVisible(true);
             }
 
-            // Default to true for backward compatibility on older variants missing these properties
             (this.byId("swDiscAssoc") as Switch).setState(oVariant.discAssoc !== undefined ? oVariant.discAssoc : true);
             (this.byId("swDiscComp") as Switch).setState(oVariant.discComp !== undefined ? oVariant.discComp : true);
             (this.byId("swDiscInherit") as Switch).setState(oVariant.discInherit !== undefined ? oVariant.discInherit : true);
@@ -587,9 +673,7 @@ export default class Main extends Controller {
                 });
             }
 
-            // Put this back! It will now say: Variant "Default BP View" applied.
             MessageToast.show(this._getText("msgVariantApplied", [oVariant.name]));
-         
         }
     }
 
@@ -600,7 +684,6 @@ export default class Main extends Controller {
     private _getText(sKey: string, aArgs?: any[]): string {
         let oResourceBundle = (this.getView()?.getModel("i18n") as ResourceModel)?.getResourceBundle() as ResourceBundle;
         
-        // Fallback for edge cases where view model isn't bound yet during early initialization
         if (!oResourceBundle) {
             oResourceBundle = (this.getOwnerComponent()?.getModel("i18n") as ResourceModel)?.getResourceBundle() as ResourceBundle;
         }

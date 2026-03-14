@@ -1,0 +1,24 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    
+    <SelectDialog
+        id="cdsSelectDialog"
+        title="Search CDS Views"
+        search=".onSearch"
+        confirm=".onConfirm"
+        cancel=".onCancel"
+        growing="true"
+        items="{
+            path: '/Search',
+            parameters: {
+                $count: true,
+                $$updateGroupId: 'searchGroup'
+            }
+        }">
+        <StandardListItem
+            title="{CdsName}"
+            type="Active" />
+    </SelectDialog>
+    
+</core:FragmentDefinition>

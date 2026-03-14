@@ -352,59 +352,46 @@ export default class Renderer {
     }
 
 
-   /**
-     * Prepares an SVG clone for external viewing.
-     * FIX: Targets the inner <g> for measurement to capture negative Graphviz coordinates.
-     * FIX: Preserves PlantUML/Mermaid by using dynamic content bounding.
+    /**
+     * Prepares an SVG clone for external viewing by cleaning up internal D3 state and enforcing dimensions.
+     * Prevents the "blank downloaded image" bug in Windows/Mac default image viewers.
      */
     public static hardenSvgForDownload(oClone: SVGSVGElement, oOriginalSvg: SVGSVGElement): void {
-        // 1. Inlining Styles (Required so colors don't vanish)
-        const aOriginal = oOriginalSvg.querySelectorAll("path, polygon, ellipse, text, circle, rect");
-        const aClone = oClone.querySelectorAll("path, polygon, ellipse, text, circle, rect");
-        
-        aOriginal.forEach((el, i) => {
-            const style = window.getComputedStyle(el);
-            const oCloneEl = aClone[i] as HTMLElement;
-            if (oCloneEl?.style) {
-                oCloneEl.style.fill = style.fill;
-                oCloneEl.style.stroke = style.stroke;
-                oCloneEl.style.strokeWidth = style.strokeWidth;
-                oCloneEl.style.fontSize = style.fontSize;
-                oCloneEl.style.fontFamily = style.fontFamily;
+        // Enforce namespaces so desktop image viewers (Illustrator, Edge) don't reject the file
+        if (!oClone.getAttribute("xmlns")) oClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        if (!oClone.getAttribute("xmlns:xlink")) oClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+        // Wipe D3 transforms. Ensures the downloaded image isn't offset with huge white borders.
+        const oRootGroup = oClone.querySelector("g");
+        if (oRootGroup) oRootGroup.removeAttribute("transform");
+
+        // Enforce absolute pixels so the file doesn't collapse to 0x0
+        if (oClone.hasAttribute("viewBox")) {
+            const aViewBox = oClone.getAttribute("viewBox")!.split(/[\s,]+/);
+            if (aViewBox.length >= 4) {
+                oClone.setAttribute("width", `${aViewBox[2]}px`);
+                oClone.setAttribute("height", `${aViewBox[3]}px`);
             }
-        });
-
-        // 2. THE CRITICAL COORDINATE FIX
-        // We find the inner-most group. In Graphviz this is <g id="graph0">.
-        // Calling getBBox on this group returns the actual content coordinates (e.g., -2091).
-        const oContentGroup = oOriginalSvg.querySelector("g");
-        if (oContentGroup) {
-            try {
-                const oBBox = oContentGroup.getBBox();
-                const iPad = 20;
-
-                // We force the viewBox to start exactly where the pixels start (oBBox.y)
-                // For your snippet, this will set the viewBox Y to ~ -2116
-                oClone.setAttribute("viewBox", 
-                    `${oBBox.x - iPad} ${oBBox.y - iPad} ${oBBox.width + (iPad * 2)} ${oBBox.height + (iPad * 2)}`
-                );
-
-                // Lock physical dimensions so it doesn't collapse
-                oClone.setAttribute("width", (oBBox.width + (iPad * 2)) + "px");
-                oClone.setAttribute("height", (oBBox.height + (iPad * 2)) + "px");
-            } catch (e) {
-                // Fallback to original attributes if BBox fails
-                oClone.setAttribute("width", oOriginalSvg.getAttribute("width") || "100%");
-                oClone.setAttribute("height", oOriginalSvg.getAttribute("height") || "100%");
+        } else {
+            const sWidth = oClone.getAttribute("width");
+            if (!sWidth || sWidth.includes("%")) {
+                try {
+                    // Fallback: Dynamically measure the physical shapes to generate a bounding box
+                    const oBBox = oOriginalSvg.getBBox();
+                    if (oBBox && oBBox.width > 0) {
+                        const pad = 20;
+                        oClone.setAttribute("viewBox", `0 0 ${oBBox.width + (pad * 2)} ${oBBox.height + (pad * 2)}`);
+                        oClone.setAttribute("width", `${oBBox.width + (pad * 2)}px`);
+                        oClone.setAttribute("height", `${oBBox.height + (pad * 2)}px`);
+                    }
+                } catch (e) {
+                    oClone.setAttribute("width", "3000px");
+                    oClone.setAttribute("height", "3000px");
+                }
             }
-        }
-
-        // 3. Reset transforms so the download starts at 1:1 scale
-        const oCloneRootGroup = oClone.querySelector("g");
-        if (oCloneRootGroup) {
-            oCloneRootGroup.removeAttribute("transform");
         }
     }
+
 
     // =========================================================== 
     // CORE NETWORK & ENCODING UTILITIES                           

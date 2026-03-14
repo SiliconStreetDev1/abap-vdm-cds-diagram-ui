@@ -29,9 +29,17 @@
                             <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}" 
                                        press="onShowInfo" customData:infoType="CdsName" tooltip="{i18n>ttClickInfo}" />
                         </HBox>
-                        <ComboBox id="cmbCdsName" width="100%" items="{history>/items}">
-                            <core:Item key="{history>name}" text="{history>name}" />
-                        </ComboBox>
+                        
+                        <Input id="cmbCdsName" 
+                               width="100%" 
+                               showValueHelp="true"
+                               valueHelpRequest="onCdsValueHelpRequest"
+                               showSuggestion="true"
+                               suggestionItems="{history>/items}">
+                            <suggestionItems>
+                                <core:Item key="{history>name}" text="{history>name}" />
+                            </suggestionItems>
+                        </Input>
 
                         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginTop">
                             <Label text="{i18n>lblEngine}" design="Bold" />
@@ -168,14 +176,22 @@
                                     <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
                                                press="onShowInfo" customData:infoType="Include" tooltip="{i18n>ttClickInfo}" />
                                 </HBox>
-                                <MultiInput id="inpInclude" placeholder="{i18n>phInclude}" width="100%" showValueHelp="false" />
+                                <MultiInput id="inpInclude" 
+                                            placeholder="{i18n>phInclude}" 
+                                            width="100%" 
+                                            showValueHelp="true"
+                                            valueHelpRequest="onCdsValueHelpRequest" />
                                 
                                 <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginTop">
                                     <Label text="{i18n>lblExclude}" />
                                     <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
                                                press="onShowInfo" customData:infoType="Exclude" tooltip="{i18n>ttClickInfo}" />
                                 </HBox>
-                                <MultiInput id="inpExclude" placeholder="{i18n>phExclude}" width="100%" showValueHelp="false" />
+                                <MultiInput id="inpExclude" 
+                                            placeholder="{i18n>phExclude}" 
+                                            width="100%" 
+                                            showValueHelp="true"
+                                            valueHelpRequest="onCdsValueHelpRequest" />
                             </VBox>
 
                         </Panel>
