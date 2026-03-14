@@ -1,11 +1,14 @@
 <mvc:View controllerName="nz.co.siliconstreet.vdmdiagrammer.controller.Main"
     xmlns:mvc="sap.ui.core.mvc" displayBlock="true"
-    xmlns="sap.m" xmlns:core="sap.ui.core" xmlns:layout="sap.ui.layout">
+    xmlns="sap.m" xmlns:core="sap.ui.core" xmlns:layout="sap.ui.layout"
+    xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1">
     
-    <Page title="VDM Diagram Generator" showHeader="true" enableScrolling="false">
+    <Page title="{i18n>appTitle}" showHeader="true" enableScrolling="false">
+        
         <headerContent>
-            <Button icon="sap-icon://full-screen" press="onToggleFullScreen" tooltip="Toggle Full Screen Canvas" />
+            <Button icon="sap-icon://full-screen" press="onToggleFullScreen" tooltip="{i18n>ttFullScreen}" />
         </headerContent>
+        
         <content>
             <layout:Splitter id="mainSplitter" height="100%" width="100%">
                 
@@ -16,23 +19,40 @@
 
                     <VBox class="sapUiSmallMargin">
                         
-                        <Label text="CDS View Name" design="Bold" />
+                        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginBottom">
+                            <Label text="{i18n>lblShowHelp}" design="Bold" />
+                            <Switch state="{ui>/showHelp}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                        </HBox>
+                        
+                        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                            <Label text="{i18n>lblCdsName}" design="Bold" />
+                            <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}" 
+                                       press="onShowInfo" customData:infoType="CdsName" tooltip="{i18n>ttClickInfo}" />
+                        </HBox>
                         <ComboBox id="cmbCdsName" width="100%" items="{history>/items}">
                             <core:Item key="{history>name}" text="{history>name}" />
                         </ComboBox>
 
-                        <Label text="Render Engine" class="sapUiSmallMarginTop" design="Bold" />
-                        <Select id="selEngine" width="100%">
-                            <core:Item key="MERMAID" text="Mermaid.js" />
-                            <core:Item key="GRAPHVIZ" text="Graphviz (WASM)" />
-                            <core:Item key="PLANTUML" text="PlantUML" />
-                            <core:Item key="D2" text="D2 Script" />
+                        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginTop">
+                            <Label text="{i18n>lblEngine}" design="Bold" />
+                            <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}" 
+                                       press="onShowInfo" customData:infoType="Engine" tooltip="{i18n>ttClickInfo}" />
+                        </HBox>
+                        <Select id="selEngine" width="100%" selectedKey="PLANTUML">
+                            <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />
+                            <core:Item key="MERMAID" text="{i18n>optMermaid}" />
+                            <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />
+                            <core:Item key="D2" text="{i18n>optD2}" />
                         </Select>
 
-                        <Label text="Number of Levels" class="sapUiSmallMarginTop" design="Bold" />
+                        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginTop">
+                            <Label text="{i18n>lblLevels}" design="Bold" />
+                            <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
+                                       press="onShowInfo" customData:infoType="Levels" tooltip="{i18n>ttClickInfo}" />
+                        </HBox>
                         <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" />
 
-                        <Label text="Saved Variants" class="sapUiSmallMarginTop" design="Bold" />
+                        <Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
                         <HBox width="100%" alignItems="Center" justifyContent="End">
                             <Select id="selVariant" items="{variants>/items}" change="onVariantChange" forceSelection="false" 
                                     visible="{= ${variants>/items}.length > 0 }" class="sapUiTinyMarginRight">
@@ -41,83 +61,121 @@
                                 <core:Item key="{variants>name}" text="{variants>name}" />
                             </Select>
                             
-                            <Button icon="sap-icon://save" tooltip="Save Current Settings as Variant" press="onSaveVariant" type="Transparent" />
-                            <Button icon="sap-icon://delete" tooltip="Delete Selected Variant" press="onDeleteVariant" type="Transparent" 
+                            <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
+                            <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent" 
                                     visible="{= ${variants>/items}.length > 0 }" />
                         </HBox>
 
-                        <Button id="btnGenerate" text="Generate Diagram" press="onGenerate" type="Emphasized" width="100%" class="sapUiSmallMarginTop sapUiMediumMarginBottom" />
+                        <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiSmallMarginTop sapUiMediumMarginBottom" />
 
-                        <Panel headerText="Advanced Settings" expandable="true" expanded="false" width="100%">
+                        <Panel headerText="{i18n>hdrAdvanced}" expandable="true" expanded="false" width="100%">
                             
-                            <Label text="Entity Details" design="Bold" />
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Show Keys" />
-                                <Switch id="swKeys" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Show All Fields" />
-                                <Switch id="swFields" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Show Association Fields" />
-                                <Switch id="swAssocFields" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Show Base (Data Source)" />
-                                <Switch id="swBase" state="true" customTextOn="Yes" customTextOff="No" />
-                            </HBox>
-                            <HBox justifyContent="SpaceBetween" width="100%">
-                                <Label text="Custom Dev Only (Z/Y)" />
-                                <Switch id="swCustomOnly" state="false" customTextOn="Yes" customTextOff="No" />
+                            <Label text="{i18n>lblEntityDetails}" design="Bold" />
+                            
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                <Label text="{i18n>lblShowKeys}" />
+                                <HBox alignItems="Center">
+                                    <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="ShowKeys" tooltip="{i18n>ttClickInfo}" />
+                                    <Switch id="swKeys" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                                </HBox>
                             </HBox>
 
-                            <Label text="Relationship Mode" design="Bold" class="sapUiSmallMarginTop" />
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                <Label text="{i18n>lblShowFields}" />
+                                <HBox alignItems="Center">
+                                    <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="ShowFields" tooltip="{i18n>ttClickInfo}" />
+                                    <Switch id="swFields" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                                </HBox>
+                            </HBox>
+
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                <Label text="{i18n>lblShowAssocFields}" />
+                                <HBox alignItems="Center">
+                                    <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="ShowAssocFields" tooltip="{i18n>ttClickInfo}" />
+                                    <Switch id="swAssocFields" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                                </HBox>
+                            </HBox>
+
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                <Label text="{i18n>lblShowBase}" />
+                                <HBox alignItems="Center">
+                                    <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="ShowBase" tooltip="{i18n>ttClickInfo}" />
+                                    <Switch id="swBase" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                                </HBox>
+                            </HBox>
+
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                <Label text="{i18n>lblCustomOnly}" />
+                                <HBox alignItems="Center">
+                                    <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="CustomOnly" tooltip="{i18n>ttClickInfo}" />
+                                    <Switch id="swCustomOnly" state="false" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+                                </HBox>
+                            </HBox>
+
+                            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginTop sapUiTinyMarginBottom">
+                                <Label text="{i18n>lblRelMode}" design="Bold" />
+                                <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
+                                           press="onShowInfo" customData:infoType="RelMode" tooltip="{i18n>ttClickInfo}" />
+                            </HBox>
+                            
                             <SegmentedButton id="segRelMode" selectedKey="LINES" selectionChange="onRelModeChange" width="100%" class="sapUiTinyMarginBottom">
                                 <items>
-                                    <SegmentedButtonItem key="LINES" text="Draw Lines" />
-                                    <SegmentedButtonItem key="DISCOVERY" text="Discovery Only" />
+                                    <SegmentedButtonItem key="LINES" text="{i18n>optLines}" />
+                                    <SegmentedButtonItem key="DISCOVERY" text="{i18n>optDiscovery}" />
                                 </items>
                             </SegmentedButton>
 
                             <VBox id="boxLines" visible="true" width="100%">
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Line: Associations" />
-                                    <Switch id="swLineAssoc" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblLineAssoc}" />
+                                    <Switch id="swLineAssoc" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Line: Compositions" />
-                                    <Switch id="swLineComp" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblLineComp}" />
+                                    <Switch id="swLineComp" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Line: Inheritance" />
-                                    <Switch id="swLineInherit" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblLineInherit}" />
+                                    <Switch id="swLineInherit" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
                             </VBox>
 
                             <VBox id="boxDiscovery" visible="false" width="100%">
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Discover: Associations" />
-                                    <Switch id="swDiscAssoc" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblDiscAssoc}" />
+                                    <Switch id="swDiscAssoc" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Discover: Compositions" />
-                                    <Switch id="swDiscComp" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblDiscComp}" />
+                                    <Switch id="swDiscComp" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
-                                <HBox justifyContent="SpaceBetween" width="100%">
-                                    <Label text="Discover: Inheritance" />
-                                    <Switch id="swDiscInherit" state="true" customTextOn="Yes" customTextOff="No" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="{i18n>lblDiscInherit}" />
+                                    <Switch id="swDiscInherit" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
                                 </HBox>
                             </VBox>
 
                             <VBox class="sapUiMediumMarginTop" width="100%">
-                                <Label text="Filters" design="Bold" />
+                                <Label text="{i18n>lblFilters}" design="Bold" />
                                 
-                                <Label text="Include Entities" class="sapUiTinyMarginTop" />
-                                <MultiInput id="inpInclude" placeholder="Enter full CDS Name and press Enter" width="100%" showValueHelp="false" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginTop">
+                                    <Label text="{i18n>lblInclude}" />
+                                    <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="Include" tooltip="{i18n>ttClickInfo}" />
+                                </HBox>
+                                <MultiInput id="inpInclude" placeholder="{i18n>phInclude}" width="100%" showValueHelp="false" />
                                 
-                                <Label text="Exclude Entities" class="sapUiTinyMarginTop" />
-                                <MultiInput id="inpExclude" placeholder="Enter full CDS Name and press Enter" width="100%" showValueHelp="false" />
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginTop">
+                                    <Label text="{i18n>lblExclude}" />
+                                    <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
+                                               press="onShowInfo" customData:infoType="Exclude" tooltip="{i18n>ttClickInfo}" />
+                                </HBox>
+                                <MultiInput id="inpExclude" placeholder="{i18n>phExclude}" width="100%" showValueHelp="false" />
                             </VBox>
 
                         </Panel>
@@ -131,15 +189,16 @@
                     
                     <Toolbar id="toolbarActions" visible="false">
                         <ToolbarSpacer />
-                        <Button id="btnCopy" icon="sap-icon://copy" text="Copy Source" press="onCopySyntax" />
-                        <Button id="btnDownloadSrc" icon="sap-icon://download" text="Download Source" press="onDownloadSource" />
-                        <Button id="btnDownloadImg" icon="sap-icon://camera" text="Download Image" press="onDownloadImage" type="Emphasized" />
+                        <Button id="btnCopy" icon="sap-icon://copy" text="{i18n>btnCopy}" press="onCopySyntax" />
+                        <Button id="btnDownloadSrc" icon="sap-icon://download" text="{i18n>btnDownloadSrc}" press="onDownloadSource" />
+                        <Button id="btnDownloadImg" icon="sap-icon://camera" text="{i18n>btnDownloadImg}" press="onDownloadImage" type="Emphasized" />
+                        <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" />
                     </Toolbar>
                     
                     <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
-                        <IllustratedMessage id="msgEmpty" visible="true" illustrationType="sapIllus-SearchEarth" title="No Diagram Generated" description="Select a CDS view and click Generate." />
-                        <MessageStrip id="msgError" visible="false" type="Error" showIcon="true" class="sapUiMargin" />
+                        <IllustratedMessage id="msgEmpty" visible="true" illustrationType="sapIllus-SearchEarth" title="{i18n>msgEmptyTitle}" description="{i18n>msgEmptyDesc}" />
                         
+                        <MessageStrip id="msgError" visible="false" type="Error" showIcon="true" class="sapUiMargin" />
                         <core:HTML id="htmlRenderer" visible="false" />
                     </VBox>
                 </VBox>
