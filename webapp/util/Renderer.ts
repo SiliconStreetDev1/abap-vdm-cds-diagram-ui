@@ -88,18 +88,42 @@ export default class Renderer {
         }, CONFIG.DOM_POLL_INTERVAL_MS);
     }
 
+/**
+     * Renders a Mermaid.js diagram payload into the specified UI5 HTML control container.
+     * FIX: Disables HTML labels to prevent "Tainted Canvas" security errors during PNG export.
+     * * @param {string} sPayload - The raw Mermaid syntax string.
+     * @param {string} sRenderId - The DOM ID of the target rendering container.
+     * @param {(msg: string) => void} fnOnError - Callback function to trigger UI5 message strips on failure.
+     */
     private static _renderMermaid(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
         this._loadScript(CONFIG.CDN.MERMAID).then(() => {
             try {
+                // Initialize Mermaid only once per session to avoid memory leaks
                 if (!this._bMermaidInit) {
-                    mermaid.mermaidAPI.initialize({ startOnLoad: false, theme: 'default' });
+                    mermaid.mermaidAPI.initialize({ 
+                        startOnLoad: false, 
+                        theme: 'default',
+                        
+                        // SECURITY FIX: 'loose' allows specific styling, but 'htmlLabels: false' 
+                        // is the critical fix. It forces Mermaid to use pure SVG <text> nodes 
+                        // instead of embedding HTML <div> tags via <foreignObject>. 
+                        // This stops the browser from aggressively blocking canvas exports (Tainted Canvas).
+                        securityLevel: 'loose',
+                        htmlLabels: false 
+                    });
                     this._bMermaidInit = true;
                 }
+
+                // Generate a unique ID for the SVG to prevent DOM collisions on re-renders
                 const sSvgId = "mermaid-svg-" + Date.now();
+                
+                // Render the diagram and inject the resulting SVG into our target container
                 mermaid.mermaidAPI.render(sSvgId, sPayload, (svgCode: string) => {
                     const oTarget = document.getElementById(sRenderId);
                     if (oTarget) {
                         oTarget.innerHTML = svgCode;
+                        
+                        // Attach the D3 zoom and pan behaviors to the newly injected SVG
                         this._attachSvgZoom(sRenderId);
                     }
                 });
@@ -233,56 +257,73 @@ export default class Renderer {
         });
     }
 
-    /**
-     * Converts an SVG element into a PNG Blob.
-     * DESIGN RATIONALE: We use a hidden canvas to rasterize the vector data.
-     * We scale the canvas by 2x to ensure high-density (Retina) quality.
+  /**
+     * Converts a raw SVG element into a high-resolution PNG Blob.
+     * DESIGN RATIONALE: Uses a hidden HTML5 canvas to rasterize the vector data.
+     * The canvas is scaled by 2x to ensure high-density (Retina/4K) visual quality.
+     * * @param {SVGSVGElement} oSvg - The hardened SVG DOM node ready for export.
+     * @returns {Promise<Blob>} A promise that resolves with the binary PNG Blob data.
      */
     public static convertSvgToPng(oSvg: SVGSVGElement): Promise<Blob> {
         return new Promise((resolve, reject) => {
-            const sSvgData = new XMLSerializer().serializeToString(oSvg);
+            // 1. Serialize the SVG DOM node into a raw XML string
+            let sSvgData = new XMLSerializer().serializeToString(oSvg);
+            
+            // SECURITY FIX A: Scrub External Resources
+            // The Canvas API taints instantly if the SVG tries to load external fonts or images.
+            // We use Regex to strip out any @import url(...) or external <image> tags from the raw string.
+            sSvgData = sSvgData.replace(/@import url\([^)]+\);?/gi, ""); 
+            sSvgData = sSvgData.replace(/<image[^>]+href="http[^>]+>/gi, ""); 
+
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             const img = new Image();
-
-            // 1. Get dimensions from the hardened SVG
+            
+            // 2. Dimensions and High-Res Scaling (2x)
             const width = parseFloat(oSvg.getAttribute("width") || "3000");
             const height = parseFloat(oSvg.getAttribute("height") || "3000");
-
-            // 2. High-resolution scaling (2x) for better text clarity
             const scale = 2;
+            
             canvas.width = width * scale;
             canvas.height = height * scale;
             if (ctx) ctx.scale(scale, scale);
 
-            // 3. Prepare the SVG as a base64 URL for the Image object
-            const svgBlob = new Blob([sSvgData], { type: "image/svg+xml;charset=utf-8" });
-            const url = URL.createObjectURL(svgBlob);
+            // SECURITY FIX B: Use Base64 Data URI instead of a Blob URL
+            // Browsers trust inline Base64 data far more than Object URLs. 
+            // We use encodeURIComponent + unescape to safely encode UTF-8 characters (like Japanese text or symbols) into Base64.
+            const sBase64 = btoa(unescape(encodeURIComponent(sSvgData)));
+            const url = "data:image/svg+xml;base64," + sBase64;
 
             img.onload = () => {
                 if (ctx) {
-                    // Fill background white (SVGs are transparent by default)
-                    ctx.fillStyle = "white";
+                    ctx.fillStyle = "white"; // Prevent transparent black backgrounds
                     ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0);
                 }
                 
-                canvas.toBlob((blob) => {
-                    URL.revokeObjectURL(url);
-                    if (blob) resolve(blob);
-                    else reject(new Error("PNG Conversion Failed"));
-                }, "image/png");
+                // Wrap toBlob in a try-catch to gracefully handle strict browser policies
+                try {
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error("Browser blocked canvas export (returned null)."));
+                        }
+                    }, "image/png");
+                } catch (e: any) {
+                    reject(new Error("SecurityError: Canvas is still tainted. " + e.message));
+                }
             };
 
-            img.onerror = (e) => {
-                URL.revokeObjectURL(url);
-                reject(e);
+            img.onerror = () => {
+                reject(new Error("Image object failed to parse the sanitized SVG Data URI."));
             };
 
+            // Trigger the render
             img.src = url;
         });
     }
-    
+
     /**
      * Prepares an SVG clone for external viewing by cleaning up internal D3 state and enforcing dimensions.
      * Prevents the "blank downloaded image" bug in Windows/Mac default image viewers.
