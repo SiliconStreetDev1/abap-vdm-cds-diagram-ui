@@ -1,41 +1,35 @@
-## Application Details
-|               |
-| ------------- |
-|**Generation Date and Time**<br>Sat Mar 14 2026 09:43:14 GMT+1300 (New Zealand Daylight Time)|
-|**App Generator**<br>SAP Fiori Application Generator|
-|**App Generator Version**<br>1.20.4|
-|**Generation Platform**<br>Visual Studio Code|
-|**Template Used**<br>Basic V4|
-|**Service Type**<br>OData URL|
-|**Service URL**<br>http://192.168.1.30:50000/sap/opu/odata4/sap/zui_vdm_diagram_o4/srvd/sap/zui_vdm_diagram_sd/0001/|
-|**Module Name**<br>vdmdiagrammer|
-|**Application Title**<br>CDS/VDM Diagram Generator|
-|**Namespace**<br>nz.co.siliconstreet|
-|**UI5 Theme**<br>sap_horizon|
-|**UI5 Version**<br>1.120.14|
-|**Enable TypeScript**<br>True|
-|**Add Eslint configuration**<br>False|
+# VDM Diagram Generator for SAP Fiori
+### Part of the ABAP VDM CDS Diagram Suite
 
-## vdmdiagrammer
+This repository contains the SAPUI5/Fiori frontend application designed to visualize complex SAP S/4HANA Virtual Data Models (VDM). It works in conjunction with the [ABAP VDM CDS Diagram Backend](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram).
 
-An SAP Fiori application.
+## 🚀 Key Features
+* **Interactive Visualization:** Responsive, zoomable VDM webs using D3.js.
+* **Metadata Toggles:** Real-time filtering of Keys, Fields, and Data Sources.
+* **Engine Flexibility:** Supports Mermaid.js, Graphviz (WASM), and PlantUML.
+* **Enterprise Persistence:** Full Variant Management via local storage.
+* **Vector Export:** High-fidelity SVG downloads for technical documentation.
 
-### Starting the generated app
+---
 
--   This app has been generated using the SAP Fiori tools - App Generator, as part of the SAP Fiori tools suite.  To launch the generated application, run the following from the generated application root folder:
+## 🛠 Local Setup & Deployment
+To protect internal network details, this project uses an environment-based configuration.
 
-```
-    npm start
-```
+1. **Install Dependencies:** `npm install`
+2. **Configure Local Dev:** * Create a `ui5-local.yaml` based on the configuration in the documentation.
+   * Add your internal SAP IP and credentials there.
+3. **Run App:** `npm start`
+4. **Build & Deploy:** `npm run deploy`
 
-- It is also possible to run the application using mock data that reflects the OData Service URL supplied during application generation.  In order to run the application with Mock Data, run the following from the generated app root folder:
+---
 
-```
-    npm run start-mock
-```
+## ⚖️ Licensing & Legal
+This project is licensed under the **Silicon Street Limited License**. 
 
-#### Pre-requisites:
+This software incorporates third-party open-source components. Per the legal requirements of those licenses, the full legal notices, copyrights, and permission notices are maintained in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
-1. Active NodeJS LTS (Long Term Support) version and associated supported NPM version.  (See https://nodejs.org)
+**Commercial Rights:** Commercial resale and distribution are permitted under the Silicon Street Limited License, provided all attribution notices remain intact.
 
+---
 
+**Built by Silicon Street Limited.**
