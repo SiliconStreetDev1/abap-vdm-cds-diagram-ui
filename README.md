@@ -11,6 +11,7 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 * **Metadata Control:** Toggles Keys, Fields, and Data Sources on or off.
 * **Three Rendering Engines:** Supports Mermaid.js, Graphviz (WASM), and PlantUML.
 * **Export:** Downloads high-resolution SVG files for technical documentation.
+* **Base CDS View Search capabilities
 
 ## Setup
 1. **Install:** `npm install`
