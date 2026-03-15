@@ -15,7 +15,7 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 
 ## Setup
 1. **Install:** `npm install`
-2. **Local Config:** Copy `ui5.yaml` to `ui5-local.yaml` (ignored by Git). Put your internal SAP IP in `ui5-local.yaml`.
+2. **Local Config:** Copy `ui5.yaml` to `ui5-local.yaml` (ignored by Git). Put your internal SAP IP in `ui5-local.yaml` or use example yaml files and rename.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
