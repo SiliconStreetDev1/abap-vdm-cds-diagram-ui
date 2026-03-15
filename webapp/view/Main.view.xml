@@ -74,7 +74,9 @@
                                     visible="{= ${variants>/items}.length > 0 }" />
                         </HBox>
 
-                        <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiSmallMarginTop">
+      <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />
+
+                        <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiMeidumMarginTop sapUiMediumMarginBottom">
                             <VBox visible="{= ${ui>/activeEngine} === 'PLANTUML' }" width="100%">
                                 <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
                                     <Label text="Line Routing" design="Bold"/>
@@ -129,8 +131,7 @@
                             </VBox>
                         </Panel>
 
-                        <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiSmallMarginTop sapUiMediumMarginBottom" />
-
+                  
                         <Panel headerText="{i18n>hdrAdvanced}" expandable="true" expanded="false" width="100%">
                             
                             <Label text="{i18n>lblEntityDetails}" design="Bold" />

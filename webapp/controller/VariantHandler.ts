@@ -3,6 +3,10 @@
  * @version 1.0
  * @author Silicon Street Limited
  * @license Silicon Street Limited License
+ * * DESIGN RATIONALE:
+ * Extracts all variant persistence logic from the Main Controller. 
+ * Handles programmatic dialog generation, local storage synchronization 
+ * via the VariantManager utility, and deep object mapping for UI hydration.
  */
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
@@ -27,8 +31,9 @@ export default class VariantHandler {
     private _fnGetText: (k: string, args?: any[]) => string;
 
     /**
-     * @param {View} oView - Reference to the main view.
-     * @param {Function} fnGetText - i18n translation delegate.
+     * Initializes the VariantHandler.
+     * @param {View} oView - Reference to the main view to access controls and models.
+     * @param {Function} fnGetText - Delegate function to safely retrieve i18n translations.
      */
     constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
@@ -36,7 +41,8 @@ export default class VariantHandler {
     }
 
     /**
-     * Hydrates persistent history and variant models from storage.
+     * Hydrates persistent history and variant models from local storage on app load.
+     * Binds them to named JSONModels so the UI dropdowns auto-populate.
      * @public
      */
     public loadHistoryAndVariants(): void {
@@ -46,7 +52,7 @@ export default class VariantHandler {
 
     /**
      * Updates the search history persistence layer.
-     * @param {string} sName - Target CDS to save to history.
+     * @param {string} sName - Target CDS object name to add to the recent history stack.
      * @public
      */
     public updateHistory(sName: string): void {
@@ -55,13 +61,15 @@ export default class VariantHandler {
     }
 
     /**
-     * Initiates the Variant Save workflow via dialog.
+     * Initiates the Variant Save workflow by programmatically building an SAPUI5 Dialog.
      * @public
      */
     public openSaveDialog(): void {
+        // Pre-fill the input with the currently selected variant name if one exists
         const sCurrentVariant = (this._oView.byId("selVariant") as Select).getSelectedKey() || "";
         const oInput = new Input({ value: sCurrentVariant, placeholder: this._fnGetText("phVariantName") });
 
+        // Construct the Dialog control dynamically
         const oDialog = new Dialog({
             title: this._fnGetText("ttSaveVariant"),
             content: [oInput],
@@ -71,22 +79,26 @@ export default class VariantHandler {
                 press: () => this._handleSaveVariantDialogConfirm(oInput.getValue().trim(), oDialog)
             }),
             endButton: new Button({ text: "Cancel", press: () => oDialog.close() }),
+            // Critical: Ensure the DOM is cleaned up to prevent memory leaks with duplicate IDs
             afterClose: () => oDialog.destroy()
         });
 
         oDialog.addStyleClass("sapUiContentPadding");
+        
+        // Attach to the view to inherit CSS classes (like cozy/compact) and i18n models
         this._oView.addDependent(oDialog);
         oDialog.open();
     }
 
     /**
-     * Removes a variant from local persistence.
+     * Removes the currently selected variant from local persistence and updates the UI.
      * @public
      */
     public deleteSelected(): void {
         const sSelectedName = (this._oView.byId("selVariant") as Select).getSelectedKey();
         if (!sSelectedName) return;
 
+        // Delete from local storage and update the bound model array
         const aVariants = VariantManager.deleteVariant(sSelectedName);
         (this._oView.getModel("variants") as JSONModel).setProperty("/items", aVariants);
 
@@ -94,18 +106,22 @@ export default class VariantHandler {
     }
 
     /**
-     * Handles variant selection. Re-hydrates UI state, formats, and token lists.
-     * @param {Event} oEvent - Selection event.
+     * Handles variant selection from the dropdown. 
+     * Re-hydrates all UI state, layout logic, formatting objects, and token lists.
+     * @param {Event} oEvent - Selection change event from the Variant Select control.
      * @public
      */
     public applyVariant(oEvent: Event): void {
         const sSelectedName = (oEvent.getSource() as Select).getSelectedKey();
         const oModel = this._oView.getModel("variants") as JSONModel;
         const oUiModel = this._oView.getModel("ui") as JSONModel;
+        
+        // Retrieve the full variant configuration object
         const aVariants: any[] = oModel.getProperty("/items");
         const oVariant = aVariants.find(v => v.name === sSelectedName);
 
         if (oVariant) {
+            // Restore standard primitive control values
             (this._oView.byId("cmbCdsName") as ComboBox).setValue(oVariant.cdsName || "");
             (this._oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine);
             (this._oView.byId("stepMaxLevel") as StepInput).setValue(oVariant.maxLevel);
@@ -115,16 +131,20 @@ export default class VariantHandler {
             (this._oView.byId("swBase") as Switch).setState(oVariant.base);
             (this._oView.byId("swCustomOnly") as Switch).setState(oVariant.customOnly);
             
+            // Restore Dynamic Formatting Objects to the JSONModel
             oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
             if (oVariant.formatPlantUML) oUiModel.setProperty("/formatPlantUML", oVariant.formatPlantUML);
             if (oVariant.formatGraphviz) oUiModel.setProperty("/formatGraphviz", oVariant.formatGraphviz);
             if (oVariant.formatMermaid) oUiModel.setProperty("/formatMermaid", oVariant.formatMermaid);
 
+            // Restore Mutually Exclusive Relationship Mode UI
             const sMode = oVariant.relMode || "LINES";
             (this._oView.byId("segRelMode") as SegmentedButton).setSelectedKey(sMode);
             (this._oView.byId("boxLines") as VBox).setVisible(sMode === "LINES");
             (this._oView.byId("boxDiscovery") as VBox).setVisible(sMode !== "LINES");
 
+            // Restore nested Toggle states using nullish coalescing (??) to prevent 
+            // breaking changes if older variant versions are loaded
             (this._oView.byId("swDiscAssoc") as Switch).setState(oVariant.discAssoc ?? true);
             (this._oView.byId("swDiscComp") as Switch).setState(oVariant.discComp ?? true);
             (this._oView.byId("swDiscInherit") as Switch).setState(oVariant.discInherit ?? true);
@@ -132,9 +152,11 @@ export default class VariantHandler {
             (this._oView.byId("swLineComp") as Switch).setState(oVariant.lineComp ?? true);
             (this._oView.byId("swLineInherit") as Switch).setState(oVariant.lineInherit ?? true);
             
+            // Re-build visual Token controls from saved comma-separated strings
             const oIncInput = this._oView.byId("inpInclude") as MultiInput;
             const oExcInput = this._oView.byId("inpExclude") as MultiInput;
             
+            // Flush old tokens and recreate 'Include' list
             oIncInput.removeAllTokens();
             if (oVariant.includeCds) {
                 oVariant.includeCds.split(",").forEach((s: string) => {
@@ -142,6 +164,7 @@ export default class VariantHandler {
                 });
             }
 
+            // Flush old tokens and recreate 'Exclude' list
             oExcInput.removeAllTokens();
             if (oVariant.excludeCds) {
                 oVariant.excludeCds.split(",").forEach((s: string) => {
@@ -154,7 +177,10 @@ export default class VariantHandler {
     }
 
     /**
-     * Validates name and checks for existing variants before executing save.
+     * Validates the provided variant name and checks for existing overwrites.
+     * Triggers an explicit confirmation prompt if the name already exists.
+     * @param {string} sName - The name entered by the user in the dialog.
+     * @param {Dialog} oDialog - Reference to the dialog to close upon success.
      * @private
      */
     private _handleSaveVariantDialogConfirm(sName: string, oDialog: Dialog): void {
@@ -187,13 +213,16 @@ export default class VariantHandler {
     }
 
     /**
-     * Serializes UI state and persists to local storage.
+     * Executes the actual local storage save by capturing the current UI state.
+     * @param {string} sName - Validated variant name.
+     * @param {JSONModel} oModel - The UI model holding the variant list.
      * @private
      */
     private _executeVariantSave(sName: string, oModel: JSONModel): void {
         const oState = this._captureCurrentUiState(sName);
         const aVariants = VariantManager.saveVariant(oState);
         
+        // Update the binding so the dropdown immediately reflects the new list
         oModel.setProperty("/items", aVariants);
         (this._oView.byId("selVariant") as Select).setSelectedKey(sName);
 
@@ -201,12 +230,17 @@ export default class VariantHandler {
     }
 
     /**
-     * Maps all UI control values, including dynamic JSON formats, into a standardized state object.
+     * Deep mapping function that serializes all physical UI control values, 
+     * token lists, and dynamic JSON model properties into a standardized state object.
+     * @param {string} sName - Name of the variant being saved.
+     * @returns {any} A serialized representation of the view's current configuration.
      * @private
      */
     private _captureCurrentUiState(sName: string): any {
+        // Extract plain text arrays from complex UI5 Token objects
         const aIncTokens = (this._oView.byId("inpInclude") as MultiInput).getTokens();
         const aExcTokens = (this._oView.byId("inpExclude") as MultiInput).getTokens();
+        
         const oUiModel = this._oView.getModel("ui") as JSONModel;
 
         return {
@@ -219,6 +253,8 @@ export default class VariantHandler {
             assocFields: (this._oView.byId("swAssocFields") as Switch).getState(),
             base: (this._oView.byId("swBase") as Switch).getState(),
             customOnly: (this._oView.byId("swCustomOnly") as Switch).getState(),
+            
+            // RelMode controls which of the following two groups of toggles are active
             relMode: (this._oView.byId("segRelMode") as SegmentedButton).getSelectedKey(),
             discAssoc: (this._oView.byId("swDiscAssoc") as Switch).getState(),
             discComp: (this._oView.byId("swDiscComp") as Switch).getState(),
@@ -226,10 +262,12 @@ export default class VariantHandler {
             lineAssoc: (this._oView.byId("swLineAssoc") as Switch).getState(),
             lineComp: (this._oView.byId("swLineComp") as Switch).getState(),
             lineInherit: (this._oView.byId("swLineInherit") as Switch).getState(),
+            
+            // Re-serialize tokens into comma-separated strings for easy storage
             includeCds: aIncTokens.map(t => t.getText()).join(","),
             excludeCds: aExcTokens.map(t => t.getText()).join(","),
             
-            // Persist the specific formatting options
+            // Persist the specific formatting options bound to the UI model
             formatPlantUML: oUiModel.getProperty("/formatPlantUML"),
             formatGraphviz: oUiModel.getProperty("/formatGraphviz"),
             formatMermaid: oUiModel.getProperty("/formatMermaid")
