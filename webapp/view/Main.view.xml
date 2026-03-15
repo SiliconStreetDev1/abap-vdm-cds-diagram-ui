@@ -88,7 +88,7 @@
                                 </HBox>
                                 <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Spaced Out" /><Switch state="{ui>/formatPlantUML/spaced_out}" customTextOn="Yes" customTextOff="No"/></HBox>
                                 <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Staggered" /><Switch state="{ui>/formatPlantUML/staggered}" customTextOn="Yes" customTextOff="No"/></HBox>
-                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Modern Style" /><Switch state="{ui>/formatPlantUML/modern}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" ><Label text="Modern Style" /><Switch state="{ui>/formatPlantUML/modern}" enabled="false" customTextOn="Yes" customTextOff="No"/></HBox>
                             </VBox>
 
                             <VBox visible="{= ${ui>/activeEngine} === 'GRAPHVIZ' }" width="100%">
