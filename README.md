@@ -15,9 +15,10 @@ This application utilizes three distinct visual engines to render CDS relationsh
 
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing.
-* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`) to generate diagrams.
-    * **Data Privacy Note:** Using the public server sends your CDS metadata (View names, fields, and associations) over the public internet. 
-    * **Enterprise Recommendation:** For production use with sensitive SAP VDM data, it is highly recommended to host a local PlantUML server instance and update the `CONFIG.URL_PLANTUML_SERVER` in the `Renderer.ts` file to your internal endpoint.
+> [!WARNING]
+>* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`) to generate diagrams.
+>    * **Data Privacy Note:** Using the public server sends your CDS metadata (View names, fields, and associations) over the public internet. 
+>    * **Enterprise Recommendation:** For production use with sensitive SAP VDM data, it is highly recommended to host a local PlantUML server instance and update the `CONFIG.URL_PLANTUML_SERVER` in the `Renderer.ts` file to your internal endpoint.
   
 
 ## Why use it
