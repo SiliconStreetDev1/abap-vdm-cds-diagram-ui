@@ -46,7 +46,7 @@
                             <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}" 
                                        press="onShowInfo" customData:infoType="Engine" tooltip="{i18n>ttClickInfo}" />
                         </HBox>
-                        <Select id="selEngine" width="100%" selectedKey="PLANTUML">
+                        <Select id="selEngine" width="100%" selectedKey="{ui>/activeEngine}" change="onEngineChange">
                             <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />
                             <core:Item key="MERMAID" text="{i18n>optMermaid}" />
                             <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />
@@ -73,6 +73,61 @@
                             <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent" 
                                     visible="{= ${variants>/items}.length > 0 }" />
                         </HBox>
+
+                        <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiSmallMarginTop">
+                            <VBox visible="{= ${ui>/activeEngine} === 'PLANTUML' }" width="100%">
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+                                    <Label text="Line Routing" design="Bold"/>
+                                    <Select selectedKey="{ui>/formatPlantUML/lineStyle}">
+                                        <core:Item key="default" text="Smooth Curves (Default)" />
+                                        <core:Item key="ortho" text="Orthogonal (90° Angles)" />
+                                        <core:Item key="polyline" text="Polyline (Straight Angles)" />
+                                    </Select>
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Spaced Out" /><Switch state="{ui>/formatPlantUML/spaced_out}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Staggered" /><Switch state="{ui>/formatPlantUML/staggered}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Modern Style" /><Switch state="{ui>/formatPlantUML/modern}" customTextOn="Yes" customTextOff="No"/></HBox>
+                            </VBox>
+
+                            <VBox visible="{= ${ui>/activeEngine} === 'GRAPHVIZ' }" width="100%">
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+                                    <Label text="Line Routing" design="Bold"/>
+                                    <Select selectedKey="{ui>/formatGraphviz/lineStyle}">
+                                        <core:Item key="default" text="Smooth Curves (Default)" />
+                                        <core:Item key="ortho" text="Orthogonal (90° Angles)" />
+                                        <core:Item key="polyline" text="Polyline (Straight Angles)" />
+                                    </Select>
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Spaced Out" /><Switch state="{ui>/formatGraphviz/spaced_out}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Modern Style" /><Switch state="{ui>/formatGraphviz/modern}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Left to Right Flow" /><Switch state="{ui>/formatGraphviz/left_to_right}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Concentrate Edges" /><Switch state="{ui>/formatGraphviz/concentrate_edges}" customTextOn="Yes" customTextOff="No"/></HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center"><Label text="Monochrome" /><Switch state="{ui>/formatGraphviz/monochrome}" customTextOn="Yes" customTextOff="No"/></HBox>
+                            </VBox>
+
+                            <VBox visible="{= ${ui>/activeEngine} === 'MERMAID' }" width="100%">
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+                                    <Label text="Direction" design="Bold"/>
+                                    <Select selectedKey="{ui>/formatMermaid/direction}">
+                                        <core:Item key="TB" text="Top to Bottom" />
+                                        <core:Item key="LR" text="Left to Right" />
+                                    </Select>
+                                </HBox>
+                                <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+                                    <Label text="Theme" design="Bold"/>
+                                    <Select selectedKey="{ui>/formatMermaid/theme}">
+                                        <core:Item key="default" text="Default" />
+                                        <core:Item key="dark" text="Dark" />
+                                        <core:Item key="forest" text="Forest" />
+                                        <core:Item key="neutral" text="Neutral" />
+                                    </Select>
+                                </HBox>
+                            </VBox>
+
+                            <VBox visible="{= ${ui>/activeEngine} === 'D2' }" width="100%">
+                                <Text text="Default formatting applied for D2." />
+                            </VBox>
+                        </Panel>
 
                         <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiSmallMarginTop sapUiMediumMarginBottom" />
 

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Main Controller for VDM Diagram Generator.
- * @version 1.4
+ * @version 1.5
  * @author Silicon Street Limited
  * @license Silicon Street Limited License
  * * DESIGN RATIONALE:
@@ -12,6 +12,7 @@
  * 2. High-precision SVG/PNG export orchestration.
  * 3. Local Persistence for User Search History and UI Variants.
  * 4. Modular F4 Value Help integration with smart focus management.
+ * 5. Dynamic Engine Formatting JSON generation with UI-to-ABAP translation.
  */
 import Controller from "sap/ui/core/mvc/Controller";
 import JSONModel from "sap/ui/model/json/JSONModel";
@@ -79,9 +80,13 @@ export default class Main extends Controller {
         const oView = this.getView();
         if (!oView) return;
 
-        // "ui" model handles transient screen state (like help visibility)
+        // "ui" model handles transient screen state, engine tracking, and format configurations
         oView.setModel(new JSONModel({
-            showHelp: false
+            showHelp: false,
+            activeEngine: "PLANTUML", // Drives visibility of specific formatting blocks
+            formatPlantUML: { lineStyle: "default", spaced_out: false, staggered: false, modern: true },
+            formatGraphviz: { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false },
+            formatMermaid: { direction: "TB", theme: "default" }
         }), "ui");
 
         // "diagramData" stores the active OData response for export actions
@@ -124,6 +129,26 @@ export default class Main extends Controller {
 
         // Load persisted search history and variants from LocalStorage
         this._loadHistoryAndVariants();
+    }
+
+    /**
+     * @method onEngineChange
+     * @description Triggered when the user changes the Rendering Engine dropdown.
+     * Updates the UI model to reveal the correct formatting panel and resets the formats to defaults.
+     * @param {Event} oEvent - The select change event
+     * @public
+     */
+    public onEngineChange(oEvent: Event): void {
+        const sEngine = (oEvent.getSource() as Select).getSelectedKey();
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        
+        // Update the tracked active engine
+        oUiModel.setProperty("/activeEngine", sEngine);
+
+        // Reset formatting options to their defaults so they don't persist across engine swaps accidentally
+        oUiModel.setProperty("/formatPlantUML", { lineStyle: "default", spaced_out: false, staggered: false, modern: true });
+        oUiModel.setProperty("/formatGraphviz", { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false });
+        oUiModel.setProperty("/formatMermaid", { direction: "TB", theme: "default" });
     }
 
     /* =========================================================== */
@@ -248,7 +273,8 @@ export default class Main extends Controller {
     /**
      * @method _buildODataFilters
      * @description Maps all UI inputs into OData Filter objects.
-     * Implements mutual exclusivity logic between "Lines" and "Discovery" modes.
+     * Extracts dynamic JSON formatting specific to the current engine and translates
+     * UI-specific Dropdowns (like lineStyle) back into ABAP-friendly boolean structures.
      * @param {string} sCdsName - Targeted CDS view.
      * @param {string} sEngine - Selected renderer engine.
      * @returns {Filter[]} Array of filters for the bindList call.
@@ -286,6 +312,35 @@ export default class Main extends Controller {
 
         if (sInclude) aFilters.push(new Filter("IncludeCds", FilterOperator.EQ, sInclude));
         if (sExclude) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, sExclude));
+
+        // -------------------------------------------------------------------------
+        // DYNAMIC JSON PAYLOAD CONSTRUCTION & TRANSLATION
+        // -------------------------------------------------------------------------
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        let oFormatConfig: any = {};
+
+        // Deep copy the properties so we don't accidentally mutate the live UI model
+        if (sEngine === "PLANTUML") {
+            oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatPlantUML"));
+            // Translate the Select string back to ABAP booleans
+            oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
+            oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
+            delete oFormatConfig.lineStyle; // Remove so ABAP doesn't try to parse it
+
+        } else if (sEngine === "GRAPHVIZ") {
+            oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatGraphviz"));
+            // Translate the Select string back to ABAP booleans
+            oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
+            oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
+            delete oFormatConfig.lineStyle; // Remove so ABAP doesn't try to parse it
+
+        } else if (sEngine === "MERMAID") {
+            oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatMermaid"));
+        }
+        
+        // Serialize and push the JSON string as an OData filter
+        const sFormatJson = JSON.stringify(oFormatConfig);
+        aFilters.push(new Filter("FormatConfig", FilterOperator.EQ, sFormatJson));
 
         return aFilters;
     }
@@ -651,12 +706,13 @@ export default class Main extends Controller {
 
     /**
      * @method _captureCurrentUiState
-     * @description Maps all UI control values into a standardized JSON state object.
+     * @description Maps all UI control values, including dynamic JSON formats, into a standardized state object.
      * @private
      */
     private _captureCurrentUiState(sName: string): any {
         const aIncTokens = (this.byId("inpInclude") as MultiInput).getTokens();
         const aExcTokens = (this.byId("inpExclude") as MultiInput).getTokens();
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
 
         return {
             name: sName,
@@ -676,7 +732,12 @@ export default class Main extends Controller {
             lineComp: (this.byId("swLineComp") as Switch).getState(),
             lineInherit: (this.byId("swLineInherit") as Switch).getState(),
             includeCds: aIncTokens.map(t => t.getText()).join(","),
-            excludeCds: aExcTokens.map(t => t.getText()).join(",")
+            excludeCds: aExcTokens.map(t => t.getText()).join(","),
+            
+            // Persist the specific formatting options
+            formatPlantUML: oUiModel.getProperty("/formatPlantUML"),
+            formatGraphviz: oUiModel.getProperty("/formatGraphviz"),
+            formatMermaid: oUiModel.getProperty("/formatMermaid")
         };
     }
 
@@ -697,13 +758,14 @@ export default class Main extends Controller {
 
     /**
      * @method onVariantChange
-     * @description Handles variant selection. Re-hydrates UI state and token lists.
+     * @description Handles variant selection. Re-hydrates UI state, formats, and token lists.
      * @param {Event} oEvent - Selection event.
      * @public
      */
     public onVariantChange(oEvent: Event): void {
         const sSelectedName = (oEvent.getSource() as Select).getSelectedKey();
         const oModel = this.getView()?.getModel("variants") as JSONModel;
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
         const aVariants: any[] = oModel.getProperty("/items");
         const oVariant = aVariants.find(v => v.name === sSelectedName);
 
@@ -718,6 +780,12 @@ export default class Main extends Controller {
             (this.byId("swBase") as Switch).setState(oVariant.base);
             (this.byId("swCustomOnly") as Switch).setState(oVariant.customOnly);
             
+            // Restore Formats and Active Engine UI Visibility
+            oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
+            if (oVariant.formatPlantUML) oUiModel.setProperty("/formatPlantUML", oVariant.formatPlantUML);
+            if (oVariant.formatGraphviz) oUiModel.setProperty("/formatGraphviz", oVariant.formatGraphviz);
+            if (oVariant.formatMermaid) oUiModel.setProperty("/formatMermaid", oVariant.formatMermaid);
+
             // Restore Mutually Exclusive Relationship Modes 
             const sMode = oVariant.relMode || "LINES";
             (this.byId("segRelMode") as SegmentedButton).setSelectedKey(sMode);
