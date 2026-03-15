@@ -79,7 +79,7 @@ export default class Main extends Controller {
         // "ui" model handles transient screen state, engine tracking, and format configurations
         this.setModel(new JSONModel({
             showHelp: false,
-            activeEngine: "PLANTUML",
+            activeEngine: "GRAPHVIZ",
             formatPlantUML: { lineStyle: "default", spaced_out: false, staggered: false, modern: true },
             formatGraphviz: { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false },
             formatMermaid: { direction: "TB", theme: "default" }

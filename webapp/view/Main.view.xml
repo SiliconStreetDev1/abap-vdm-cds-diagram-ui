@@ -47,9 +47,9 @@
                                        press="onShowInfo" customData:infoType="Engine" tooltip="{i18n>ttClickInfo}" />
                         </HBox>
                         <Select id="selEngine" width="100%" selectedKey="{ui>/activeEngine}" change="onEngineChange">
-                            <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />
-                            <core:Item key="MERMAID" text="{i18n>optMermaid}" />
-                            <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />
+                            <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />               
+                            <core:Item key="MERMAID" text="{i18n>optMermaid}" />  
+                            <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />                
                             <core:Item key="D2" text="{i18n>optD2}" />
                         </Select>
 
