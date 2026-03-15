@@ -20,7 +20,7 @@ For details on **ABAP Cloud compatibility, limitations, and on‑premise differe
 
 ## Setup
 1. **Install:** `npm install`
-2. **Put your internal SAP IP in `ui5.yaml` or  `ui5-local.yaml`.There are example Yaml files, you can just rename them if you preffer.
+2. **Put your internal SAP IP in `ui5.yaml` or  `ui5-local.yaml`.** There are example Yaml files, you can just rename them if you preffer.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
