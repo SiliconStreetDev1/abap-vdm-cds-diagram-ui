@@ -6,6 +6,11 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Architecture
 This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
 
+## Backend & ABAP Cloud Limitations
+This UI reflects the capabilities of the connected ABAP backend.
+For details on **ABAP Cloud compatibility, limitations, and on‑premise differences**,
+
+
 ## Why use it
 * **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
 * **Metadata Control:** Toggles Keys, Fields, and Data Sources on or off.
@@ -15,7 +20,7 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 
 ## Setup
 1. **Install:** `npm install`
-2. **Local Config:** Copy `ui5.yaml` to `ui5-local.yaml` (ignored by Git). Put your internal SAP IP in `ui5-local.yaml` or use example yaml files and rename.
+2. **Put your internal SAP IP in `ui5.yaml` or  `ui5-local.yaml`.There are example Yaml files, you can just rename them if you preffer.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
