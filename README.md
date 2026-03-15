@@ -1,10 +1,15 @@
 # SAP VDM CDS Diagrammer UI (FIORI)
 
 ## What it is
-A Fiori application for visualizing SAP S/4HANA Virtual Data Models (VDM). It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
-![Image](https://github.com/user-attachments/assets/8410c470-f37d-424e-9e8a-8be6392038f2)
+A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
+<img width="2113" height="1824" alt="Image" src="https://github.com/user-attachments/assets/4398560e-8ced-4463-8471-5f1ffe05b4a6" />
 ## Architecture
 This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
+
+## Backend & ABAP Cloud Limitations
+This UI reflects the capabilities of the connected ABAP backend.
+For details on **ABAP Cloud compatibility, limitations, and on‑premise differences**,
+
 
 ## Why use it
 * **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
@@ -15,7 +20,7 @@ This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component foun
 
 ## Setup
 1. **Install:** `npm install`
-2. **Local Config:** Copy `ui5.yaml` to `ui5-local.yaml` (ignored by Git). Put your internal SAP IP in `ui5-local.yaml`.
+2. **Put your internal SAP IP in `ui5.yaml` or  `ui5-local.yaml`.** There are example Yaml files, you can just rename them if you preffer.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
