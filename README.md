@@ -7,6 +7,13 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Extra Wide Support
 <img width="7544" height="1546" alt="image" src="https://github.com/user-attachments/assets/175146f1-f759-4958-a3dd-46c355b6f0dd" />
 
+## Interactive Viewer Capabilities
+* **Fluid Panning:** Click and drag the canvas to move the diagram freely, allowing you to follow complex association paths across the VDM.
+* **Precision Zooming:** Support for mouse-wheel Zoom in or zoom out to see the entire landscape.
+* **Max Real Estate Mode:** A dedicated full-screen toggle 
+* **Collapsible Workspace:** The integrated Splitter allows you to hide the configuration panel entirely, maximizing the horizontal drawing area.
+* **Smart Centering:** Diagrams are automatically scaled and centered upon generation to ensure immediate visibility of the root entity.
+
 ## Architecture
 This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
 
@@ -36,6 +43,7 @@ The rendering engine will automatically detect this file at runtime, deep-mergin
 ## Why use it
 * **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
 * **Metadata Control:** Toggles Keys, Fields, and Data Sources on or off.
+* **Interactive Navigation:** Smooth pan-and-zoom controls for exploring large hierarchies.
 * **Three Rendering Engines:** Supports Mermaid.js, Graphviz (WASM), and PlantUML.
 * **Export:** Downloads high-resolution SVG files for technical documentation.
 * **Search:** Integrated CDS View search capabilities.
