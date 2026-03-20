@@ -9,7 +9,7 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
 import File from "sap/ui/core/util/File";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
-import Renderer from "../util/Renderer";
+import Renderer from "../renderer/Renderer";
 
 export default class ExportHandler {
     private _oView: View;

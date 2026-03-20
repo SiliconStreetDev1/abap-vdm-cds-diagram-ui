@@ -18,8 +18,17 @@ This application utilizes three distinct visual engines to render CDS relationsh
 > [!WARNING]
 >* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`) to generate diagrams.
 >    * **Data Privacy Note:** Using the public server sends your CDS metadata (View names, fields, and associations) over the public internet. 
->    * **Enterprise Recommendation:** For production use with sensitive SAP VDM data, it is highly recommended to host a local PlantUML server instance and update the `CONFIG.URL_PLANTUML_SERVER` in the `Renderer.ts` file to your internal endpoint.
-  
+>    * **Enterprise Recommendation:** For production use with sensitive SAP VDM data, it is highly recommended to host a local PlantUML server instance and update the `plantUmlServerUrl` in the `config.json` file to your internal endpoint.
+
+## Configuration Overrides (`config.json`)
+The application supports an optional configuration file to manage external endpoints, CDN paths, and performance limits without modifying the source code. This file is ignored by Git to ensure your local environment settings are preserved during updates.
+
+### Setting up Overrides:
+1. Locate `webapp/config.sample.json` in the project root.
+2. Copy and rename this file to `webapp/config.json`.
+3. Modify the values to suit your landscape (e.g., internal CDNs or private PlantUML servers).
+
+The rendering engine will automatically detect this file at runtime, deep-merging your overrides with the hardcoded enterprise defaults.
 
 ## Why use it
 * **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
@@ -30,9 +39,10 @@ This application utilizes three distinct visual engines to render CDS relationsh
 
 ## Setup
 1.  **Install:** `npm install`
-2.  **Configure:** Add your internal SAP IP in `ui5.yaml` or `ui5-local.yaml`. (Example files are provided; rename as needed).
-3.  **Run:** `npm start`
-4.  **Deploy:** `npm run deploy`
+2.  **Configure Environment:** Add your internal SAP IP in `ui5.yaml` or `ui5-local.yaml`.
+3.  **Local Settings:** Copy `webapp/config.sample.json` to `webapp/config.json` and update URLs if required.
+4.  **Run:** `npm start`
+5.  **Deploy:** `npm run deploy`
 
 ## Licensing
 © 2026 Silicon Street Limited. All Rights Reserved.

@@ -1,0 +1,8 @@
+{
+  "plantUmlServerUrl": "http://localhost:8080/plantuml/svg/",
+  "maxUrlLength": 10000,
+  "cdnPaths": {
+    "mermaid": "https://my-internal-corporate-server.com/libs/mermaid.min.js",
+    "graphvizWasm": "https://unpkg.com/@hpcc-js/wasm@2.14.1/dist/graphviz.umd.js"
+  }
+}

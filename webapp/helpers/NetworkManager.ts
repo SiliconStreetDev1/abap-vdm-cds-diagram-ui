@@ -2,18 +2,18 @@
  * @fileoverview Network utilities for dynamic dependency injection.
  * @description Manages asynchronous loading of external visualization libraries.
  */
+
 export default class NetworkManager {
     private static _scriptPromises: Record<string, Promise<void> | undefined> = {};
 
     /**
      * @public
-     * @description Injects a script tag into the DOM for a given CDN URL. Implements
-     * promise caching to ensure rapid re-renders do not trigger redundant network requests.
-     * @param {string} src - The fully qualified CDN URL to load.
+     * @description Injects a script tag into the DOM for a given CDN URL.
+     * @param {string | undefined} src - The fully qualified CDN URL to load.
      * @returns {Promise<void>} Resolves when the script emits the 'onload' event.
-     * @throws {Error} Rejects if the script fails to load, clearing the cache to allow retries.
      */
-    public static loadScript(src: string): Promise<void> {
+    public static loadScript(src: string | undefined): Promise<void> {
+        if (!src) return Promise.reject(new Error("CDN Source is undefined."));
         if (this._scriptPromises[src]) return this._scriptPromises[src]!;
         
         const newPromise = new Promise<void>((resolve, reject) => {

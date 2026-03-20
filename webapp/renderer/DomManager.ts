@@ -1,9 +1,10 @@
 /**
  * @fileoverview DOM Manipulation and lifecycle synchronization for SAP UI5.
  */
+
 import HTML from "sap/ui/core/HTML";
-import { CONFIG } from "./DiagramConfig";
-import NetworkManager from "./NetworkManager";
+import ConfigManager from "./ConfigManager";
+import NetworkManager from "../helpers/NetworkManager";
 
 declare const d3: any;
 
@@ -11,15 +12,14 @@ export default class DomManager {
     
     /**
      * @public
-     * @description Polls the browser DOM until the UI5 framework physically paints the 
-     * target container. UI5's visible=true property is asynchronous; this prevents D3
-     * from attempting to mount to a null reference.
-     * @param {HTML} oHtml - The SAP UI5 HTML control serving as the wrapper.
-     * @param {(msg: string) => void} fnOnError - Executed if the DOM fails to mount before MAX_ATTEMPTS.
+     * @description Polls the browser DOM until the UI5 framework physically paints the container.
+     * @param {HTML} oHtml - The SAP UI5 HTML control.
+     * @param {(msg: string) => void} fnOnError - Executed if DOM fails to mount.
      * @param {(sRenderId: string) => void} fnCallback - Executed with a unique epoch ID upon success.
      */
     public static setupCanvas(oHtml: HTML, fnOnError: (msg: string) => void, fnCallback: (sRenderId: string) => void): void {
         const sParentId = "vdmCanvasContainer";
+        const config = ConfigManager.get();
 
         if (!oHtml.getContent()) {
             oHtml.setContent(`<div id="${sParentId}" style="width:100%; height:100%; overflow:hidden; display:flex; justify-content:center; align-items:center;"></div>`);
@@ -38,21 +38,22 @@ export default class DomManager {
                 oParentDiv.innerHTML = `<div id="${sRenderId}" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>`;
                 
                 fnCallback(sRenderId);
-            } else if (iAttempts >= CONFIG.DOM_POLL_MAX_ATTEMPTS) {
+            } else if (config.domPollMaxAttempts && iAttempts >= config.domPollMaxAttempts) {
                 clearInterval(timer);
                 fnOnError("Renderer Timeout: UI5 failed to paint the DOM container.");
             }
-        }, CONFIG.DOM_POLL_INTERVAL_MS);
+        }, config.domPollIntervalMs || 50);
     }
 
     /**
      * @public
      * @description Binds standard D3 mouse-wheel zoom and click-and-drag panning to a target SVG.
-     * Applies responsive ViewBox logic to prevent squashing and stripping of physical dimension constraints.
      * @param {string} sRenderId - The DOM ID containing the injected SVG.
      */
     public static attachStandardZoom(sRenderId: string): void {
-        NetworkManager.loadScript(CONFIG.CDN.D3).then(() => {
+        const config = ConfigManager.get();
+        
+        NetworkManager.loadScript(config.cdnPaths?.d3).then(() => {
             setTimeout(() => {
                 const svg = d3.select(`#${sRenderId} svg`);
                 if (svg.empty()) return;

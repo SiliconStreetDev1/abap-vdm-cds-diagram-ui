@@ -39,8 +39,8 @@ import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import Model from "sap/ui/model/Model";
 
 // Dedicated Handlers
-import FilterBuilder from "../util/FilterBuilder";
-import Renderer from "../util/Renderer";
+import FilterBuilder from "../helpers/FilterBuilder";
+import Renderer from "../renderer/Renderer";
 import ExportHandler from "./ExportHandler";
 import VariantHandler from "./VariantHandler";
 import CdsValueHelpHandler from "./CdsValueHelpHandler";

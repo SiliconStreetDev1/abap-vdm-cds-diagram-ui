@@ -1,8 +1,9 @@
 /**
  * @fileoverview Graphviz / WASM specific rendering implementation.
  */
-import { CONFIG } from "../util/DiagramConfig";
-import NetworkManager from "../util/NetworkManager";
+
+import ConfigManager from "../ConfigManager";
+import NetworkManager from "../../helpers/NetworkManager";
 
 declare const d3: any;
 
@@ -10,19 +11,19 @@ export default class GraphvizEngine {
     
     /**
      * @public
-     * @description Executes DOT syntax against the Graphviz WASM engine. Intercepts the 
-     * renderEnd event to override hardcoded physical dimensions, enforcing 100% width/height
-     * responsive behaviors for unrestricted D3 zooming inside UI5 containers.
+     * @description Executes DOT syntax against the Graphviz WASM engine.
      * @param {string} sPayload - The raw DOT syntax.
      * @param {string} sRenderId - The target DOM container ID.
      * @param {(msg: string) => void} fnOnError - Error callback.
      * @returns {Promise<void>}
      */
     public static async render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): Promise<void> {
+        const config = ConfigManager.get();
+
         try {
-            await NetworkManager.loadScript(CONFIG.CDN.D3);
-            await NetworkManager.loadScript(CONFIG.CDN.GRAPHVIZ_WASM);
-            await NetworkManager.loadScript(CONFIG.CDN.GRAPHVIZ_PLUGIN);
+            await NetworkManager.loadScript(config.cdnPaths?.d3);
+            await NetworkManager.loadScript(config.cdnPaths?.graphvizWasm);
+            await NetworkManager.loadScript(config.cdnPaths?.graphvizPlugin);
 
             if (typeof d3.select("body").graphviz !== "function") {
                 throw new Error("d3-graphviz plugin failed to bind to global D3 object.");

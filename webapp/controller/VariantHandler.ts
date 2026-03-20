@@ -23,7 +23,7 @@ import SegmentedButton from "sap/m/SegmentedButton";
 import VBox from "sap/m/VBox";
 import MultiInput from "sap/m/MultiInput";
 import Token from "sap/m/Token";
-import VariantManager from "../util/VariantManager";
+import VariantManager from "../helpers/VariantManager";
 import Event from "sap/ui/base/Event";
 
 export default class VariantHandler {

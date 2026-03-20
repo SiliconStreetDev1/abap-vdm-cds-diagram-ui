@@ -1,13 +1,11 @@
 /**
  * @fileoverview Mermaid.js rendering implementation.
  * @description Handles the initialization and execution of Mermaid diagrams.
- * Enforces strict security policies (disabling HTML labels) to prevent
- * Canvas tainting during PNG export, and overrides default node limits
- * to support massive CDS view architectures.
  */
-import { CONFIG } from "../util/DiagramConfig";
-import NetworkManager from "../util/NetworkManager";
-import DomManager from "../util/DomManager";
+
+import ConfigManager from "../ConfigManager";
+import NetworkManager from "../../helpers/NetworkManager";
+import DomManager from "../DomManager";
 
 declare const mermaid: any;
 
@@ -19,11 +17,13 @@ export default class MermaidEngine {
      * @description Renders a Mermaid syntax string into an SVG and injects it into the DOM.
      * @param {string} sPayload - The raw Mermaid syntax.
      * @param {string} sRenderId - The target DOM container ID.
-     * @param {(msg: string) => void} fnOnError - Error callback for syntax or network failures.
+     * @param {(msg: string) => void} fnOnError - Error callback.
      * @returns {void}
      */
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
-        NetworkManager.loadScript(CONFIG.CDN.MERMAID).then(() => {
+        const config = ConfigManager.get();
+
+        NetworkManager.loadScript(config.cdnPaths?.mermaid).then(() => {
             try {
                 if (!this._bMermaidInit) {
                     mermaid.mermaidAPI.initialize({ 

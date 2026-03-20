@@ -5,9 +5,9 @@
  */
 import HTML from "sap/ui/core/HTML";
 import DomManager from "./DomManager";
-import GraphvizEngine from "../engines/GraphvizEngine";
-import MermaidEngine from "../engines/MermaidEngine";
-import PlantUmlEngine from "../engines/PlantUmlEngine";
+import GraphvizEngine from "./engines/GraphvizEngine";
+import MermaidEngine from "./engines/MermaidEngine";
+import PlantUmlEngine from "./engines/PlantUmlEngine";
 
 export default class DiagramRendererFacade {
     

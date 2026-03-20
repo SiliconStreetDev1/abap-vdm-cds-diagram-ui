@@ -1,12 +1,11 @@
 /**
  * @fileoverview PlantUML rendering implementation via public server generation.
- * @description Handles the proprietary 6-bit Base64 encoding required by the PlantUML
- * public server, manages payload size limits, and sanitizes returned SVGs to prevent
- * strict XML parsers from crashing on embedded source code comments.
+ * @description Handles the proprietary 6-bit Base64 encoding required by the PlantUML server.
  */
-import { CONFIG } from "../util/DiagramConfig";
-import NetworkManager from "../util/NetworkManager";
-import DomManager from "../util/DomManager";
+
+import ConfigManager from "../ConfigManager";
+import NetworkManager from "../../helpers/NetworkManager";
+import DomManager from "../DomManager";
 
 declare const pako: any;
 
@@ -15,25 +14,26 @@ export default class PlantUmlEngine {
     /**
      * @public
      * @description Deflates, encodes, and transmits the payload to the PlantUML server.
-     * Parses the returning SVG and sanitizes it before DOM injection.
      * @param {string} sPayload - The raw PlantUML syntax.
      * @param {string} sRenderId - The target DOM container ID.
-     * @param {(msg: string) => void} fnOnError - Error callback for size limits or network failures.
+     * @param {(msg: string) => void} fnOnError - Error callback.
      * @returns {void}
      */
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
-        NetworkManager.loadScript(CONFIG.CDN.PAKO).then(() => {
+        const config = ConfigManager.get();
+
+        NetworkManager.loadScript(config.cdnPaths?.pako).then(() => {
             try {
                 const utf8Bytes = new TextEncoder().encode(sPayload);
                 const deflated = pako.deflateRaw(utf8Bytes, { level: 9 });
                 const encoded = this._encode64(deflated);
 
-                if (encoded.length > CONFIG.MAX_URL_LENGTH) {
-                    fnOnError("Payload exceeds PlantUML public server limits. Please switch to Mermaid or Graphviz.");
+                if (config.maxUrlLength && encoded.length > config.maxUrlLength) {
+                    fnOnError("Payload exceeds PlantUML server limits. Please switch to Mermaid or Graphviz.");
                     return;
                 }
 
-                fetch(`${CONFIG.URL_PLANTUML_SERVER}${encoded}`)
+                fetch(`${config.plantUmlServerUrl}${encoded}`)
                     .then(response => {
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         return response.text();
@@ -49,8 +49,7 @@ export default class PlantUmlEngine {
 
     /**
      * @private
-     * @description Strips all XML comments from the SVG response. PlantUML embeds the raw source
-     * code inside a comment, which often contains double-hyphens ('--') that fatally crash browser XML parsers.
+     * @description Strips all XML comments from the SVG response.
      * @param {string} svgText - The raw SVG text from the server.
      * @param {string} sRenderId - The target DOM container ID.
      * @returns {void}
