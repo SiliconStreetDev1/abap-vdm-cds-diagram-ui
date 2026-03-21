@@ -30,6 +30,7 @@
                            press="onShowInfo" customData:infoType="Engine" tooltip="{i18n>ttClickInfo}" />
             </HBox>
             <Select id="selEngine" width="100%" selectedKey="{ui>/activeEngine}" change="onEngineChange">
+                <core:Item key="CYTOSCAPE" text="Cytoscape (Interactive / Experimental)" />
                 <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />               
                 <core:Item key="MERMAID" text="{i18n>optMermaid}" />  
                 <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />                
@@ -42,28 +43,54 @@
                            press="onShowInfo" customData:infoType="Levels" tooltip="{i18n>ttClickInfo}" />
             </HBox>
             <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" />
-<Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
 
-<HBox width="100%" alignItems="Center">
-    <Select id="selVariant" 
-            width="100%" 
-            items="{variants>/items}" 
-            change="onVariantChange" 
-            forceSelection="false" 
-            visible="{= ${variants>/items}.length > 0 }" 
-            class="sapUiTinyMarginRight">
-        <layoutData>
-            <FlexItemData growFactor="1" />
-        </layoutData>
-        <core:Item key="{variants>name}" text="{variants>name}" />
-    </Select>
-    <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
-    <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
+            <Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
+            <HBox width="100%" alignItems="Center">
+                <Select id="selVariant" 
+                        width="100%" 
+                        items="{variants>/items}" 
+                        change="onVariantChange" 
+                        forceSelection="false" 
+                        visible="{= ${variants>/items}.length > 0 }" 
+                        class="sapUiTinyMarginRight">
+                    <layoutData>
+                        <FlexItemData growFactor="1" />
+                    </layoutData>
+                    <core:Item key="{variants>name}" text="{variants>name}" />
+                </Select>
+                <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
+                <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
+            </HBox>
             
-</HBox>
             <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />
 
             <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiMediumMarginTop sapUiMediumMarginBottom">
+             <VBox visible="{= ${ui>/activeEngine} === 'CYTOSCAPE' }" width="100%">
+    <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+        <Label text="Layout Algorithm" design="Bold"/>
+        <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}">
+            <core:Item key="cose" text="Physics (Auto-Untangle)" />
+            <core:Item key="grid" text="Grid (Structured)" />
+            <core:Item key="circle" text="Circular" />
+        </Select>
+    </HBox>
+    <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+        <Label text="SAP Theme" design="Bold"/>
+        <Select selectedKey="{ui>/formatCytoscape/theme}">
+            <core:Item key="fiori_light" text="Morning Horizon (Light)" />
+            <core:Item key="fiori_dark" text="Evening Horizon (Dark)" />
+        </Select>
+    </HBox>
+    <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+        <Label text="Animate Physics" />
+        <Switch state="{ui>/formatCytoscape/animate}" customTextOn="Yes" customTextOff="No"/>
+    </HBox>
+    <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginTop">
+        <Label text="Node Spacing (px)" />
+        <StepInput value="{ui>/formatCytoscape/node_spacing}" min="50" max="400" step="25" width="120px" />
+    </HBox>
+</VBox>
+
                 <VBox visible="{= ${ui>/activeEngine} === 'PLANTUML' }" width="100%">
                     <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
                         <Label text="Line Routing" design="Bold"/>

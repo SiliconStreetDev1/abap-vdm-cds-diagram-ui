@@ -10,6 +10,7 @@ import DomManager from "./DomManager";
 import MermaidEngine from "./engines/MermaidEngine";
 import GraphvizEngine from "./engines/GraphvizEngine";
 import PlantUmlEngine from "./engines/PlantUmlEngine";
+import CytoscapeEngine from "./engines/CytoscapeEngine"; // <-- NEW: Import the interactive engine
 import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
 
@@ -18,8 +19,8 @@ export default class Renderer {
     /**
      * @public
      * @description Asynchronously initializes the configuration manager and routes the rendering request.
-     * @param {string} sEngine - Engine identifier ("MERMAID", "GRAPHVIZ", "PLANTUML").
-     * @param {string} sPayload - The source code syntax.
+     * @param {string} sEngine - Engine identifier ("MERMAID", "GRAPHVIZ", "PLANTUML", "CYTOSCAPE").
+     * @param {string} sPayload - The source code syntax or JSON payload.
      * @param {HTML} oHtmlControl - The UI5 HTML wrapper control.
      * @param {(msg: string) => void} fnOnError - Error callback.
      * @returns {Promise<void>}
@@ -38,6 +39,9 @@ export default class Renderer {
                     break;
                 case "PLANTUML":
                     PlantUmlEngine.render(sPayload, sRenderId, fnOnError);
+                    break;
+                case "CYTOSCAPE": // <-- NEW: Route the JSON payload to the Cytoscape canvas builder
+                    CytoscapeEngine.render(sPayload, sRenderId, fnOnError);
                     break;
                 default:
                     fnOnError(`Unsupported rendering engine: ${sEngine}`);

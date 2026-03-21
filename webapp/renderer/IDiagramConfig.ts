@@ -9,6 +9,7 @@ export interface IConfigCdnPaths {
     graphvizWasm?: string;
     graphvizPlugin?: string;
     pako?: string;
+    cytoscape?: string; // <-- NEW: Added to support the interactive physics engine
 }
 
 export interface IDiagramConfig {

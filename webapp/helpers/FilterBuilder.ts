@@ -64,8 +64,12 @@ export default class FilterBuilder {
         const oUiModel = oView.getModel("ui") as JSONModel;
         let oFormatConfig: any = {};
 
-        // Deep copy properties so we don't accidentally mutate the live UI model during translation
-        if (sEngine === "PLANTUML") {
+     // Deep copy properties so we don't accidentally mutate the live UI model during translation
+        if (sEngine === "CYTOSCAPE") {
+            // Straight copy: The XML bindings already use the exact snake_case names 
+            // (layout_algorithm, node_spacing) expected by the ABAP XCO Framework.
+            oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
+        } else if (sEngine === "PLANTUML") {
             oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatPlantUML"));
             oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
             oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");

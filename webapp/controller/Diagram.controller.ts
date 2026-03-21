@@ -10,7 +10,7 @@ import Controller from "sap/ui/core/mvc/Controller";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import HTML from "sap/ui/core/HTML";
 
-import ExportHandler from "./ExportHandler";
+import ExportHandler from "../handlers/ExportHandler";
 import Renderer from "../renderer/Renderer";
 
 export default class Diagram extends Controller {
@@ -160,7 +160,7 @@ export default class Diagram extends Controller {
     private _showError(sMessage: string): void {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         oViewModel.setProperty("/hasError", true);
-        oViewModel.setProperty("/hasDiagram", false);
+      //  oViewModel.setProperty("/hasDiagram", false);
         oViewModel.setProperty("/errorText", this._getText(sMessage) || sMessage);
     }
 

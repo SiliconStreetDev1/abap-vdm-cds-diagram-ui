@@ -18,7 +18,8 @@ export default class ConfigManager {
             d3: "https://d3js.org/d3.v7.min.js",
             graphvizWasm: "https://unpkg.com/@hpcc-js/wasm@2.14.1/dist/graphviz.umd.js",
             graphvizPlugin: "https://unpkg.com/d3-graphviz@5.1.0/build/d3-graphviz.min.js",
-            pako: "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"
+            pako: "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js",
+            cytoscape: "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"
         }
     };
 

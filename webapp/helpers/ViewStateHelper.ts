@@ -15,13 +15,16 @@ export default class ViewStateHelper {
 
     /**
      * @public
-     * @description Generates the initial layout state model.
+     * @description Generates the initial layout state model with defaults for all rendering engines.
      * @returns {JSONModel} The instantiated UI configuration model.
      */
     public static initializeUiModel(): JSONModel {
         return new JSONModel({
             showHelp: false,
             activeEngine: "GRAPHVIZ",
+            
+            // Note: Cytoscape uses exact snake_case to match the ABAP XCO Framework directly
+            formatCytoscape: { layout_algorithm: "cose", theme: "fiori_light", animate: true, node_spacing: 200 },
             formatPlantUML: { lineStyle: "default", spaced_out: false, staggered: false, modern: true },
             formatGraphviz: { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false },
             formatMermaid: { direction: "TB", theme: "default" }
@@ -30,7 +33,8 @@ export default class ViewStateHelper {
 
     /**
      * @public
-     * @description Syncs the active engine state and safely resets formatting configurations.
+     * @description Syncs the active engine state and safely resets formatting configurations 
+     * to prevent parameter bleed when switching between rendering engines.
      * @param {Event} oEvent - The Select change event.
      * @param {JSONModel} oUiModel - The bound UI configuration model.
      * @returns {string} The newly selected engine ID.
@@ -39,6 +43,9 @@ export default class ViewStateHelper {
         const sEngine = (oEvent.getSource() as Select).getSelectedKey();
         
         oUiModel.setProperty("/activeEngine", sEngine);
+        
+        // Reset all format configurations to their defaults
+        oUiModel.setProperty("/formatCytoscape", { layout_algorithm: "cose", theme: "fiori_light", animate: true, node_spacing: 200 });
         oUiModel.setProperty("/formatPlantUML", { lineStyle: "default", spaced_out: false, staggered: false, modern: true });
         oUiModel.setProperty("/formatGraphviz", { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false });
         oUiModel.setProperty("/formatMermaid", { direction: "TB", theme: "default" });
@@ -48,7 +55,7 @@ export default class ViewStateHelper {
 
     /**
      * @public
-     * @description Toggles visibility of relationship layout panels.
+     * @description Toggles visibility of relationship layout panels (Lines vs Discovery).
      * @param {Event} oEvent - The SegmentedButton press event.
      * @param {VBox} oBoxLines - The layout configuration container.
      * @param {VBox} oBoxDiscovery - The discovery configuration container.
