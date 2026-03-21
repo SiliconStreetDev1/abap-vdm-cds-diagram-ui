@@ -25,7 +25,7 @@ export default class CytoscapeEngine {
 
                 const oContainer = document.getElementById(sRenderId);
                 if (!oContainer) {
-                    fnOnError("Cytoscape Render Error: Target DOM container not found.");
+                  fnOnError("Cytoscape Render Error: Target DOM container not found.");
                     return;
                 }
 

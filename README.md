@@ -2,69 +2,78 @@
 
 ## What it is
 A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
+
 <img width="2113" height="1824" alt="Image" src="https://github.com/user-attachments/assets/4398560e-8ced-4463-8471-5f1ffe05b4a6" />
 
 ## Extra Wide Support
 <img width="7544" height="1546" alt="image" src="https://github.com/user-attachments/assets/175146f1-f759-4958-a3dd-46c355b6f0dd" />
 
-## Interactive Viewer Capabilities
-* **Fluid Panning:** Click and drag the canvas to move the diagram freely, allowing you to follow complex association paths across the VDM.
-* **Precision Zooming:** Support for mouse-wheel Zoom in or zoom out to see the entire landscape.
-* **Max Real Estate Mode:** A dedicated full-screen toggle 
-* **Collapsible Workspace:** The integrated Splitter allows you to hide the configuration panel entirely, maximizing the horizontal drawing area.
-* **Smart Centering:** Diagrams are automatically scaled and centered upon generation to ensure immediate visibility of the root entity.
+---
+
+## Rendering Engines
+This application utilizes four distinct visual engines to render CDS relationships:
+
+* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered.
+* **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
+* **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
+> [!WARNING]
+>* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`).
+>    * **Data Privacy Note:** metadata is sent over the public internet. 
+>    * **Enterprise Recommendation:** Host a local PlantUML instance and update `config.json`.
+
+---
+
+## [EXPERIMENTAL] Cytoscape Interactivity
+The Cytoscape engine transforms the diagram from a static map into a "Discovery Environment."
+
+### 1. Neighborhood Highlighting (Focus Mode)
+Tired of the "Spaghetti" effect? Click any Entity (Node) to instantly isolate its logic.
+* **The Effect:** Every unrelated table and association fades to **15% opacity**.
+* **The Focus:** The selected table and its direct neighborhood (Compositions and Associations) remain at **100% opacity**.
+* **Visual Pop:** Connected lines thicken and "glow" while maintaining their semantic ABAP colors (e.g., Green for Associations, Blue for Compositions).
+
+### 2. "Springs & Magnets" Physics (`cose`)
+Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
+* **Repulsion:** Nodes act like magnets, pushing each other away to prevent overlapping text.
+* **Elasticity:** Association lines act like springs, pulling related entities closer together.
+* **Live Untangling:** Moving the **Node Spacing** slider in the UI physically recalculates these forces in real-time, wiggling the graph into the most readable state.
+
+### 3. Smart Association Edge Labels
+To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
+
+---
+
+## Viewer Capabilities
+* **Fluid Panning:** Click and drag the canvas to follow complex paths.
+* **Precision Zooming:** Support for high-res mouse-wheel zooming.
+* **Max Real Estate Mode:** A dedicated full-screen toggle for deep-dive sessions.
+* **Collapsible Workspace:** Hide the configuration panel to maximize the drawing area.
+* **Smart Centering:** Diagrams automatically scale and center upon generation.
 
 ## Architecture
 This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
 
-## Backend & ABAP Cloud Limitations
-This UI reflects the capabilities of the connected ABAP backend. For details on **ABAP Cloud compatibility, limitations, and on‑premise differences**, please refer to the Backend documentation.
-
-## Rendering Engines & External Dependencies
-This application utilizes three distinct visual engines to render CDS relationships:
-
-* **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
-* **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing.
-> [!WARNING]
->* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`) to generate diagrams.
->    * **Data Privacy Note:** Using the public server sends your CDS metadata (View names, fields, and associations) over the public internet. 
->    * **Enterprise Recommendation:** For production use with sensitive SAP VDM data, it is highly recommended to host a local PlantUML server instance and update the `plantUmlServerUrl` in the `config.json` file to your internal endpoint.
-
 ## Configuration Overrides (`config.json`)
-The application supports an optional configuration file to manage external endpoints, CDN paths, and performance limits without modifying the source code. This file is ignored by Git to ensure your local environment settings are preserved during updates.
+Manage external endpoints, CDN paths, and performance limits. 
+1. Locate `webapp/config.sample.json`.
+2. Copy and rename to `webapp/config.json`.
+3. Modify values for your specific landscape.
 
-### Setting up Overrides:
-1. Locate `webapp/config.sample.json` in the project root.
-2. Copy and rename this file to `webapp/config.json`.
-3. Modify the values to suit your landscape (e.g., internal CDNs or private PlantUML servers).
-
-The rendering engine will automatically detect this file at runtime, deep-merging your overrides with the hardcoded enterprise defaults.
-
-## Why use it
-* **Visualizes Relationships:** Maps Associations, Compositions, and Inheritances.
-* **Metadata Control:** Toggles Keys, Fields, and Data Sources on or off.
-* **Interactive Navigation:** Smooth pan-and-zoom controls for exploring large hierarchies.
-* **Three Rendering Engines:** Supports Mermaid.js, Graphviz (WASM), and PlantUML.
-* **Export:** Downloads high-resolution SVG files for technical documentation.
-* **Search:** Integrated CDS View search capabilities.
+---
 
 ## Setup
-1.  **Install:** `npm install`
-2.  **Configure Environment:** Add your internal SAP IP in `ui5.yaml` or `ui5-local.yaml`.
-3.  **Local Settings:** Copy `webapp/config.sample.json` to `webapp/config.json` and update URLs if required.
-4.  **Run:** `npm start`
-5.  **Deploy:** `npm run deploy`
+1. **Install:** `npm install`
+2. **Configure Environment:** Add your internal SAP IP in `ui5.yaml`.
+3. **Run:** `npm start`
+4. **Deploy:** `npm run deploy`
 
 ## Licensing
 © 2026 Silicon Street Limited. All Rights Reserved.
 
 Usage Terms:
-
-* **INTERNAL USE:** Permission is granted to use this code for internal business documentation purposes within a single organization at no cost.
-* **NON-REDISTRIBUTION:** You may NOT redistribute, sell, or include this source code (or derivatives thereof) in any commercial software, package, or library.
-* **PAID SERVICES:** Use of this code to provide paid consulting or documentation services to third parties requires a Commercial License.
-* **MODIFICATIONS:** Any modifications remain subject to this license.
-* **DISCLAIMER:** THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+* **INTERNAL USE:** Permission is granted for internal business documentation within a single organization at no cost.
+* **NON-REDISTRIBUTION:** You may NOT redistribute, sell, or include this source code in commercial packages.
+* **PAID SERVICES:** Use of this code for paid consulting requires a Commercial License.
 
 **FOR COMMERCIAL LICENSING INQUIRIES:** contact@siliconst.co.nz
 
