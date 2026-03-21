@@ -42,19 +42,25 @@
                            press="onShowInfo" customData:infoType="Levels" tooltip="{i18n>ttClickInfo}" />
             </HBox>
             <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" />
+<Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
 
-            <Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
-            <HBox width="100%" alignItems="Center" justifyContent="End">
-                <Select id="selVariant" items="{variants>/items}" change="onVariantChange" forceSelection="false" 
-                        visible="{= ${variants>/items}.length > 0 }" class="sapUiTinyMarginRight">
-                    <layoutData><FlexItemData growFactor="1" /></layoutData>
-                    <core:Item key="{variants>name}" text="{variants>name}" />
-                </Select>
-                <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
-                <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent" 
-                        visible="{= ${variants>/items}.length > 0 }" />
-            </HBox>
-
+<HBox width="100%" alignItems="Center">
+    <Select id="selVariant" 
+            width="100%" 
+            items="{variants>/items}" 
+            change="onVariantChange" 
+            forceSelection="false" 
+            visible="{= ${variants>/items}.length > 0 }" 
+            class="sapUiTinyMarginRight">
+        <layoutData>
+            <FlexItemData growFactor="1" />
+        </layoutData>
+        <core:Item key="{variants>name}" text="{variants>name}" />
+    </Select>
+    <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
+    <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
+            
+</HBox>
             <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />
 
             <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiMediumMarginTop sapUiMediumMarginBottom">
