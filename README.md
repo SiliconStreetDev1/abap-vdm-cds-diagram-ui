@@ -25,12 +25,15 @@ This application utilizes four distinct visual engines to render CDS relationshi
 
 ## [EXPERIMENTAL] Cytoscape Interactivity
 The Cytoscape engine transforms the diagram from a static map into a "Discovery Environment."
+<img width="1500" height="815" alt="image" src="https://github.com/user-attachments/assets/ad8bafb6-8bb9-4414-a7ab-487a48d52aa7" />
 
 ### 1. Neighborhood Highlighting (Focus Mode)
 Tired of the "Spaghetti" effect? Click any Entity (Node) to instantly isolate its logic.
 * **The Effect:** Every unrelated table and association fades to **15% opacity**.
 * **The Focus:** The selected table and its direct neighborhood (Compositions and Associations) remain at **100% opacity**.
 * **Visual Pop:** Connected lines thicken and "glow" while maintaining their semantic ABAP colors (e.g., Green for Associations, Blue for Compositions).
+
+<img width="1510" height="815" alt="image" src="https://github.com/user-attachments/assets/a55baae8-cf56-4dd9-ba65-3c599f51b7c5" />
 
 ### 2. "Springs & Magnets" Physics (`cose`)
 Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
@@ -39,6 +42,8 @@ Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
 
 ### 3. Smart Association Edge Labels
 To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
+
+
 
 ---
 
