@@ -34,7 +34,6 @@ Tired of the "Spaghetti" effect? Click any Entity (Node) to instantly isolate it
 
 ### 2. "Springs & Magnets" Physics (`cose`)
 Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
-* **Repulsion:** Nodes act like magnets, pushing each other away to prevent overlapping text.
 * **Elasticity:** Association lines act like springs, pulling related entities closer together.
 * **Live Untangling:** Moving the **Node Spacing** slider in the UI physically recalculates these forces in real-time, wiggling the graph into the most readable state.
 
