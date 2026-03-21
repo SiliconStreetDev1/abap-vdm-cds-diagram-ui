@@ -1,7 +1,7 @@
 # SAP VDM CDS Diagrammer UI (FIORI)
 
 ## What it is
-A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable class diagrams.
+A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable and interactive ( Experimental ) class diagrams.
 
 <img width="2113" height="1824" alt="Image" src="https://github.com/user-attachments/assets/4398560e-8ced-4463-8471-5f1ffe05b4a6" />
 
@@ -42,8 +42,6 @@ Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
 
 ### 3. Smart Association Edge Labels
 To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
-
-
 
 ---
 
