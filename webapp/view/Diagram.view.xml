@@ -1,0 +1,31 @@
+<mvc:View controllerName="nz.co.siliconstreet.vdmdiagrammer.controller.Diagram"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m" 
+    xmlns:core="sap.ui.core">
+
+        <Toolbar id="toolbarActions" visible="{view>/hasDiagram}">
+            <ToolbarSpacer />
+            
+            <Button id="btnFullScreen" icon="sap-icon://full-screen" text="Zen Mode" press="onToggleZenMode" type="Transparent" />
+            
+            <Button id="btnCopy" icon="sap-icon://copy" text="{i18n>btnCopy}" press="onCopySyntax" />
+            <Button id="btnDownloadSrc" icon="sap-icon://download" text="{i18n>btnDownloadSrc}" press="onDownloadSource" />
+            <Button id="btnDownloadImg" icon="sap-icon://camera" text="{i18n>btnDownloadImg}" press="onDownloadImage" type="Emphasized" visible="{view>/canExportImg}" />
+            <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
+        </Toolbar>    
+    <VBox height="100%" width="100%" renderType="Bare">
+        
+
+        
+        <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
+            
+            <IllustratedMessage id="msgEmpty" visible="{= !${view>/hasDiagram} &amp;&amp; !${view>/hasError} }" 
+                                illustrationType="sapIllus-SearchEarth" title="{i18n>msgEmptyTitle}" description="{i18n>msgEmptyDesc}" />
+            
+            <MessageStrip id="msgError" visible="{view>/hasError}" text="{view>/errorText}" type="Error" showIcon="true" class="sapUiMargin" />
+            
+            <core:HTML id="htmlRenderer" />
+            
+        </VBox>
+    </VBox>
+</mvc:View>
