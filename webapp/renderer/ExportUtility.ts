@@ -64,7 +64,7 @@ export default class ExportUtility {
         });
     }
 
-    /**
+/**
      * @public
      * @description Prepares an SVG for raw standalone download by inlining computed CSS.
      * @param {SVGSVGElement} oClone - A detached clone of the target SVG.
@@ -88,6 +88,31 @@ export default class ExportUtility {
             }
         });
 
+        // CRITICAL FIX: Purge the inline 100% CSS that Graphviz/D3 injects
+        oClone.style.removeProperty("width");
+        oClone.style.removeProperty("height");
+
+        // 1. GRAPHVIZ FIX: Use the native ViewBox if it exists
+        const sViewBox = oOriginalSvg.getAttribute("viewBox");
+        if (sViewBox) {
+            const aViewBoxParts = sViewBox.trim().split(/\s+|,/);
+            if (aViewBoxParts.length >= 4) {
+                const width = parseFloat(aViewBoxParts[2]);
+                const height = parseFloat(aViewBoxParts[3]);
+
+                oClone.setAttribute("width", `${width}px`);
+                oClone.setAttribute("height", `${height}px`);
+                oClone.removeAttribute("preserveAspectRatio");
+
+                oClone.style.display = "block";
+                oClone.style.margin = "0 auto";
+                oClone.style.backgroundColor = "white";
+                
+                return; // Exit early to preserve Graphviz internal transforms
+            }
+        }
+
+        // 2. FALLBACK FOR PLANTUML & MERMAID: Calculate bounds manually
         const oContentGroup = oOriginalSvg.querySelector<SVGGElement>("g");
         if (oContentGroup) {
             try {
@@ -97,28 +122,18 @@ export default class ExportUtility {
                 const finalWidth = oBBox.width + (iPad * 2);
                 const finalHeight = oBBox.height + (iPad * 2);
 
-                // 1. Lock the internal coordinate system to the exact drawing dimensions
                 oClone.setAttribute("viewBox", `${oBBox.x - iPad} ${oBBox.y - iPad} ${finalWidth} ${finalHeight}`);
-
-                // 2. Lock the physical dimensions in pixels so browser zooming triggers scrollbars!
                 oClone.setAttribute("width", `${finalWidth}px`);
                 oClone.setAttribute("height", `${finalHeight}px`);
-
-                // 3. Remove the fluid scaling attribute
                 oClone.removeAttribute("preserveAspectRatio");
 
-                // 4. Center it visually in the browser using CSS, and ensure a white background
                 oClone.style.display = "block";
                 oClone.style.margin = "0 auto";
                 oClone.style.backgroundColor = "white";
 
             } catch (e) {
-                // Fallback if getBBox() fails
-                const sFallbackWidth = oOriginalSvg.getAttribute("width") || "3000px";
-                const sFallbackHeight = oOriginalSvg.getAttribute("height") || "3000px";
-
-                oClone.setAttribute("width", sFallbackWidth);
-                oClone.setAttribute("height", sFallbackHeight);
+                oClone.setAttribute("width", "3000px");
+                oClone.setAttribute("height", "3000px");
                 oClone.style.display = "block";
                 oClone.style.margin = "0 auto";
             }
@@ -127,7 +142,6 @@ export default class ExportUtility {
         const oCloneRootGroup = oClone.querySelector<SVGGElement>("g");
         if (oCloneRootGroup) oCloneRootGroup.removeAttribute("transform");
     }
-
     /**
      * @private
      * @description Safely converts a UTF-8 string to Base64 without using the deprecated `unescape`.
