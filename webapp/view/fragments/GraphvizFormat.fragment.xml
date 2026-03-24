@@ -1,0 +1,32 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <VBox visible="{= ${ui>/activeEngine} === 'GRAPHVIZ' }" width="100%">
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+            <Label text="Line Routing" design="Bold"/>
+            <Select selectedKey="{ui>/formatGraphviz/lineStyle}">
+                <core:Item key="default" text="Smooth Curves (Default)" />
+                <core:Item key="ortho" text="Orthogonal (90° Angles)" />
+                <core:Item key="polyline" text="Polyline (Straight Angles)" />
+            </Select>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Spaced Out" />
+            <Switch state="{ui>/formatGraphviz/spaced_out}" customTextOn="Yes" customTextOff="No"/>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Modern Style" />
+            <Switch state="{ui>/formatGraphviz/modern}" customTextOn="Yes" customTextOff="No"/>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Left to Right Flow" />
+            <Switch state="{ui>/formatGraphviz/left_to_right}" customTextOn="Yes" customTextOff="No"/>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Concentrate Edges" />
+            <Switch state="{ui>/formatGraphviz/concentrate_edges}" customTextOn="Yes" customTextOff="No"/>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Monochrome" />
+            <Switch state="{ui>/formatGraphviz/monochrome}" customTextOn="Yes" customTextOff="No"/>
+        </HBox>
+    </VBox>
+</core:FragmentDefinition>

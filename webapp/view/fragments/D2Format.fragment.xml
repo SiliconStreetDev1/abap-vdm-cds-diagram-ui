@@ -1,0 +1,5 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <VBox visible="{= ${ui>/activeEngine} === 'D2' }" width="100%">
+        <Text text="Default formatting applied for D2." />
+    </VBox>
+</core:FragmentDefinition>

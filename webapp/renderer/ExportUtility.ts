@@ -5,7 +5,7 @@
  */
 
 export default class ExportUtility {
-    
+
     /**
      * @public
      * @description Safely serializes an SVG to a PNG Blob with dynamic canvas downscaling.
@@ -15,27 +15,27 @@ export default class ExportUtility {
     public static convertSvgToPng(oSvg: SVGSVGElement): Promise<Blob> {
         return new Promise((resolve, reject) => {
             let sSvgData = new XMLSerializer().serializeToString(oSvg);
-            
-            sSvgData = sSvgData.replace(/@import url\([^)]+\);?/gi, ""); 
-            sSvgData = sSvgData.replace(/<image[^>]+href="http[^>]+>/gi, ""); 
+
+            sSvgData = sSvgData.replace(/@import url\([^)]+\);?/gi, "");
+            sSvgData = sSvgData.replace(/<image[^>]+href="http[^>]+>/gi, "");
 
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             if (!ctx) return reject(new Error("Failed to acquire Canvas 2D context."));
 
             const img = new Image();
-            
+
             const sWidthAttr = oSvg.getAttribute("width");
             const sHeightAttr = oSvg.getAttribute("height");
             const width = parseFloat(sWidthAttr !== null ? sWidthAttr : "3000");
             const height = parseFloat(sHeightAttr !== null ? sHeightAttr : "3000");
-            
-            let scale = 2; 
-            const MAX_DIMENSION = 16000; 
-            const MAX_AREA = 100000000; 
-            
+
+            let scale = 2;
+            const MAX_DIMENSION = 16000;
+            const MAX_AREA = 100000000;
+
             while ((width * scale > MAX_DIMENSION || height * scale > MAX_DIMENSION || (width * scale * height * scale) > MAX_AREA) && scale > 0.5) {
-                scale -= 0.5; 
+                scale -= 0.5;
             }
 
             canvas.width = width * scale;
@@ -46,10 +46,10 @@ export default class ExportUtility {
             img.src = "data:image/svg+xml;base64," + sBase64;
 
             img.onload = () => {
-                ctx.fillStyle = "white"; 
+                ctx.fillStyle = "white";
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0);
-                
+
                 try {
                     canvas.toBlob((blob) => {
                         if (blob) resolve(blob);
@@ -74,11 +74,11 @@ export default class ExportUtility {
     public static hardenSvgForDownload(oClone: SVGSVGElement, oOriginalSvg: SVGSVGElement): void {
         const aOriginal = oOriginalSvg.querySelectorAll<SVGGraphicsElement>("path, polygon, ellipse, text, circle, rect");
         const aClone = oClone.querySelectorAll<SVGGraphicsElement>("path, polygon, ellipse, text, circle, rect");
-        
+
         aOriginal.forEach((el, i) => {
             const style = window.getComputedStyle(el);
             const oCloneEl = aClone[i];
-            
+
             if (oCloneEl && oCloneEl.style) {
                 oCloneEl.style.fill = style.fill;
                 oCloneEl.style.stroke = style.stroke;
@@ -93,14 +93,34 @@ export default class ExportUtility {
             try {
                 const oBBox = oContentGroup.getBBox();
                 const iPad = 20;
-                oClone.setAttribute("viewBox", `${oBBox.x - iPad} ${oBBox.y - iPad} ${oBBox.width + (iPad * 2)} ${oBBox.height + (iPad * 2)}`);
-                oClone.setAttribute("width", `${oBBox.width + (iPad * 2)}px`);
-                oClone.setAttribute("height", `${oBBox.height + (iPad * 2)}px`);
+
+                const finalWidth = oBBox.width + (iPad * 2);
+                const finalHeight = oBBox.height + (iPad * 2);
+
+                // 1. Lock the internal coordinate system to the exact drawing dimensions
+                oClone.setAttribute("viewBox", `${oBBox.x - iPad} ${oBBox.y - iPad} ${finalWidth} ${finalHeight}`);
+
+                // 2. Lock the physical dimensions in pixels so browser zooming triggers scrollbars!
+                oClone.setAttribute("width", `${finalWidth}px`);
+                oClone.setAttribute("height", `${finalHeight}px`);
+
+                // 3. Remove the fluid scaling attribute
+                oClone.removeAttribute("preserveAspectRatio");
+
+                // 4. Center it visually in the browser using CSS, and ensure a white background
+                oClone.style.display = "block";
+                oClone.style.margin = "0 auto";
+                oClone.style.backgroundColor = "white";
+
             } catch (e) {
-                const sFallbackWidth = oOriginalSvg.getAttribute("width");
-                const sFallbackHeight = oOriginalSvg.getAttribute("height");
-                oClone.setAttribute("width", sFallbackWidth !== null ? sFallbackWidth : "100%");
-                oClone.setAttribute("height", sFallbackHeight !== null ? sFallbackHeight : "100%");
+                // Fallback if getBBox() fails
+                const sFallbackWidth = oOriginalSvg.getAttribute("width") || "3000px";
+                const sFallbackHeight = oOriginalSvg.getAttribute("height") || "3000px";
+
+                oClone.setAttribute("width", sFallbackWidth);
+                oClone.setAttribute("height", sFallbackHeight);
+                oClone.style.display = "block";
+                oClone.style.margin = "0 auto";
             }
         }
 

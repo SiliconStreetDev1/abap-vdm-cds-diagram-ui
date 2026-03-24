@@ -1,0 +1,20 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <VBox visible="{= ${ui>/activeEngine} === 'MERMAID' }" width="100%">
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+            <Label text="Direction" design="Bold"/>
+            <Select selectedKey="{ui>/formatMermaid/direction}">
+                <core:Item key="TB" text="Top to Bottom" />
+                <core:Item key="LR" text="Left to Right" />
+            </Select>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="Theme" design="Bold"/>
+            <Select selectedKey="{ui>/formatMermaid/theme}">
+                <core:Item key="default" text="Default" />
+                <core:Item key="dark" text="Dark" />
+                <core:Item key="forest" text="Forest" />
+                <core:Item key="neutral" text="Neutral" />
+            </Select>
+        </HBox>
+    </VBox>
+</core:FragmentDefinition>
