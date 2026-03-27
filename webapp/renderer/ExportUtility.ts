@@ -71,7 +71,17 @@ export default class ExportUtility {
      * @param {SVGSVGElement} oOriginalSvg - The live DOM SVG utilized to compute current styles.
      * @returns {void}
      */
-    public static hardenSvgForDownload(oClone: SVGSVGElement, oOriginalSvg: SVGSVGElement): void {
+/**
+ * @public
+ * @description Prepares an SVG for raw standalone download utilizing isolated staging.
+ * @param {SVGSVGElement} oClone - A detached clone of the target SVG.
+ * @param {SVGSVGElement} oOriginalSvg - The live DOM SVG utilized to compute current styles.
+ * @returns {void}
+ */
+public static hardenSvgForDownload(oClone: SVGSVGElement, oOriginalSvg: SVGSVGElement): void {
+        const NS = "http://www.w3.org/2000/svg";
+
+        // 1) Inline critical visual styles
         const aOriginal = oOriginalSvg.querySelectorAll<SVGGraphicsElement>("path, polygon, ellipse, text, circle, rect");
         const aClone = oClone.querySelectorAll<SVGGraphicsElement>("path, polygon, ellipse, text, circle, rect");
 
@@ -80,7 +90,12 @@ export default class ExportUtility {
             const oCloneEl = aClone[i];
 
             if (oCloneEl && oCloneEl.style) {
-                oCloneEl.style.fill = style.fill;
+                const tag = el.tagName.toLowerCase();
+                if (tag === "path") {
+                    oCloneEl.style.fill = "none";
+                } else {
+                    oCloneEl.style.fill = style.fill;
+                }
                 oCloneEl.style.stroke = style.stroke;
                 oCloneEl.style.strokeWidth = style.strokeWidth;
                 oCloneEl.style.fontSize = style.fontSize;
@@ -88,60 +103,137 @@ export default class ExportUtility {
             }
         });
 
-        // CRITICAL FIX: Purge the inline 100% CSS that Graphviz/D3 injects
+        // 2) Purge inline CSS
         oClone.style.removeProperty("width");
         oClone.style.removeProperty("height");
+const ensureContentGroup = (root: SVGSVGElement): SVGGElement => {
+    const existing = root.querySelector<SVGGElement>("g.graph") || root.querySelector<SVGGElement>("g");
+    
+    // FIXED: Using parentNode satisfies TypeScript's type constraints
+    if (existing && existing.parentNode === root) return existing; 
+    
+    const wrapper = document.createElementNS(NS, "g");
+    while (root.firstChild) wrapper.appendChild(root.firstChild);
+    root.appendChild(wrapper);
+    return wrapper as SVGGElement;
+};
+        const pad = 10; 
 
-        // 1. GRAPHVIZ FIX: Use the native ViewBox if it exists
+        // 3) ViewBox Translation
         const sViewBox = oOriginalSvg.getAttribute("viewBox");
         if (sViewBox) {
-            const aViewBoxParts = sViewBox.trim().split(/\s+|,/);
-            if (aViewBoxParts.length >= 4) {
-                const width = parseFloat(aViewBoxParts[2]);
-                const height = parseFloat(aViewBoxParts[3]);
+            const parts = sViewBox.trim().split(/\s+|,/).filter(p => p.length);
+            if (parts.length >= 4) {
+                const origX = parseFloat(parts[0]) || 0;
+                const origY = parseFloat(parts[1]) || 0;
+                const origW = parseFloat(parts[2]) || 0;
+                const origH = parseFloat(parts[3]) || 0;
 
-                oClone.setAttribute("width", `${width}px`);
-                oClone.setAttribute("height", `${height}px`);
-                oClone.removeAttribute("preserveAspectRatio");
+                let measuredMinX = origX;
+                let measuredMinY = origY;
+                try {
+                    const oOriginalGroup = oOriginalSvg.querySelector<SVGGElement>("g.graph") || oOriginalSvg.querySelector<SVGGElement>("g");
+                    if (oOriginalGroup) {
+                        const saved = oOriginalGroup.getAttribute("transform");
+                        if (saved) oOriginalGroup.removeAttribute("transform");
+                        const bbox = oOriginalGroup.getBBox();
+                        if (!Number.isNaN(bbox.x) && !Number.isNaN(bbox.y)) {
+                            measuredMinX = Math.min(measuredMinX, bbox.x);
+                            measuredMinY = Math.min(measuredMinY, bbox.y);
+                        }
+                        if (saved) oOriginalGroup.setAttribute("transform", saved);
+                    }
+                } catch {
+                    // Ignore measurement errors
+                }
+
+                const newW = Math.max(1, Math.ceil(origW + pad * 2));
+                const newH = Math.max(1, Math.ceil(origH + pad * 2));
+
+                oClone.setAttribute("viewBox", `0 0 ${newW} ${newH}`);
+                oClone.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+                const contentGroup = ensureContentGroup(oClone);
+                contentGroup.removeAttribute("transform");
+                contentGroup.style.transform = "";
+
+                const tx = -measuredMinX + pad;
+                const ty = -measuredMinY + pad;
+                contentGroup.setAttribute("transform", `translate(${tx} ${ty})`);
+
+                oClone.setAttribute("width", `${newW}px`);
+                oClone.setAttribute("height", `${newH}px`);
 
                 oClone.style.display = "block";
                 oClone.style.margin = "0 auto";
                 oClone.style.backgroundColor = "white";
-                
-                return; // Exit early to preserve Graphviz internal transforms
-            }
-        }
 
-        // 2. FALLBACK FOR PLANTUML & MERMAID: Calculate bounds manually
+                const rootGroup = oClone.querySelector<SVGGElement>("g.graph") || oClone.querySelector<SVGGElement>("g");
+                const bg = rootGroup ? rootGroup.querySelector<SVGPolygonElement>(":scope > polygon") : null;
+                if (bg) bg.remove();
+
+                return; // Safely exit the method if this block succeeds
+            }
+        } // <--- NOTICE: Only the 'if' statements close here. No extra '}' closing the method.
+
+        // 4) FALLBACK (Now properly inside the method)
         const oContentGroup = oOriginalSvg.querySelector<SVGGElement>("g");
         if (oContentGroup) {
             try {
+                const savedTransform = oContentGroup.getAttribute("transform");
+                if (savedTransform) oContentGroup.removeAttribute("transform");
+
                 const oBBox = oContentGroup.getBBox();
-                const iPad = 20;
+                const minX = oBBox.x;
+                const minY = oBBox.y;
+                const finalW = Math.max(1, Math.ceil(oBBox.width + pad * 2));
+                const finalH = Math.max(1, Math.ceil(oBBox.height + pad * 2));
 
-                const finalWidth = oBBox.width + (iPad * 2);
-                const finalHeight = oBBox.height + (iPad * 2);
+                oClone.setAttribute("viewBox", `0 0 ${finalW} ${finalH}`);
+                oClone.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-                oClone.setAttribute("viewBox", `${oBBox.x - iPad} ${oBBox.y - iPad} ${finalWidth} ${finalHeight}`);
-                oClone.setAttribute("width", `${finalWidth}px`);
-                oClone.setAttribute("height", `${finalHeight}px`);
-                oClone.removeAttribute("preserveAspectRatio");
+                const contentGroup = ensureContentGroup(oClone);
+                contentGroup.removeAttribute("transform");
+                contentGroup.style.transform = "";
+                
+                const tx = -minX + pad;
+                const ty = -minY + pad;
+                contentGroup.setAttribute("transform", `translate(${tx} ${ty})`);
+
+                oClone.setAttribute("width", `${finalW}px`);
+                oClone.setAttribute("height", `${finalH}px`);
 
                 oClone.style.display = "block";
                 oClone.style.margin = "0 auto";
                 oClone.style.backgroundColor = "white";
+
+                const oCloneRootGroup = oClone.querySelector<SVGGElement>("g.graph") || oClone.querySelector<SVGGElement>("g");
+                const bg = oCloneRootGroup ? oCloneRootGroup.querySelector<SVGPolygonElement>(":scope > polygon") : null;
+                if (bg) bg.remove();
+
+                if (savedTransform) oContentGroup.setAttribute("transform", savedTransform);
 
             } catch (e) {
                 oClone.setAttribute("width", "3000px");
                 oClone.setAttribute("height", "3000px");
                 oClone.style.display = "block";
                 oClone.style.margin = "0 auto";
+                oClone.style.backgroundColor = "white";
             }
         }
 
-        const oCloneRootGroup = oClone.querySelector<SVGGElement>("g");
-        if (oCloneRootGroup) oCloneRootGroup.removeAttribute("transform");
-    }
+        // 5) Final cleanup
+        const oCloneRootGroup2 = oClone.querySelector<SVGGElement>("g.graph") || oClone.querySelector<SVGGElement>("g");
+        if (oCloneRootGroup2) {
+            const t = oCloneRootGroup2.getAttribute("transform") || "";
+            if (t && !t.trim().startsWith("translate(")) {
+                oCloneRootGroup2.removeAttribute("transform");
+                oCloneRootGroup2.style.transform = "";
+            }
+        }
+    } // <--- THIS is the actual end of the hardenSvgForDownload method.
+
+
     /**
      * @private
      * @description Safely converts a UTF-8 string to Base64 without using the deprecated `unescape`.
