@@ -31,8 +31,8 @@ export default class CytoscapeEngine {
         const config = ConfigManager.get();
 
         // Chain the core engine and then the SVG plugin using local-first resolution with Integrity checking
-        NetworkManager.loadScript(config.localPaths?.cytoscape, config.cdnPaths?.cytoscape, config.cdnIntegrityHashes?.cytoscape)
-            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg, config.cdnIntegrityHashes?.cytoscapeSvg))
+        NetworkManager.loadScript(config.localPaths?.cytoscape, config.cdnPaths?.cytoscape)
+            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg))
             .then(() => {
                 try {
                     const oData = JSON.parse(sPayload);
