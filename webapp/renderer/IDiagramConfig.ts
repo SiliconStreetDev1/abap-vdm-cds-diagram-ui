@@ -3,13 +3,14 @@
  * @description Defines the optional overrides available to consumers of the Renderer facade.
  */
 
-export interface IConfigCdnPaths {
+export interface IConfigPaths {
     mermaid?: string;
     d3?: string;
     graphvizWasm?: string;
     graphvizPlugin?: string;
     pako?: string;
-    cytoscape?: string; // <-- NEW: Added to support the interactive physics engine
+    cytoscape?: string; 
+    cytoscapeSvg?: string; 
 }
 
 export interface IDiagramConfig {
@@ -17,5 +18,6 @@ export interface IDiagramConfig {
     maxUrlLength?: number;
     domPollIntervalMs?: number;
     domPollMaxAttempts?: number;
-    cdnPaths?: IConfigCdnPaths;
+    localPaths?: IConfigPaths;
+    cdnPaths?: IConfigPaths;
 }

@@ -23,7 +23,7 @@ export default class MermaidEngine {
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
         const config = ConfigManager.get();
 
-        NetworkManager.loadScript(config.cdnPaths?.mermaid).then(() => {
+      NetworkManager.loadScript(config.localPaths?.mermaid, config.cdnPaths?.mermaid).then(() => {
             try {
                 if (!this._bMermaidInit) {
                     mermaid.mermaidAPI.initialize({ 

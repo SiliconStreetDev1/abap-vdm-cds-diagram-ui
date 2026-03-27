@@ -22,7 +22,7 @@ export default class PlantUmlEngine {
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
         const config = ConfigManager.get();
 
-        NetworkManager.loadScript(config.cdnPaths?.pako).then(() => {
+        NetworkManager.loadScript(config.localPaths?.pako, config.cdnPaths?.pako).then(() => {
             try {
                 const utf8Bytes = new TextEncoder().encode(sPayload);
                 const deflated = pako.deflateRaw(utf8Bytes, { level: 9 });

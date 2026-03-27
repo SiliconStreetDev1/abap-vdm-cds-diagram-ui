@@ -21,6 +21,7 @@
     "rimraf": "^5.0.5"
   },
   "scripts": {
+    "setup:libs": "node scripts/download-libs.js",
     "start": "fiori run --open \"test/flp.html#app-preview\"",
     "start-local": "fiori run --config ./ui5-local.yaml --open \"test/flp.html#app-preview\"",
     "build": "ui5 build --config=ui5.yaml --clean-dest --dest dist",

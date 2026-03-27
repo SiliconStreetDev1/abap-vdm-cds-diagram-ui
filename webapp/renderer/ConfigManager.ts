@@ -1,48 +1,55 @@
+
 /**
  * @fileoverview Optional External Configuration Orchestrator.
- * @description Manages the retrieval of configuration parameters from an external 
- * JSON file. If the file is absent, it silently falls back to embedded defaults.
+ * @description Manages the retrieval of configuration parameters from external 
+ * JSON files. Loads defaults first, then silently applies optional customer overrides.
  */
 
 import { IDiagramConfig } from "./IDiagramConfig";
 
 export default class ConfigManager {
     
-    private static _oActiveConfig: IDiagramConfig = {
-        plantUmlServerUrl: "https://www.plantuml.com/plantuml/svg/",
-        maxUrlLength: 7000,
-        domPollIntervalMs: 50,
-        domPollMaxAttempts: 20,
-        cdnPaths: {
-            mermaid: "https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js",
-            d3: "https://d3js.org/d3.v7.min.js",
-            graphvizWasm: "https://unpkg.com/@hpcc-js/wasm@2.14.1/dist/graphviz.umd.js",
-            graphvizPlugin: "https://unpkg.com/d3-graphviz@5.1.0/build/d3-graphviz.min.js",
-            pako: "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js",
-            cytoscape: "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"
-        }
-    };
+    // Initialized as an empty object; populated via fetch requests
+    private static _oActiveConfig: IDiagramConfig = {};
+    private static _bIsInitialized: boolean = false;
 
-  /**
+    /**
      * @public
-     * @description Asynchronously attempts to fetch an optional 'config.json'.
-     * Utilizes sap.ui.require to ensure correct path resolution across Fiori Launchpads 
-     * and standalone sandbox environments.
+     * @description Asynchronously fetches the base defaults and optional overrides.
+     * Caches the result to prevent redundant network calls on subsequent renders.
      * @returns {Promise<IDiagramConfig>} The resolved configuration object.
      */
     public static async initialize(): Promise<IDiagramConfig> {
+        // Return immediately if we have already built the config object during this session
+        if (this._bIsInitialized) {
+            return this._oActiveConfig;
+        }
+
         try {
-            // Example: "siliconstreet/vdm/diagram/config.json"
-            const sResolvedUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/config.json");
+            // STEP 1: Load the mandatory baseline configuration
+            const sDefaultUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/config.default.json");
+            const oDefaultResponse = await fetch(sDefaultUrl);
             
-            const oResponse = await fetch(sResolvedUrl);
+            if (oDefaultResponse.ok) {
+                this._oActiveConfig = await oDefaultResponse.json();
+            } else {
+                console.error("Critical Error: config.default.json could not be loaded. The application may fail to render diagrams.");
+            }
+
+            // STEP 2: Attempt to load the optional customer override configuration
+            const sOverrideUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/config.json");
+            const oOverrideResponse = await fetch(sOverrideUrl);
             
-            if (oResponse.ok) {
-                const oExternalConfig = await oResponse.json();
+            if (oOverrideResponse.ok) {
+                const oExternalConfig = await oOverrideResponse.json();
                 this._merge(this._oActiveConfig, oExternalConfig);
             }
-        } catch (oError) {}
+        } catch (oError) {
+            // A 404 on the optional config.json will naturally fall into this catch block.
+            // We swallow the error silently as the baseline config is already safely loaded.
+        }
         
+        this._bIsInitialized = true;
         return this._oActiveConfig;
     }
 
@@ -57,18 +64,20 @@ export default class ConfigManager {
 
     /**
      * @private
-     * @description Recursively deep-merges source override properties.
-     * @param {any} target - The destination configuration object.
-     * @param {any} source - The external override properties.
+     * @description Recursively deep-merges source override properties into the target object.
+     * This ensures partial overrides (e.g., overriding only one CDN link) do not destroy the rest.
+     * @param {any} target - The destination configuration object (Defaults).
+     * @param {any} source - The external override properties (User Config).
      * @returns {any} The merged object.
      */
     private static _merge(target: any, source: any): any {
         for (const key in source) {
             if (source[key] instanceof Object && key in target) {
                 Object.assign(source[key], this._merge(target[key], source[key]));
+            } else {
+                target[key] = source[key];
             }
         }
-        Object.assign(target, source);
         return target;
     }
 }

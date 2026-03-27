@@ -53,7 +53,7 @@ export default class DomManager {
     public static attachStandardZoom(sRenderId: string): void {
         const config = ConfigManager.get();
         
-        NetworkManager.loadScript(config.cdnPaths?.d3).then(() => {
+        NetworkManager.loadScript(config.localPaths?.d3, config.cdnPaths?.d3).then(() => {
             setTimeout(() => {
                 const svg = d3.select(`#${sRenderId} svg`);
                 if (svg.empty()) return;

@@ -21,9 +21,9 @@ export default class GraphvizEngine {
         const config = ConfigManager.get();
 
         try {
-            await NetworkManager.loadScript(config.cdnPaths?.d3);
-            await NetworkManager.loadScript(config.cdnPaths?.graphvizWasm);
-            await NetworkManager.loadScript(config.cdnPaths?.graphvizPlugin);
+            await NetworkManager.loadScript(config.localPaths?.d3, config.cdnPaths?.d3);
+            await NetworkManager.loadScript(config.localPaths?.graphvizWasm, config.cdnPaths?.graphvizWasm);
+            await NetworkManager.loadScript(config.localPaths?.graphvizPlugin, config.cdnPaths?.graphvizPlugin);
 
             if (typeof d3.select("body").graphviz !== "function") {
                 throw new Error("d3-graphviz plugin failed to bind to global D3 object.");
