@@ -1,8 +1,8 @@
 /**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer
  * @fileoverview VDM / CDS Diagram Engine Renderer (Façade)
- * @author Silicon Street Limited
- * @description Serves as the primary public API. Orchestrates the asynchronous 
- * configuration loading process before delegating tasks to specialized engines.
+ * @description Serves as the primary public API. Orchestrates asynchronous 
+ * configuration loading, rendering routes, and isolated export generation.
  */
 
 import HTML from "sap/ui/core/HTML";
@@ -10,23 +10,24 @@ import DomManager from "./DomManager";
 import MermaidEngine from "./engines/MermaidEngine";
 import GraphvizEngine from "./engines/GraphvizEngine";
 import PlantUmlEngine from "./engines/PlantUmlEngine";
-import CytoscapeEngine from "./engines/CytoscapeEngine"; // <-- NEW: Import the interactive engine
+import CytoscapeEngine from "./engines/CytoscapeEngine";
 import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
+import SvgProcessor from "../helpers/SvgProcessor";
 
 export default class Renderer {
 
     /**
      * @public
-     * @description Asynchronously initializes the configuration manager and routes the rendering request.
-     * @param {string} sEngine - Engine identifier ("MERMAID", "GRAPHVIZ", "PLANTUML", "CYTOSCAPE").
-     * @param {string} sPayload - The source code syntax or JSON payload.
-     * @param {HTML} oHtmlControl - The UI5 HTML wrapper control.
-     * @param {(msg: string) => void} fnOnError - Error callback.
+     * @static
+     * @description Renders the diagram visually into the active Fiori UI5 DOM.
+     * @param {string} sEngine - Target Engine
+     * @param {string} sPayload - Syntax payload
+     * @param {HTML} oHtmlControl - UI5 Control target
+     * @param {Function} fnOnError - Error handler
      * @returns {Promise<void>}
      */
     public static async renderDiagram(sEngine: string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void): Promise<void> {
-        
         await ConfigManager.initialize();
 
         DomManager.setupCanvas(oHtmlControl, fnOnError, (sRenderId: string) => {
@@ -40,7 +41,7 @@ export default class Renderer {
                 case "PLANTUML":
                     PlantUmlEngine.render(sPayload, sRenderId, fnOnError);
                     break;
-                case "CYTOSCAPE": // <-- NEW: Route the JSON payload to the Cytoscape canvas builder
+                case "CYTOSCAPE":
                     CytoscapeEngine.render(sPayload, sRenderId, fnOnError);
                     break;
                 default:
@@ -51,22 +52,47 @@ export default class Renderer {
 
     /**
      * @public
-     * @description Façade method for exporting diagrams to PNG.
-     * @param {SVGSVGElement} oSvg - The live SVG DOM element.
-     * @returns {Promise<Blob>} A promise resolving to the PNG Blob.
+     * @static
+     * @description Generates a pure, headless SVG string completely independently 
+     * of the active UI5 view. Ensures the UI5 Pan/Zoom controls are never interrupted.
+     * @param {string} sEngine - The requested export engine.
+     * @param {string} sPayload - The source syntax or JSON payload.
+     * @returns {Promise<string>} A promise resolving to the finalized, standard XML/SVG string.
      */
-    public static convertSvgToPng(oSvg: SVGSVGElement): Promise<Blob> {
-        return ExportUtility.convertSvgToPng(oSvg);
+    public static async generateExportSvg(sEngine: string, sPayload: string): Promise<string> {
+        await ConfigManager.initialize();
+        
+        let sRawSvg = "";
+
+        switch (sEngine) {
+            case "CYTOSCAPE":
+                sRawSvg = CytoscapeEngine.exportSvg();
+                break;
+            case "MERMAID":
+                sRawSvg = await MermaidEngine.exportSvg(sPayload);
+                break;
+            case "PLANTUML":
+                sRawSvg = await PlantUmlEngine.exportSvg(sPayload);
+                break;
+            case "GRAPHVIZ":
+                sRawSvg = await GraphvizEngine.exportSvg(sPayload);
+                break;
+            default:
+                throw new Error(`Unsupported export engine: ${sEngine}`);
+        }
+
+        // Pipe the raw engine output through the enterprise XML standardizer
+        return SvgProcessor.standardize(sRawSvg);
     }
 
     /**
      * @public
-     * @description Façade method for raw vector exporting to secure the ViewBox prior to download.
-     * @param {SVGSVGElement} oClone - A detached clone of the target SVG.
-     * @param {SVGSVGElement} oOriginalSvg - The live DOM SVG to read computed styles from.
-     * @returns {void}
+     * @static
+     * @description Converts a standard SVG string to a PNG Blob.
+     * @param {string} sSvgData - The formatted SVG string.
+     * @returns {Promise<Blob>}
      */
-    public static hardenSvgForDownload(oClone: SVGSVGElement, oOriginalSvg: SVGSVGElement): void {
-        ExportUtility.hardenSvgForDownload(oClone, oOriginalSvg);
+    public static convertSvgStringToPng(sSvgData: string): Promise<Blob> {
+        return ExportUtility.convertSvgStringToPng(sSvgData);
     }
 }

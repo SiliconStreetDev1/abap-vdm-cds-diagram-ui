@@ -1,6 +1,7 @@
 /**
- * @fileoverview PlantUML rendering implementation via public server generation.
- * @description Handles the proprietary 6-bit Base64 encoding required by the PlantUML server.
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines
+ * @fileoverview PlantUML rendering implementation.
+ * @description Interfaces with PlantUML Server APIs using deflation and 6-bit Base64 encoding.
  */
 
 import ConfigManager from "../ConfigManager";
@@ -13,10 +14,11 @@ export default class PlantUmlEngine {
     
     /**
      * @public
-     * @description Deflates, encodes, and transmits the payload to the PlantUML server.
-     * @param {string} sPayload - The raw PlantUML syntax.
-     * @param {string} sRenderId - The target DOM container ID.
-     * @param {(msg: string) => void} fnOnError - Error callback.
+     * @static
+     * @description Renders the payload via server and injects it into the Fiori View.
+     * @param {string} sPayload - Syntax payload.
+     * @param {string} sRenderId - UI Element ID.
+     * @param {Function} fnOnError - Error handler.
      * @returns {void}
      */
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
@@ -49,10 +51,8 @@ export default class PlantUmlEngine {
 
     /**
      * @private
-     * @description Strips all XML comments from the SVG response.
-     * @param {string} svgText - The raw SVG text from the server.
-     * @param {string} sRenderId - The target DOM container ID.
-     * @returns {void}
+     * @static
+     * @description Processes and attaches Zoom behavior for the active screen.
      */
     private static _processPlantUmlSvg(svgText: string, sRenderId: string): void {
         const sCommentStart = "<" + "!--";
@@ -69,11 +69,31 @@ export default class PlantUmlEngine {
     }
 
     /**
-     * @private
-     * @description Maps standard Base64 to PlantUML's proprietary custom 6-bit URL-safe alphabet.
-     * @param {Uint8Array} data - The deflated byte array.
-     * @returns {string} The encoded string.
+     * @public
+     * @static
+     * @description Headless execution context to retrieve the raw PlantUML payload specifically for export.
+     * Fetches directly from the network and returns the raw string, bypassing the DOM entirely.
+     * @param {string} sPayload - The PlantUML syntax string.
+     * @returns {Promise<string>} A promise resolving to the raw SVG network response text.
      */
+    public static async exportSvg(sPayload: string): Promise<string> {
+        const config = ConfigManager.get();
+        await NetworkManager.loadScript(config.localPaths?.pako, config.cdnPaths?.pako);
+
+        const utf8Bytes = new TextEncoder().encode(sPayload);
+        const deflated = pako.deflateRaw(utf8Bytes, { level: 9 });
+        const encoded = this._encode64(deflated);
+
+        if (config.maxUrlLength && encoded.length > config.maxUrlLength) {
+            throw new Error("Payload exceeds PlantUML server limits.");
+        }
+
+        const response = await fetch(`${config.plantUmlServerUrl}${encoded}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status} from PlantUML Server`);
+        
+        return await response.text();
+    }
+
     private static _encode64(data: Uint8Array): string {
         let r = "";
         for (let i = 0; i < data.length; i += 3) {
@@ -84,14 +104,6 @@ export default class PlantUmlEngine {
         return r;
     }
 
-    /**
-     * @private
-     * @description Converts 3 bytes into 4 PlantUML characters.
-     * @param {number} b1 - First byte.
-     * @param {number} b2 - Second byte.
-     * @param {number} b3 - Third byte.
-     * @returns {string} 4-character mapped string.
-     */
     private static _enc3(b1: number, b2: number, b3: number): string {
         const c1 = b1 >> 2;
         const c2 = ((b1 & 0x3) << 4) | (b2 >> 4);
@@ -100,12 +112,6 @@ export default class PlantUmlEngine {
         return this._enc1(c1 & 0x3F) + this._enc1(c2 & 0x3F) + this._enc1(c3 & 0x3F) + this._enc1(c4 & 0x3F);
     }
 
-    /**
-     * @private
-     * @description Maps a 6-bit integer to the PlantUML alphabet.
-     * @param {number} b - 6-bit integer.
-     * @returns {string} Single mapped character.
-     */
     private static _enc1(b: number): string {
         if (b < 10) return String.fromCharCode(48 + b); b -= 10;
         if (b < 26) return String.fromCharCode(65 + b); b -= 26;

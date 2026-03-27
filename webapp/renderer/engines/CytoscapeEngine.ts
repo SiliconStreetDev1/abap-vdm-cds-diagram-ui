@@ -123,7 +123,8 @@ export default class CytoscapeEngine {
     public static exportSvg(): string {
         if (!this._cyInstance || typeof this._cyInstance.svg !== "function") return "";
         
-        // 1. Get the raw rigid SVG string from the plugin
+        // 1. Get the raw rigid SVG string from the plugin. 
+        // 'full: true' ensures the mathematical bounding box of the graph is exported.
         let sRawSvg = this._cyInstance.svg({ scale: 1, full: true, bg: '#ffffff' });
 
         try {
@@ -132,7 +133,7 @@ export default class CytoscapeEngine {
             const oDoc = oParser.parseFromString(sRawSvg, "image/svg+xml");
             const oSvgElement = oDoc.documentElement;
 
-            // 3. Extract the hardcoded pixel dimensions
+            // 3. Extract the hardcoded pixel dimensions from the plugin
             const sWidth = oSvgElement.getAttribute("width");
             const sHeight = oSvgElement.getAttribute("height");
 
@@ -146,17 +147,20 @@ export default class CytoscapeEngine {
                 }
             }
 
-            // 5. THE FIX: Retain fixed absolute pixel dimensions for browser zoom, 
-            // but inject inline CSS to handle the visual centering. 
-            oSvgElement.setAttribute("style", "margin: auto; display: block; background: #ffffff;");
+            // 5. THE SCROLL-TO-ZOOM FIX: Retain fixed absolute pixel dimensions.
+            // DO NOT change width/height to 100%. Keeping the absolute pixels forces 
+            // the browser to generate native scrollbars instead of zooming into whitespace.
+            oSvgElement.setAttribute("style", "margin: 0 auto; display: block; background: #ffffff;");
             
             if (sWidth) oSvgElement.setAttribute("width", sWidth);
             if (sHeight) oSvgElement.setAttribute("height", sHeight);
 
-            // Clean up any conflicting responsive attributes from previous iterations
-            oSvgElement.removeAttribute("preserveAspectRatio");
+            // 6. THE "ZOOMED OUT" FIX: Ensure strict aspect ratio proportionality.
+            // Removing this causes some browsers to miscalculate the viewBox bounds. 
+            // Setting 'xMidYMid meet' ensures the tight bounding box scales perfectly without padding.
+            oSvgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
-            // 6. Serialize the modified DOM back into a string
+            // 7. Serialize the modified DOM back into a string
             sRawSvg = new XMLSerializer().serializeToString(oDoc);
             
         } catch (e: any) {
