@@ -69,15 +69,20 @@ Manage external endpoints, CDN paths, and performance limits.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
-## Licensing
+## 📄 License & Terms
+
 © 2026 Silicon Street Limited. All Rights Reserved.
 
-Usage Terms:
-* **INTERNAL USE:** Permission is granted for internal business documentation within a single organization at no cost.
-* **NON-REDISTRIBUTION:** You may NOT redistribute, sell, or include this source code in commercial packages.
-* **PAID SERVICES:** Use of this code for paid consulting requires a Commercial License.
+**Usage Terms:**
+1. **INTERNAL USE:** Permission is granted to use this code for internal business documentation purposes within a single organization at no cost.
+2. **NON-REDISTRIBUTION:** You may **NOT** redistribute, sell, or include this source code (or derivatives thereof) in any commercial software, package, or library.
+3. **PAID SERVICES:** Use of this code to provide paid consulting or documentation services to third parties requires a **Commercial License**.
+4. **MODIFICATIONS:** Any modifications remain subject to this license.
+
+**DISCLAIMER:** THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
 
 **FOR COMMERCIAL LICENSING INQUIRIES:** contact@siliconst.co.nz
+
 
 Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
 
