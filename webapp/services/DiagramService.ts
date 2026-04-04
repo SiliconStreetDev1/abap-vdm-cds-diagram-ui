@@ -43,13 +43,92 @@ export default class DiagramService {
 
             return oResult;
 
-        } catch (oError: any) {
-            let sErrorMsg = oError.message || "Unknown error";
-            if (oError.error && oError.error.message) {
-                sErrorMsg = oError.error.message;
-            }
-            throw new Error(sErrorMsg);
+        } catch (oError: unknown) {
+            throw new Error(DiagramService.extractErrorMessage(oError));
         }
+    }
+
+    /**
+     * @public
+     * @description Extracts a clean, user-facing error message from deeply nested OData V4 /
+     * ABAP backend error structures. Strips stack traces and technical noise.
+     * Returns either a real error message string or an i18n key (e.g. "msgBackendError")
+     * that the caller must translate via their resource bundle.
+     * @param {unknown} oError - The raw error thrown by the OData V4 model or runtime.
+     * @returns {string} A sanitized error message or i18n key suitable for UI display.
+     */
+    public static extractErrorMessage(oError: unknown): string {
+        if (!(oError instanceof Object)) {
+            return String(oError) || "msgBackendError";
+        }
+
+        const oErr = oError as Record<string, unknown>;
+
+        // Layer 1: Nested OData V4 JSON error body (e.g. { error: { message: "..." } })
+        const oInner = oErr.error as Record<string, unknown> | undefined;
+        if (oInner && typeof oInner.message === "string" && oInner.message) {
+            return DiagramService._stripStackTrace(oInner.message);
+        }
+
+        // Layer 2: Chained cause (e.g. oError.cause.message)
+        const oCause = oErr.cause as Record<string, unknown> | undefined;
+        if (oCause && typeof oCause.message === "string" && oCause.message) {
+            return DiagramService._stripStackTrace(oCause.message);
+        }
+
+        // Layer 3: Raw response text – attempt JSON parse for OData error envelope
+        if (typeof oErr.responseText === "string" && oErr.responseText) {
+            const sParsed = DiagramService._parseResponseText(oErr.responseText);
+            if (sParsed) return sParsed;
+        }
+
+        // Layer 4: Direct message property (standard Error objects)
+        if (typeof oErr.message === "string" && oErr.message) {
+            return DiagramService._stripStackTrace(oErr.message);
+        }
+
+        return "msgBackendError";
+    }
+
+    /**
+     * @private
+     * @description Attempts to parse a raw HTTP response body for an OData JSON error message.
+     * @param {string} sResponseText - The raw response body string.
+     * @returns {string} The extracted message, or empty string if parsing fails.
+     */
+    private static _parseResponseText(sResponseText: string): string {
+        try {
+            const oParsed = JSON.parse(sResponseText) as Record<string, unknown>;
+            const oErr = oParsed.error as Record<string, unknown> | undefined;
+            if (oErr && typeof oErr.message === "string" && oErr.message) {
+                return DiagramService._stripStackTrace(oErr.message);
+            }
+        } catch {
+            // Not JSON – ignore
+        }
+        return "";
+    }
+
+    /**
+     * @private
+     * @description Removes stack trace fragments that backends may append to error messages.
+     * @param {string} sMessage - The raw error message.
+     * @returns {string} The cleaned message without stack trace lines.
+     */
+    private static _stripStackTrace(sMessage: string): string {
+        // Trim any trailing/leading whitespace
+        let sClean = sMessage.trim();
+
+        // Strip anything after common stack trace markers
+        const aStackMarkers = ["\n    at ", "\nError:", "\n    at\t", "\nCaused by:"];
+        for (const sMarker of aStackMarkers) {
+            const iIdx = sClean.indexOf(sMarker);
+            if (iIdx > 0) {
+                sClean = sClean.substring(0, iIdx).trim();
+            }
+        }
+
+        return sClean || "msgBackendError";
     }
 
     /**
