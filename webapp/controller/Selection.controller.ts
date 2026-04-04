@@ -12,6 +12,7 @@
 
 import Controller from "sap/ui/core/mvc/Controller";
 import MessageToast from "sap/m/MessageToast";
+import MessageBox from "sap/m/MessageBox";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Event from "sap/ui/base/Event";
 import Control from "sap/ui/core/Control";
@@ -130,8 +131,10 @@ export default class Selection extends Controller {
                 });
             }
 
-        } catch (oError: any) {
-            MessageToast.show(this._getText(oError.message) || oError.message);
+        } catch (oError: unknown) {
+            const sMsg = (oError instanceof Error) ? oError.message : String(oError);
+            const sTranslated = this._getText(sMsg);
+            MessageBox.error(sTranslated || sMsg, { title: this._getText("msgErrorTitle") });
         } finally {
             BusyIndicator.hide();
         }
