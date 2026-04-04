@@ -44,7 +44,7 @@ export default class DiagramService {
             return oResult;
 
         } catch (oError: unknown) {
-            throw new Error(DiagramService._extractErrorMessage(oError));
+            throw new Error(DiagramService.extractErrorMessage(oError));
         }
     }
 
@@ -52,10 +52,12 @@ export default class DiagramService {
      * @public
      * @description Extracts a clean, user-facing error message from deeply nested OData V4 /
      * ABAP backend error structures. Strips stack traces and technical noise.
+     * Returns either a real error message string or an i18n key (e.g. "msgBackendError")
+     * that the caller must translate via their resource bundle.
      * @param {unknown} oError - The raw error thrown by the OData V4 model or runtime.
-     * @returns {string} A sanitized error message suitable for UI display.
+     * @returns {string} A sanitized error message or i18n key suitable for UI display.
      */
-    public static _extractErrorMessage(oError: unknown): string {
+    public static extractErrorMessage(oError: unknown): string {
         if (!(oError instanceof Object)) {
             return String(oError) || "msgBackendError";
         }
