@@ -227,18 +227,33 @@ export default class CytoscapeEngine {
         switch (config.layout) {
             case 'cose':
                 oBaseConfig.idealEdgeLength = (edge: any) => {
-                    return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 2 : config.nodeSpacing;
+                    // Pull compositions extremely tight, let loose associations float further out
+                    return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 3 : config.nodeSpacing * 1.5;
                 };
                 oBaseConfig.edgeElasticity = (edge: any) => {
-                    return edge.data('label')?.toLowerCase().includes('composition') ? 400 : 100;
+                    return edge.data('label')?.toLowerCase().includes('composition') ? 500 : 50;
                 };
-                oBaseConfig.nodeRepulsion = config.nodeSpacing * 4500;
+                oBaseConfig.nodeRepulsion = (node: any) => {
+                    // Massive repulsion so large entity boxes don't overlap
+                    return config.nodeSpacing * 8000;
+                };
+                oBaseConfig.gravity = 0.15; // Lighter gravity so the web spreads out and breathes
+                oBaseConfig.numIter = 3000; // Let the physics simulation run longer to find the perfect resting state
+                break;
+            case 'breadthfirst':
+                oBaseConfig.directed = true; // Force a strict PlantUML-style directed tree
+                oBaseConfig.spacingFactor = Math.max(1.2, config.nodeSpacing / 100);
+                oBaseConfig.avoidOverlap = true;
                 break;
             case 'dagre':
                 // Controls Left-to-Right vs Top-to-Bottom mapping
                 oBaseConfig.rankDir = config.rankDir;
-                oBaseConfig.rankSep = config.nodeSpacing;
-                oBaseConfig.nodeSep = config.nodeSpacing; // Links horizontal separation to the UI slider so the graph fans out properly
+                oBaseConfig.rankSep = config.nodeSpacing * 1.5; // Reduce vertical stretch to keep lines shorter
+                oBaseConfig.nodeSep = config.nodeSpacing / 1.5; // Bring siblings closer together
+                oBaseConfig.edgeSep = Math.max(30, config.nodeSpacing / 3); // Keep routing corridors tight
+                oBaseConfig.ranker = 'network-simplex'; // Graphviz's core algorithm for minimizing edge crossings
+                oBaseConfig.acyclicer = 'greedy'; // Force cycle breaking so feedback loops don't tangle the interior grid
+                oBaseConfig.spacingFactor = 1.0; // Remove artificial expansion multiplier
                 break;
             case 'grid':
             case 'circle':
@@ -276,6 +291,14 @@ export default class CytoscapeEngine {
                 data.standard.forEach((f: string) => fieldLines.push(`   ▫ ${f}`));
             }
             
+            // Safely extract backend-provided associations (this strictly respects the 'Show Association Fields' UI toggle)
+            const aAssocs = data.associations || data.associationFields || data.navigations || [];
+            if (aAssocs.length > 0) {
+                if (fieldLines.length > 0) fieldLines.push("");
+                fieldLines.push("[ ASSOCIATIONS ]");
+                aAssocs.forEach((a: string) => fieldLines.push(`   🔗 ${a}`));
+            }
+
             const sTitle = data.isUnion ? `« UNION »\n${data.label}` : data.label;
             
             if (fieldLines.length > 0) {
@@ -293,7 +316,8 @@ export default class CytoscapeEngine {
             const card = data.cardinality || "";
 
             if (label && card) {
-                data.displayLabel = `${label} [${card}]`;
+                // Drop cardinality to a new line so Cytoscape has room to wrap long association names
+                data.displayLabel = `${label}\n[${card}]`;
             } else if (label || card) {
                 data.displayLabel = label || `[${card}]`;
             } else {
@@ -366,9 +390,14 @@ export default class CytoscapeEngine {
                     'line-color': 'data(colorHint)',
                     'target-arrow-color': 'data(colorHint)',
                     'target-arrow-shape': 'triangle',
+                    'arrow-scale': 1.2,
                     'curve-style': config.lineStyle,
                     'taxi-direction': config.rankDir === 'LR' ? 'rightward' : 'downward',
-                    'control-point-step-size': Math.max(15, config.nodeSpacing / 4), // Dynamically shrink turn radius so lines don't bunch
+                    'taxi-turn': 20,
+                    'taxi-turn-min-distance': 10,
+                    'control-point-step-size': Math.max(30, config.nodeSpacing / 3), // Ensure wider, safer turns for unbundled lines
+                    'source-distance-from-node': 10, // Create a physical standoff so lines don't hug the boxes
+                    'target-distance-from-node': 10, // Create a physical standoff so lines don't hug the boxes
                     'label': 'data(displayLabel)',
                     'font-family': '"72", Arial, Helvetica, sans-serif',
                     'font-size': '10px',
@@ -380,7 +409,9 @@ export default class CytoscapeEngine {
                     'text-border-opacity': 1,
                     'text-border-width': 1,
                     'text-border-color': 'data(colorHint)',
-                    'text-rotation': 'autorotate'
+                    'text-rotation': 'autorotate',
+                    'text-wrap': 'wrap',
+                    'text-max-width': '140px' // Force long association names to stack like paragraphs
                 }
             },
             {

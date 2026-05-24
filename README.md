@@ -13,7 +13,7 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Rendering Engines
 This application utilizes four distinct visual engines to render CDS relationships:
 
-* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered.
+* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. You can also now double click on an CDS entity and it should drill into that entity.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
 > [!WARNING]

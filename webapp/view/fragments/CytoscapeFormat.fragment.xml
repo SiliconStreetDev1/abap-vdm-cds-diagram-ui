@@ -5,6 +5,7 @@
             <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}">
                 <core:Item key="dagre" text="Dagre (Hierarchical)" />
                 <core:Item key="cose" text="Physics (Auto-Untangle)" />
+                <core:Item key="breadthfirst" text="Interactive Tree" />
                 <core:Item key="grid" text="Grid (Structured)" />
                 <core:Item key="circle" text="Circular" />
             </Select>
