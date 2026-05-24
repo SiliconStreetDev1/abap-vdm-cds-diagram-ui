@@ -13,7 +13,7 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Rendering Engines
 This application utilizes four distinct visual engines to render CDS relationships:
 
-* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. You can also now double click on an CDS entity and it should drill into that entity.
+* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. Features deep interactivity including double-click drill-down capabilities, breadcrumb navigation, and a minimap.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
 > [!WARNING]
@@ -40,8 +40,20 @@ Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
 * **Elasticity:** Association lines act like springs, pulling related entities closer together.
 * **Live Untangling:** Moving the **Node Spacing** slider in the UI physically recalculates these forces in real-time, wiggling the graph into the most readable state.
 
-### 3. Smart Association Edge Labels
+### 3. Hierarchical Routing (`dagre`)
+By default, the engine uses the **Dagre** layout algorithm to present a strict, hierarchical view of your CDS architecture.
+* **Structured Flow:** Organizes views into logical tiers (e.g., Base, Composite, Consumption) flowing from top-to-bottom or left-to-right.
+* **Minimized Crossings:** Automatically calculates edge routing to reduce visual clutter and overlapping lines.
+
+### 4. Smart Association Edge Labels
 To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
+
+### 5. Deep Drill-Down & Breadcrumbs
+* **Double-Click to Drill:** Double-clicking any entity (Node) will instantly execute a new backend fetch, pivoting the entire diagram around that selected entity as the new root. This allows you to fluidly navigate through the VDM hierarchy.
+* **Breadcrumb Trail:** As you navigate deeper into the VDM hierarchy using the drill-down feature, a breadcrumb navigation trail dynamically builds at the top of the canvas. You can click any previous node in the trail to instantly jump back up the architecture.
+
+### 6. Bird's-Eye Minimap
+When exploring massive enterprise models, use the **Minimap Toggle** in the toolbar to open a draggable, resizable Navigator window in the corner. This provides a high-level overview of the entire graph and allows for rapid panning across complex landscapes without losing your bearings.
 
 ---
 

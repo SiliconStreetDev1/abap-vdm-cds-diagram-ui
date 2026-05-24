@@ -1,7 +1,7 @@
 {
   "name": "vdmdiagrammer",
-  "version": "1.0.0",
-  "description": "An SAP Fiori application.",
+  "version": "1.1.0",
+  "description": "SAP VDM Diagrammer",
   "keywords": [
     "ui5",
     "openui5",

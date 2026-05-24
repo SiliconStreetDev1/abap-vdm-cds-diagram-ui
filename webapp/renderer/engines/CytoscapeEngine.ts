@@ -88,6 +88,8 @@ export default class CytoscapeEngine {
                         style: CytoscapeStyleBuilder.build(parsedConfig),
                         layout: CytoscapeLayoutBuilder.build(parsedConfig),
 
+                        // Force higher pixel ratio for crisp Canvas rendering when zoomed out
+                        pixelRatio: typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2,
                         minZoom: 0.1,
                         maxZoom: 3.0,
                         wheelSensitivity: 0.2,
