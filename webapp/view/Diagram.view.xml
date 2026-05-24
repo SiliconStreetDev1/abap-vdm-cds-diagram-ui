@@ -4,15 +4,16 @@
     xmlns:core="sap.ui.core">
 
         <Toolbar id="toolbarActions" visible="{view>/hasDiagram}">
-            <Button id="btnReturnRoot" 
-                    icon="sap-icon://sys-back-2" 
-                    text="Back to Root ({diagramData>/rootCdsName})" 
-                    press="onReturnToRoot" 
-                    visible="{view>/isDrillDown}" 
-                    class="sapUiTinyMarginEnd" />
+            <Breadcrumbs id="breadcrumbs" links="{diagramData>/breadcrumbLinks}" currentLocationText="{diagramData>/currentBreadcrumb}" class="sapUiTinyMarginEnd">
+                <Link text="{diagramData>name}" press="onBreadcrumbPress" />
+            </Breadcrumbs>
 
             <ToolbarSpacer />
             
+            <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="sapUiTinyMarginEnd" />
+
+            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap" type="Transparent" visible="{view>/hasDiagram}" />
+
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" text="Full Screen" press="onToggleFullScreen" type="Transparent" />
             
             <Button id="btnCopy" icon="sap-icon://copy" text="{i18n>btnCopy}" press="onCopySyntax" />

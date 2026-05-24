@@ -10,7 +10,11 @@
     "graphvizPlugin": "./libs/d3-graphviz.min.js",
     "pako": "./libs/pako.min.js",
     "cytoscape": "./libs/cytoscape.min.js",
-    "cytoscapeSvg": "./libs/cytoscape-svg.min.js"
+    "cytoscapeSvg": "./libs/cytoscape-svg.min.js",
+    "dagre": "./libs/dagre.min.js",
+    "cytoscapeDagre": "./libs/cytoscape-dagre.js",
+    "navigatorJs": "./libs/cytoscape-navigator.js",
+    "navigatorCss": "./libs/cytoscape.js-navigator.css"
   },
   "cdnPaths": {
     "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js",
@@ -19,6 +23,10 @@
     "graphvizPlugin": "https://unpkg.com/d3-graphviz@5.1.0/build/d3-graphviz.min.js",
     "pako": "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js",
     "cytoscape": "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js",
-    "cytoscapeSvg": "https://cdn.jsdelivr.net/npm/cytoscape-svg@0.4.0/cytoscape-svg.min.js"
+    "cytoscapeSvg": "https://cdn.jsdelivr.net/npm/cytoscape-svg@0.4.0/cytoscape-svg.min.js",
+    "dagre": "https://unpkg.com/dagre@0.8.5/dist/dagre.min.js",
+    "cytoscapeDagre": "https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js",
+    "navigatorJs": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape-navigator.js",
+    "navigatorCss": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape.js-navigator.css"
   }
 }

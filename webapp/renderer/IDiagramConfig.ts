@@ -13,6 +13,8 @@ export interface IConfigPaths {
     dagre?: string;
     cytoscapeDagre?: string;
     cytoscapeSvg?: string; 
+    navigatorJs?: string;
+    navigatorCss?: string;
 }
 
 export interface IDiagramConfig {

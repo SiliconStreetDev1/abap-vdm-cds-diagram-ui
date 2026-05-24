@@ -13,7 +13,11 @@ const DEPENDENCIES = {
     "d3-graphviz.min.js": "https://unpkg.com/d3-graphviz@5.1.0/build/d3-graphviz.min.js",
     "pako.min.js": "https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js",
     "cytoscape.min.js": "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js",
-    "cytoscape-svg.min.js": "https://cdn.jsdelivr.net/npm/cytoscape-svg@0.4.0/cytoscape-svg.min.js"
+    "cytoscape-svg.min.js": "https://cdn.jsdelivr.net/npm/cytoscape-svg@0.4.0/cytoscape-svg.min.js",
+    "dagre.min.js": "https://unpkg.com/dagre@0.8.5/dist/dagre.min.js",
+    "cytoscape-dagre.js": "https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js",
+    "cytoscape-navigator.js": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape-navigator.js",
+    "cytoscape.js-navigator.css": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape.js-navigator.css"
 };
 
 /**

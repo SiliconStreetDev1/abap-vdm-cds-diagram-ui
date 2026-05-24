@@ -18,6 +18,7 @@ export default class DomManager {
      * @param {(sRenderId: string) => void} fnCallback - Executed with a unique epoch ID upon success.
      */
     public static setupCanvas(oHtml: HTML, fnOnError: (msg: string) => void, fnCallback: (sRenderId: string) => void): void {
+        
         const sParentId = "vdmCanvasContainer";
         const config = ConfigManager.get();
 

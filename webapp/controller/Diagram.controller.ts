@@ -12,6 +12,7 @@ import HTML from "sap/ui/core/HTML";
 
 import ExportHandler from "../handlers/ExportHandler";
 import Renderer from "../renderer/Renderer";
+import { EngineType, IRenderRequestPayload } from "../types";
 
 export default class Diagram extends Controller {
     
@@ -33,6 +34,7 @@ export default class Diagram extends Controller {
             hasError: false, 
             errorText: "", 
             canExportImg: true,
+            showMinimap: false,
             fullScreenIcon: "sap-icon://full-screen" // Default icon state
         }), "view");
         
@@ -42,7 +44,9 @@ export default class Diagram extends Controller {
             extension: "", 
             cdsName: "", 
             engine: "",
-            rootCdsName: ""
+            rootCdsName: "",
+            breadcrumbLinks: [],
+            currentBreadcrumb: ""
         }), "diagramData");
 
         // Initialize the export service
@@ -57,6 +61,7 @@ export default class Diagram extends Controller {
         // Attach native DOM listeners to catch when a user presses 'ESC' to exit fullscreen natively
         document.addEventListener("fullscreenchange", this._onFullScreenChange.bind(this));
         document.addEventListener("webkitfullscreenchange", this._onFullScreenChange.bind(this)); // Safari fallback
+        document.addEventListener("CdsCloseMinimapRequest", this._onCloseMinimapRequest.bind(this) as EventListener);
     }
 
     /**
@@ -64,12 +69,19 @@ export default class Diagram extends Controller {
      * @description Core rendering routine. Triggered via EventBus.
      * @param {string} sChannel - Channel ID ('DiagramEngine')
      * @param {string} sEvent - Event ID ('RenderRequest')
-     * @param {any} oData - The payload containing syntax and metadata
+     * @param {IRenderRequestPayload} oData - The payload containing syntax and metadata
      * @returns {void}
      */
-    private _onRenderRequest(sChannel: string, sEvent: string, oData: any): void {
+    private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
+        const oData = oEventData as IRenderRequestPayload;
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
+
+        // If the new engine is not Cytoscape, force close the minimap to prevent UI desync
+        if (oData.engine !== "CYTOSCAPE") {
+            oViewModel.setProperty("/showMinimap", false);
+            Renderer.toggleMinimap(false);
+        }
 
         this._resetState();
 
@@ -79,17 +91,19 @@ export default class Diagram extends Controller {
             extension: oData.extension,
             cdsName: oData.cdsName,
             engine: oData.engine,
-            rootCdsName: oData.rootCdsName
+            rootCdsName: oData.rootCdsName,
+            breadcrumbLinks: (oData.breadcrumbs || []).slice(0, -1).map((name: string) => ({ name })),
+            currentBreadcrumb: (oData.breadcrumbs || [])[(oData.breadcrumbs || []).length - 1] || ""
         });
 
         // 2. Engine-specific UI validation
-        if (oData.engine === "D2") {
+        if (oData.engine === EngineType.D2) {
             this._showError("msgD2Warning");
             return;
         }
 
         // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
-        oViewModel.setProperty("/canExportImg", oData.engine !== "D2");
+        oViewModel.setProperty("/canExportImg", true); // We return early if D2 above, so this is always true
         oViewModel.setProperty("/hasDiagram", true);
         oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
 
@@ -139,18 +153,51 @@ export default class Diagram extends Controller {
 
     /**
      * @public
-     * @description Fires a drill-down request for the root node, gracefully returning the user.
+     * @description Fires a drill-down request for a specific breadcrumb, gracefully returning the user.
      */
-    public onReturnToRoot(): void {
-        const sRoot = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/rootCdsName");
-        if (sRoot) {
+    public onBreadcrumbPress(oEvent: any): void {
+        const oLink = oEvent.getSource();
+        const sViewName = oLink.getText();
+        if (sViewName) {
             const event = new CustomEvent("CdsNodeDrillDownRequest", {
-                detail: { viewName: sRoot }
+                detail: { viewName: sViewName }
             });
             document.dispatchEvent(event);
         }
     }
 
+    /**
+     * @public
+     * @description Search handler for locating specific nodes in the active canvas.
+     */
+    public onSearchCanvas(oEvent: any): void {
+        const sQuery = oEvent.getParameter("query");
+        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
+        
+        Renderer.searchCanvas(sEngine, sQuery);
+    }
+
+    /**
+     * @private
+     * @description Event handler for close minimap custom event
+     */
+    private _onCloseMinimapRequest(): void {
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        if (oViewModel) {
+            oViewModel.setProperty("/showMinimap", false);
+        }
+        Renderer.toggleMinimap(false);
+    }
+
+    /**
+     * @public
+     * @description Toggles the minimap display
+     */
+    public onToggleMinimap(oEvent: any): void {
+        const bPressed = oEvent.getSource().getPressed();
+        (this.getView()?.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
+        Renderer.toggleMinimap(bPressed);
+    }
 
     /**
      * @private

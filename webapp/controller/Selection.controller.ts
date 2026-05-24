@@ -19,6 +19,7 @@ import Control from "sap/ui/core/Control";
 import ComboBox from "sap/m/ComboBox";
 import Select from "sap/m/Select";
 import Button from "sap/m/Button";
+import Input from "sap/m/Input";
 import MultiInput from "sap/m/MultiInput";
 import Token from "sap/m/Token";
 import VBox from "sap/m/VBox";
@@ -34,6 +35,7 @@ import VariantHandler from "../handlers/VariantHandler";
 import CdsValueHelpHandler from "../handlers/CdsValueHelpHandler";
 import DiagramService from "../services/DiagramService";
 import InputValidationService from "../services/InputValidationService";
+import { EngineType, IRenderRequestPayload } from "../types";
 
 export default class Selection extends Controller {
 
@@ -51,6 +53,9 @@ export default class Selection extends Controller {
 
     /** @private {string} Tracks the root CDS view during drill-down sessions */
     private _sRootCdsName: string = "";
+
+    /** @private {string[]} Tracks the breadcrumb trail for drill-down navigation */
+    private _aBreadcrumbs: string[] = [];
 
     /**
      * @public
@@ -108,9 +113,18 @@ export default class Selection extends Controller {
         // If this is a fresh user search (not a canvas drill-down), set the new root
         if (!bIsDrillDown) {
             this._sRootCdsName = sCdsName;
+            this._aBreadcrumbs = [sCdsName];
+        } else {
+            const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
+            if (iIndex > -1) {
+                // Navigating backwards truncates the trail
+                this._aBreadcrumbs = this._aBreadcrumbs.slice(0, iIndex + 1);
+            } else {
+                this._aBreadcrumbs.push(sCdsName);
+            }
         }
 
-        const sEngine = (this.byId("selEngine") as Select).getSelectedKey();
+        const sEngine = (this.byId("selEngine") as Select).getSelectedKey() as EngineType;
         const oModel = this.getOwnerComponent()?.getModel() as ODataModel; 
         
         BusyIndicator.show(0);
@@ -131,7 +145,7 @@ export default class Selection extends Controller {
             
             // Guarantee Cytoscape layout settings are respected by injecting them directly into 
             // the payload, bypassing the ABAP backend which is silently dropping 'rank_dir'
-            if (sEngine === "CYTOSCAPE") {
+            if (sEngine === EngineType.CYTOSCAPE) {
                 try {
                     const oData = JSON.parse(sPayload);
                     oData.config = oData.config || {};
@@ -147,13 +161,15 @@ export default class Selection extends Controller {
             // for this exact signature and will route it to the correct JS library.
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
-                oEventBus.publish("DiagramEngine", "RenderRequest", {
+                const oPayload: IRenderRequestPayload = {
                     payload: sPayload, // PlantUML String OR Cytoscape JSON
                     extension: oResult.FileExtension,
                     cdsName: oResult.CdsName,
                     engine: sEngine,
-                    rootCdsName: this._sRootCdsName
-                });
+                    rootCdsName: this._sRootCdsName,
+                    breadcrumbs: this._aBreadcrumbs
+                };
+                oEventBus.publish("DiagramEngine", "RenderRequest", oPayload);
             }
 
         } catch (oError: any) {
@@ -198,7 +214,6 @@ export default class Selection extends Controller {
         const oActiveField = this._oActiveSearchField as any;
         if (!oActiveField) return;
 
-        // If the F4 was triggered from an Include/Exclude box, add it as a Token
         if (oActiveField.isA("sap.m.MultiInput")) {
             const oMI = oActiveField as MultiInput;
             if (!oMI.getTokens().some((t: Token) => t.getKey() === sSelectedCds)) {
@@ -206,9 +221,9 @@ export default class Selection extends Controller {
             }
             oMI.focus();
         } 
-        // If triggered from the main View Name box, overwrite value and focus Generate button
         else if (oActiveField.isA("sap.m.Input") || oActiveField.isA("sap.m.ComboBox")) {
-            oActiveField.setValue(sSelectedCds);
+            const oInputField = oActiveField as Input | ComboBox;
+            oInputField.setValue(sSelectedCds);
             (this.byId("btnGenerate") as Button)?.focus();
         }
         this._oActiveSearchField = undefined;

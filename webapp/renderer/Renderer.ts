@@ -14,6 +14,7 @@ import CytoscapeEngine from "./engines/CytoscapeEngine";
 import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
 import SvgProcessor from "../helpers/SvgProcessor";
+import { EngineType } from "../types";
 
 export default class Renderer {
 
@@ -21,27 +22,27 @@ export default class Renderer {
      * @public
      * @static
      * @description Renders the diagram visually into the active Fiori UI5 DOM.
-     * @param {string} sEngine - Target Engine
+     * @param {EngineType} sEngine - Target Engine
      * @param {string} sPayload - Syntax payload
      * @param {HTML} oHtmlControl - UI5 Control target
      * @param {Function} fnOnError - Error handler
      * @returns {Promise<void>}
      */
-    public static async renderDiagram(sEngine: string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void): Promise<void> {
+    public static async renderDiagram(sEngine: EngineType, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void): Promise<void> {
         await ConfigManager.initialize();
 
         DomManager.setupCanvas(oHtmlControl, fnOnError, (sRenderId: string) => {
             switch (sEngine) {
-                case "MERMAID":
+                case EngineType.MERMAID:
                     MermaidEngine.render(sPayload, sRenderId, fnOnError);
                     break;
-                case "GRAPHVIZ":
+                case EngineType.GRAPHVIZ:
                     GraphvizEngine.render(sPayload, sRenderId, fnOnError);
                     break;
-                case "PLANTUML":
+                case EngineType.PLANTUML:
                     PlantUmlEngine.render(sPayload, sRenderId, fnOnError);
                     break;
-                case "CYTOSCAPE":
+                case EngineType.CYTOSCAPE:
                     CytoscapeEngine.render(sPayload, sRenderId, fnOnError);
                     break;
                 default:
@@ -55,26 +56,26 @@ export default class Renderer {
      * @static
      * @description Generates a pure, headless SVG string completely independently 
      * of the active UI5 view. Ensures the UI5 Pan/Zoom controls are never interrupted.
-     * @param {string} sEngine - The requested export engine.
+     * @param {EngineType} sEngine - The requested export engine.
      * @param {string} sPayload - The source syntax or JSON payload.
      * @returns {Promise<string>} A promise resolving to the finalized, standard XML/SVG string.
      */
-    public static async generateExportSvg(sEngine: string, sPayload: string): Promise<string> {
+    public static async generateExportSvg(sEngine: EngineType, sPayload: string): Promise<string> {
         await ConfigManager.initialize();
         
         let sRawSvg = "";
 
         switch (sEngine) {
-            case "CYTOSCAPE":
+            case EngineType.CYTOSCAPE:
                 sRawSvg = CytoscapeEngine.exportSvg();
                 break;
-            case "MERMAID":
+            case EngineType.MERMAID:
                 sRawSvg = await MermaidEngine.exportSvg(sPayload);
                 break;
-            case "PLANTUML":
+            case EngineType.PLANTUML:
                 sRawSvg = await PlantUmlEngine.exportSvg(sPayload);
                 break;
-            case "GRAPHVIZ":
+            case EngineType.GRAPHVIZ:
                 sRawSvg = await GraphvizEngine.exportSvg(sPayload);
                 break;
             default:
@@ -94,5 +95,27 @@ export default class Renderer {
      */
     public static convertSvgStringToPng(sSvgData: string): Promise<Blob> {
         return ExportUtility.convertSvgStringToPng(sSvgData);
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Toggles the minimap display
+     */
+    public static toggleMinimap(bShow: boolean): void {
+        CytoscapeEngine.toggleMinimap(bShow);
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Issues a search command to the active rendering engine.
+     * @param {string} sEngine - Target Engine
+     * @param {string} sQuery - Search string
+     */
+    public static searchCanvas(sEngine: string, sQuery: string): void {
+        if (sEngine === "CYTOSCAPE") {
+            CytoscapeEngine.search(sQuery);
+        }
     }
 }

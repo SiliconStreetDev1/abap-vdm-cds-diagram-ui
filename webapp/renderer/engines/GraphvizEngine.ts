@@ -6,6 +6,7 @@
 
 import ConfigManager from "../ConfigManager";
 import NetworkManager from "../../helpers/NetworkManager";
+import DomManager from "../DomManager";
 
 declare const d3: any;
 
@@ -33,21 +34,15 @@ export default class GraphvizEngine {
             }
 
             d3.select(`#${sRenderId}`)
-                .graphviz()
+                .graphviz({ useWorker: false })
                 .tweenPaths(false)  
                 .tweenShapes(false)
-                .zoom(true)
-                .zoomScaleExtent([0.001, 100])
                 .fit(true)
+                .zoom(false)
                 .on("renderEnd", () => {
-                    const svg = d3.select(`#${sRenderId} svg`);
-                    if (!svg.empty()) {
-                        svg.attr("width", "100%")
-                           .attr("height", "100%")
-                           .style("width", "100%")
-                           .style("height", "100%")
-                           .attr("preserveAspectRatio", "xMidYMid meet");
-                    }
+                    // Delegate zoom and pan to the standard DOM Manager
+                    // so it can seamlessly sync with the custom minimap
+                    DomManager.attachStandardZoom(sRenderId);
                 })
                 .renderDot(sPayload);
 
@@ -80,7 +75,7 @@ export default class GraphvizEngine {
                 const oDetachedDiv = document.createElement("div");
                 
                 d3.select(oDetachedDiv)
-                    .graphviz()
+                    .graphviz({ useWorker: false })
                     .tweenPaths(false)
                     .tweenShapes(false)
                     .zoom(false) // Disable zoom behaviors for static export

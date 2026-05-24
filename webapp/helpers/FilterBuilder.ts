@@ -12,6 +12,7 @@ import Switch from "sap/m/Switch";
 import MultiInput from "sap/m/MultiInput";
 import StepInput from "sap/m/StepInput";
 import JSONModel from "sap/ui/model/json/JSONModel";
+import { EngineType } from "../types";
 
 export default class FilterBuilder {
     
@@ -21,11 +22,11 @@ export default class FilterBuilder {
      * UI-specific Dropdowns (like lineStyle) back into ABAP-friendly boolean structures.
      * @param {View} oView - The current SAPUI5 View.
      * @param {string} sCdsName - Targeted CDS view.
-     * @param {string} sEngine - Selected renderer engine.
+     * @param {EngineType} sEngine - Selected renderer engine.
      * @returns {Filter[]} Array of filters for the bindList call.
      * @public
      */
-    public static buildFiltersFromView(oView: View, sCdsName: string, sEngine: string): Filter[] {
+    public static buildFiltersFromView(oView: View, sCdsName: string, sEngine: EngineType): Filter[] {
         const sRelMode = (oView.byId("segRelMode") as SegmentedButton).getSelectedKey();
         const bIsLinesMode = (sRelMode === "LINES");
 
@@ -65,21 +66,21 @@ export default class FilterBuilder {
         let oFormatConfig: any = {};
 
      // Deep copy properties so we don't accidentally mutate the live UI model during translation
-        if (sEngine === "CYTOSCAPE") {
+        if (sEngine === EngineType.CYTOSCAPE) {
             // Straight copy: The XML bindings already use the exact snake_case names 
             // (layout_algorithm, node_spacing) expected by the ABAP XCO Framework.
             oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-        } else if (sEngine === "PLANTUML") {
+        } else if (sEngine === EngineType.PLANTUML) {
             oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatPlantUML"));
             oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
             oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
             delete oFormatConfig.lineStyle; 
-        } else if (sEngine === "GRAPHVIZ") {
+        } else if (sEngine === EngineType.GRAPHVIZ) {
             oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatGraphviz"));
             oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
             oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
             delete oFormatConfig.lineStyle; 
-        } else if (sEngine === "MERMAID") {
+        } else if (sEngine === EngineType.MERMAID) {
             oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatMermaid"));
         }
         

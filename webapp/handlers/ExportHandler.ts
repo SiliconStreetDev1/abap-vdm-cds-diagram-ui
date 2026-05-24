@@ -13,6 +13,7 @@ import File from "sap/ui/core/util/File";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Renderer from "../renderer/Renderer";
 import CytoscapeEngine from "../renderer/engines/CytoscapeEngine";
+import { EngineType } from "../types";
 
 export default class ExportHandler {
     private _oView: View;
@@ -49,7 +50,7 @@ export default class ExportHandler {
         BusyIndicator.show(0);
 
         try {
-            if (oData.engine === "CYTOSCAPE") {
+            if (oData.engine === EngineType.CYTOSCAPE) {
                 // Cytoscape manages its own internal Canvas state for PNG exports
                 const b64Image = CytoscapeEngine.exportPng();
                 if (!b64Image) throw new Error("Canvas is empty or not initialized.");
@@ -105,7 +106,7 @@ export default class ExportHandler {
         try {
             let sSvgData = "";
 
-            if (oData.engine === "CYTOSCAPE") {
+            if (oData.engine === EngineType.CYTOSCAPE) {
                 sSvgData = CytoscapeEngine.exportSvg();
                 if (!sSvgData) throw new Error("SVG Export Failed. Ensure the cytoscape-svg plugin is loaded.");
             } else {

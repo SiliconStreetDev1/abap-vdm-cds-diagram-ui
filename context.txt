@@ -248,7 +248,7 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Rendering Engines
 This application utilizes four distinct visual engines to render CDS relationships:
 
-* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered.
+* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. You can also now double click on an CDS entity and it should drill into that entity.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
 > [!WARNING]
@@ -304,15 +304,20 @@ Manage external endpoints, CDN paths, and performance limits.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
 
-## Licensing
+## 📄 License & Terms
+
 © 2026 Silicon Street Limited. All Rights Reserved.
 
-Usage Terms:
-* **INTERNAL USE:** Permission is granted for internal business documentation within a single organization at no cost.
-* **NON-REDISTRIBUTION:** You may NOT redistribute, sell, or include this source code in commercial packages.
-* **PAID SERVICES:** Use of this code for paid consulting requires a Commercial License.
+**Usage Terms:**
+1. **INTERNAL USE:** Permission is granted to use this code for internal business documentation purposes within a single organization at no cost.
+2. **NON-REDISTRIBUTION:** You may **NOT** redistribute, sell, or include this source code (or derivatives thereof) in any commercial software, package, or library.
+3. **PAID SERVICES:** Use of this code to provide paid consulting or documentation services to third parties requires a **Commercial License**.
+4. **MODIFICATIONS:** Any modifications remain subject to this license.
+
+**DISCLAIMER:** THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
 
 **FOR COMMERCIAL LICENSING INQUIRIES:** contact@siliconst.co.nz
+
 
 Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
 
@@ -1100,7 +1105,8 @@ export default class Diagram extends Controller {
             payload: "", 
             extension: "", 
             cdsName: "", 
-            engine: "" 
+            engine: "",
+            rootCdsName: ""
         }), "diagramData");
 
         // Initialize the export service
@@ -1136,7 +1142,8 @@ export default class Diagram extends Controller {
             payload: oData.payload,
             extension: oData.extension,
             cdsName: oData.cdsName,
-            engine: oData.engine
+            engine: oData.engine,
+            rootCdsName: oData.rootCdsName
         });
 
         // 2. Engine-specific UI validation
@@ -1148,6 +1155,7 @@ export default class Diagram extends Controller {
         // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
         oViewModel.setProperty("/canExportImg", oData.engine !== "D2");
         oViewModel.setProperty("/hasDiagram", true);
+        oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
 
         // 4. Trigger the WASM/JS rendering engine
         try {
@@ -1192,6 +1200,21 @@ export default class Diagram extends Controller {
             }
         }
     }
+
+    /**
+     * @public
+     * @description Fires a drill-down request for the root node, gracefully returning the user.
+     */
+    public onReturnToRoot(): void {
+        const sRoot = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/rootCdsName");
+        if (sRoot) {
+            const event = new CustomEvent("CdsNodeDrillDownRequest", {
+                detail: { viewName: sRoot }
+            });
+            document.dispatchEvent(event);
+        }
+    }
+
 
     /**
      * @private
@@ -1289,7 +1312,7 @@ export default class Main extends Controller {
         // Set Cytoscape defaults so the UI bindings evaluate immediately on load
         oUiModel.setProperty("/formatCytoscape", {
             layout_algorithm: "dagre",
-            rankDir: "TB",
+            rank_dir: "TB",
             theme: "fiori_light",
             line_style: "bezier",
             animate: true,
@@ -1354,6 +1377,9 @@ export default class Selection extends Controller {
     /** @private {ResponsivePopover | undefined} Popover instance for inline contextual help */
     private _oInfoPopover?: ResponsivePopover;
 
+    /** @private {string} Tracks the root CDS view during drill-down sessions */
+    private _sRootCdsName: string = "";
+
     /**
      * @public
      * @description Lifecycle hook. Bootstraps local handlers, validators, and default UI state.
@@ -1376,6 +1402,9 @@ export default class Selection extends Controller {
 
         // Pre-load previous user sessions (Local Storage or LREP)
         this._oVariantHandler.loadHistoryAndVariants();
+
+        // Listen for Drill Down Requests from rendering engines (like Cytoscape double-click)
+        document.addEventListener("CdsNodeDrillDownRequest", this._onNodeDrillDownRequest.bind(this) as EventListener);
     }
 
     /**
@@ -1384,13 +1413,29 @@ export default class Selection extends Controller {
      * Provider, and publishes the payload via EventBus for the rendering engine.
      * @returns {Promise<void>}
      */
-    public async onGenerate(): Promise<void> {
+    public onGenerate(oEvent?: Event): void {
+        this._executeGeneration(false);
+    }
+
+    /**
+     * @private
+     * @description Internal method to handle diagram generation, separating the UI
+     * event logic from programmatic drill-down requests.
+     * @param {boolean} bIsDrillDown - Whether this generation preserves the existing root.
+     */
+    private async _executeGeneration(bIsDrillDown: boolean): Promise<void> {
+
         const oComboBox = this.byId("cmbCdsName") as ComboBox;
         const sCdsName = oComboBox.getValue().trim().toUpperCase();
         
         if (!sCdsName) {
             MessageToast.show(this._getText("msgEnterCds"));
             return;
+        }
+
+        // If this is a fresh user search (not a canvas drill-down), set the new root
+        if (!bIsDrillDown) {
+            this._sRootCdsName = sCdsName;
         }
 
         const sEngine = (this.byId("selEngine") as Select).getSelectedKey();
@@ -1410,16 +1455,32 @@ export default class Selection extends Controller {
             this._oVariantHandler.updateHistory(oResult.CdsName);
             DiagramService.validatePayloadSize(oResult.DiagramPayload);
 
+            let sPayload = oResult.DiagramPayload;
+            
+            // Guarantee Cytoscape layout settings are respected by injecting them directly into 
+            // the payload, bypassing the ABAP backend which is silently dropping 'rank_dir'
+            if (sEngine === "CYTOSCAPE") {
+                try {
+                    const oData = JSON.parse(sPayload);
+                    oData.config = oData.config || {};
+                    oData.config.formatCytoscape = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
+                    sPayload = JSON.stringify(oData);
+                } catch (e) {
+                    // Ignore parsing errors
+                }
+            }
+
             // PUBLISH TO EVENTBUS
             // We do not care how it is drawn. The Diagram.controller.ts is listening 
             // for this exact signature and will route it to the correct JS library.
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
                 oEventBus.publish("DiagramEngine", "RenderRequest", {
-                    payload: oResult.DiagramPayload, // PlantUML String OR Cytoscape JSON
+                    payload: sPayload, // PlantUML String OR Cytoscape JSON
                     extension: oResult.FileExtension,
                     cdsName: oResult.CdsName,
-                    engine: sEngine
+                    engine: sEngine,
+                    rootCdsName: this._sRootCdsName
                 });
             }
 
@@ -1481,6 +1542,21 @@ export default class Selection extends Controller {
         this._oActiveSearchField = undefined;
     }
 
+    /**
+     * @private
+     * @description Handles drill down requests emitted by interacting with the canvas.
+     * Updates the target CDS view name and immediately fires a new rendering request.
+     */
+    private _onNodeDrillDownRequest(oEvent: CustomEvent): void {
+        const sViewName = oEvent.detail?.viewName;
+        if (sViewName) {
+            const oComboBox = this.byId("cmbCdsName") as ComboBox;
+            oComboBox.setValue(sViewName);
+            
+            this._executeGeneration(true);
+        }
+    }
+
     // ========================================================================
     // CONTEXTUAL HELP (POPOVER)
     // ========================================================================
@@ -1539,7 +1615,6 @@ C:\projects\Fiori\vdmdiagrammer\webapp\css\style.css
     max-width: 100%;
     max-height: 100%;
 }
-
 
 ```
 
@@ -2494,7 +2569,7 @@ export default class ViewStateHelper {
             activeEngine: "GRAPHVIZ",
             
             // Note: Cytoscape uses exact snake_case to match the ABAP XCO Framework directly
-            formatCytoscape: { layout_algorithm: "cose", theme: "fiori_light", animate: true, node_spacing: 200 },
+            formatCytoscape: { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 200 },
             formatPlantUML: { lineStyle: "default", spaced_out: false, staggered: false, modern: true },
             formatGraphviz: { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false },
             formatMermaid: { direction: "TB", theme: "default" }
@@ -2515,7 +2590,7 @@ export default class ViewStateHelper {
         oUiModel.setProperty("/activeEngine", sEngine);
         
         // Reset all format configurations to their defaults
-        oUiModel.setProperty("/formatCytoscape", { layout_algorithm: "cose", theme: "fiori_light", animate: true, node_spacing: 200 });
+        oUiModel.setProperty("/formatCytoscape", { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 200 });
         oUiModel.setProperty("/formatPlantUML", { lineStyle: "default", spaced_out: false, staggered: false, modern: true });
         oUiModel.setProperty("/formatGraphviz", { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false });
         oUiModel.setProperty("/formatMermaid", { direction: "TB", theme: "default" });
@@ -3341,6 +3416,15 @@ export default class CytoscapeEngine {
                         document.dispatchEvent(event);
                     });
 
+                    // Use Cytoscape's native double tap event for drill down requests
+                    this._cyInstance.on('dbltap', 'node', (evt: any) => {
+                        const node = evt.target;
+                        const event = new CustomEvent("CdsNodeDrillDownRequest", {
+                            detail: { viewName: node.data('id') }
+                        });
+                        document.dispatchEvent(event);
+                    });
+
                 } catch (e: any) {
                     fnOnError(`Cytoscape Parsing Error. Details: ${e.message}`);
                 }
@@ -3424,7 +3508,7 @@ export default class CytoscapeEngine {
     private static _parseConfig(format: any): ICyConfig {
         return {
             layout: format.layout_algorithm || format.layoutAlgorithm || 'dagre',
-            rankDir: format.rankDir || 'TB',
+            rankDir: format.rank_dir || format.rankDir || 'TB', // Map directly to the ABAP backend state
             theme: format.theme || 'fiori_light',
             lineStyle: format.line_style || format.lineStyle || 'bezier',
             animate: format.animate !== false,
@@ -3449,18 +3533,33 @@ export default class CytoscapeEngine {
         switch (config.layout) {
             case 'cose':
                 oBaseConfig.idealEdgeLength = (edge: any) => {
-                    return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 2 : config.nodeSpacing;
+                    // Pull compositions extremely tight, let loose associations float further out
+                    return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 3 : config.nodeSpacing * 1.5;
                 };
                 oBaseConfig.edgeElasticity = (edge: any) => {
-                    return edge.data('label')?.toLowerCase().includes('composition') ? 400 : 100;
+                    return edge.data('label')?.toLowerCase().includes('composition') ? 500 : 50;
                 };
-                oBaseConfig.nodeRepulsion = config.nodeSpacing * 4500;
+                oBaseConfig.nodeRepulsion = (node: any) => {
+                    // Massive repulsion so large entity boxes don't overlap
+                    return config.nodeSpacing * 8000;
+                };
+                oBaseConfig.gravity = 0.15; // Lighter gravity so the web spreads out and breathes
+                oBaseConfig.numIter = 3000; // Let the physics simulation run longer to find the perfect resting state
+                break;
+            case 'breadthfirst':
+                oBaseConfig.directed = true; // Force a strict PlantUML-style directed tree
+                oBaseConfig.spacingFactor = Math.max(1.2, config.nodeSpacing / 100);
+                oBaseConfig.avoidOverlap = true;
                 break;
             case 'dagre':
                 // Controls Left-to-Right vs Top-to-Bottom mapping
                 oBaseConfig.rankDir = config.rankDir;
-                oBaseConfig.rankSep = config.nodeSpacing;
-                oBaseConfig.nodeSep = config.nodeSpacing / 2;
+                oBaseConfig.rankSep = config.nodeSpacing * 1.5; // Reduce vertical stretch to keep lines shorter
+                oBaseConfig.nodeSep = config.nodeSpacing / 1.5; // Bring siblings closer together
+                oBaseConfig.edgeSep = Math.max(30, config.nodeSpacing / 3); // Keep routing corridors tight
+                oBaseConfig.ranker = 'network-simplex'; // Graphviz's core algorithm for minimizing edge crossings
+                oBaseConfig.acyclicer = 'greedy'; // Force cycle breaking so feedback loops don't tangle the interior grid
+                oBaseConfig.spacingFactor = 1.0; // Remove artificial expansion multiplier
                 break;
             case 'grid':
             case 'circle':
@@ -3477,38 +3576,43 @@ export default class CytoscapeEngine {
      * @param {any[]} edges - Array of edge objects to mutate.
      */
     private static _preprocessData(nodes: any[], edges: any[]): void {
-
         // 1. Format Nodes
         nodes.forEach(node => {
             const data = node.data;
-            let lines: string[] = [];
-
-            const sTitle = data.isUnion ? `[UNION] ${data.label}` : data.label;
-            lines.push(sTitle.toUpperCase());
+            let fieldLines: string[] = [];
 
             if (data.baseSources && data.baseSources.length > 0) {
-                lines.push("─ Base Views ─");
-                data.baseSources.forEach((s: string) => lines.push(`» ${s}`));
+                if (fieldLines.length > 0) fieldLines.push("");
+                fieldLines.push("[ BASE ]");
+                data.baseSources.forEach((s: string) => fieldLines.push(`   » ${s}`));
             }
             if (data.keys && data.keys.length > 0) {
-                lines.push("─ Keys ─");
-                data.keys.forEach((k: string) => lines.push(`🔑 ${k}`));
+                if (fieldLines.length > 0) fieldLines.push("");
+                fieldLines.push("[ KEYS ]");
+                data.keys.forEach((k: string) => fieldLines.push(`   🔑 ${k}`));
             }
             if (data.standard && data.standard.length > 0) {
-                lines.push("─ Fields ─");
-                data.standard.forEach((f: string) => lines.push(`▫ ${f}`));
-            }
-
-            // Extract Associations and add them to the visual block
-            const outgoingEdges = edges.filter(e => e.data.source === data.id);
-            const assocNames = outgoingEdges.map(e => e.data.label).filter(l => !!l);
-            if (assocNames.length > 0) {
-                lines.push("─ Associations ─");
-                const uniqueAssocs = Array.from(new Set(assocNames));
-                uniqueAssocs.forEach(a => lines.push(`🔗 ${a}`));
+                if (fieldLines.length > 0) fieldLines.push("");
+                fieldLines.push("[ FIELDS ]");
+                data.standard.forEach((f: string) => fieldLines.push(`   ▫ ${f}`));
             }
             
-            data.displayLabel = lines.join('\n');
+            // Safely extract backend-provided associations (this strictly respects the 'Show Association Fields' UI toggle)
+            const aAssocs = data.associations || data.associationFields || data.navigations || [];
+            if (aAssocs.length > 0) {
+                if (fieldLines.length > 0) fieldLines.push("");
+                fieldLines.push("[ ASSOCIATIONS ]");
+                aAssocs.forEach((a: string) => fieldLines.push(`   🔗 ${a}`));
+            }
+
+            const sTitle = data.isUnion ? `« UNION »\n${data.label}` : data.label;
+            
+            if (fieldLines.length > 0) {
+                // Plain-text layout using a solid divider since Cytoscape does not support rich-text inside a single node
+                data.displayLabel = sTitle + "\n──────────────────────\n" + fieldLines.join('\n');
+            } else {
+                data.displayLabel = sTitle;
+            }
         });
 
         // 2. Format Edges
@@ -3518,7 +3622,8 @@ export default class CytoscapeEngine {
             const card = data.cardinality || "";
 
             if (label && card) {
-                data.displayLabel = `${label} [${card}]`;
+                // Drop cardinality to a new line so Cytoscape has room to wrap long association names
+                data.displayLabel = `${label}\n[${card}]`;
             } else if (label || card) {
                 data.displayLabel = label || `[${card}]`;
             } else {
@@ -3591,9 +3696,14 @@ export default class CytoscapeEngine {
                     'line-color': 'data(colorHint)',
                     'target-arrow-color': 'data(colorHint)',
                     'target-arrow-shape': 'triangle',
+                    'arrow-scale': 1.2,
                     'curve-style': config.lineStyle,
-                    'taxi-direction': config.rankDir === 'TB' ? 'downward' : 'rightward',
-                    'control-point-step-size': 60,
+                    'taxi-direction': config.rankDir === 'LR' ? 'rightward' : 'downward',
+                    'taxi-turn': 20,
+                    'taxi-turn-min-distance': 10,
+                    'control-point-step-size': Math.max(30, config.nodeSpacing / 3), // Ensure wider, safer turns for unbundled lines
+                    'source-distance-from-node': 10, // Create a physical standoff so lines don't hug the boxes
+                    'target-distance-from-node': 10, // Create a physical standoff so lines don't hug the boxes
                     'label': 'data(displayLabel)',
                     'font-family': '"72", Arial, Helvetica, sans-serif',
                     'font-size': '10px',
@@ -3605,7 +3715,9 @@ export default class CytoscapeEngine {
                     'text-border-opacity': 1,
                     'text-border-width': 1,
                     'text-border-color': 'data(colorHint)',
-                    'text-rotation': 'autorotate'
+                    'text-rotation': 'autorotate',
+                    'text-wrap': 'wrap',
+                    'text-max-width': '140px' // Force long association names to stack like paragraphs
                 }
             },
             {
@@ -4594,6 +4706,13 @@ C:\projects\Fiori\vdmdiagrammer\webapp\view\Diagram.view.xml
     xmlns:core="sap.ui.core">
 
         <Toolbar id="toolbarActions" visible="{view>/hasDiagram}">
+            <Button id="btnReturnRoot" 
+                    icon="sap-icon://sys-back-2" 
+                    text="Back to Root ({diagramData>/rootCdsName})" 
+                    press="onReturnToRoot" 
+                    visible="{view>/isDrillDown}" 
+                    class="sapUiTinyMarginEnd" />
+
             <ToolbarSpacer />
             
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" text="Full Screen" press="onToggleFullScreen" type="Transparent" />
@@ -4776,13 +4895,14 @@ C:\projects\Fiori\vdmdiagrammer\webapp\view\fragments\CytoscapeFormat.fragment.x
             <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}">
                 <core:Item key="dagre" text="Dagre (Hierarchical)" />
                 <core:Item key="cose" text="Physics (Auto-Untangle)" />
+                <core:Item key="breadthfirst" text="Interactive Tree" />
                 <core:Item key="grid" text="Grid (Structured)" />
                 <core:Item key="circle" text="Circular" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Flow Direction" design="Bold"/>
-            <Select selectedKey="{ui>/formatCytoscape/rankDir}" enabled="{= ${ui>/formatCytoscape/layout_algorithm} === 'dagre' }">
+            <Select selectedKey="{ui>/formatCytoscape/rank_dir}" enabled="{= ${ui>/formatCytoscape/layout_algorithm} === 'dagre' }">
                 <core:Item key="TB" text="Top to Bottom" />
                 <core:Item key="LR" text="Left to Right" />
             </Select>
