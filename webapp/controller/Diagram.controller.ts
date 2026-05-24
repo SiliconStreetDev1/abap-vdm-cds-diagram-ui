@@ -35,6 +35,8 @@ export default class Diagram extends Controller {
             errorText: "", 
             canExportImg: true,
             showMinimap: false,
+            canShowMinimap: false,
+            canSearch: false,
             fullScreenIcon: "sap-icon://full-screen" // Default icon state
         }), "view");
         
@@ -77,11 +79,13 @@ export default class Diagram extends Controller {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
 
-        // If the new engine is not Cytoscape, force close the minimap to prevent UI desync
-        if (oData.engine !== "CYTOSCAPE") {
+        const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
+        if (!bSupportsMinimap) {
             oViewModel.setProperty("/showMinimap", false);
-            Renderer.toggleMinimap(false);
+            Renderer.toggleMinimap(oData.engine, false);
         }
+        oViewModel.setProperty("/canShowMinimap", bSupportsMinimap);
+        oViewModel.setProperty("/canSearch", Renderer.supportsSearch(oData.engine));
 
         this._resetState();
 
@@ -93,7 +97,8 @@ export default class Diagram extends Controller {
             engine: oData.engine,
             rootCdsName: oData.rootCdsName,
             breadcrumbLinks: (oData.breadcrumbs || []).slice(0, -1).map((name: string) => ({ name })),
-            currentBreadcrumb: (oData.breadcrumbs || [])[(oData.breadcrumbs || []).length - 1] || ""
+            currentBreadcrumb: (oData.breadcrumbs || [])[(oData.breadcrumbs || []).length - 1] || "",
+            engineConfig: oData.engineConfig
         });
 
         // 2. Engine-specific UI validation
@@ -110,7 +115,7 @@ export default class Diagram extends Controller {
         // 4. Trigger the WASM/JS rendering engine
         try {
             const oHtml = this.byId("htmlRenderer") as HTML;
-            Renderer.renderDiagram(oData.engine, oData.payload, oHtml, (sMsg: string) => this._showError(sMsg));
+            Renderer.renderDiagram(oData.engine, oData.payload, oHtml, (sMsg: string) => this._showError(sMsg), oData.engineConfig);
         } catch (oError: any) {
             this._showError(oError.message);
         }
@@ -186,7 +191,8 @@ export default class Diagram extends Controller {
         if (oViewModel) {
             oViewModel.setProperty("/showMinimap", false);
         }
-        Renderer.toggleMinimap(false);
+        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.toggleMinimap(sEngine, false);
     }
 
     /**
@@ -196,7 +202,8 @@ export default class Diagram extends Controller {
     public onToggleMinimap(oEvent: any): void {
         const bPressed = oEvent.getSource().getPressed();
         (this.getView()?.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
-        Renderer.toggleMinimap(bPressed);
+        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.toggleMinimap(sEngine, bPressed);
     }
 
     /**

@@ -3,7 +3,7 @@
  * @fileoverview Configuration parser for Cytoscape.js rendering.
  * @description Normalizes raw format configurations from the backend/UI into a strict, typed `ICyConfig` object.
  */
-import { ICyConfig } from "./types/ICyConfig";
+import { ICyConfig } from "../../../types";
 
 export default class CytoscapeConfigParser {
 

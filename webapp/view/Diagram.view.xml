@@ -10,9 +10,9 @@
 
             <ToolbarSpacer />
             
-            <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="sapUiTinyMarginEnd" />
+            <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{view>/canSearch}" class="sapUiTinyMarginEnd" />
 
-            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap" type="Transparent" visible="{view>/hasDiagram}" />
+            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap" type="Transparent" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
 
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" text="Full Screen" press="onToggleFullScreen" type="Transparent" />
             

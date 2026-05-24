@@ -35,12 +35,24 @@ export default class ExportUtility {
             let height = 3000;
             const viewBox = oSvg.getAttribute("viewBox");
             if (viewBox) {
-                const parts = viewBox.split(" ");
-                if (parts.length === 4) {
+                const parts = viewBox.split(/\s+|,/).filter(Boolean);
+                if (parts.length >= 4) {
                     width = parseFloat(parts[2]);
                     height = parseFloat(parts[3]);
                 }
+            } else {
+                const wAttr = oSvg.getAttribute("width");
+                const hAttr = oSvg.getAttribute("height");
+                if (wAttr && hAttr) {
+                    width = parseFloat(wAttr) || width;
+                    height = parseFloat(hAttr) || height;
+                }
             }
+
+            // Force explicit pixel dimensions to prevent browser 'pt' scaling cutoffs
+            oSvg.setAttribute("width", `${width}px`);
+            oSvg.setAttribute("height", `${height}px`);
+            sCleanSvgData = new XMLSerializer().serializeToString(doc);
 
             // Memory Safeguard (Governor)
             let scale = 2;

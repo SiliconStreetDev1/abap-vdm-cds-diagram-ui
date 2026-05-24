@@ -29,6 +29,9 @@ export default class CytoscapeEngine {
     private static _navInstance: any = null;
     private static _bShowMinimap: boolean = false;
 
+    public static supportsMinimap = true;
+    public static supportsSearch = true;
+
     /**
      * @public
      * @description Initializes and renders the Cytoscape graph inside the target DOM container.
@@ -36,8 +39,9 @@ export default class CytoscapeEngine {
      * @param {string} sPayload - The JSON payload containing nodes, edges, and config.
      * @param {string} sRenderId - The DOM element ID where the canvas will be injected.
      * @param {function} fnOnError - Callback function to handle rendering errors.
+     * @param {any} [oConfig] - Cytoscape formatting config
      */
-    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
+    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: any): void {
         const config = ConfigManager.get();
 
         // Chain the core engine and then the SVG plugin using local-first resolution with Integrity checking
@@ -45,18 +49,6 @@ export default class CytoscapeEngine {
             .then(() => NetworkManager.loadScript(config.localPaths?.dagre, config.cdnPaths?.dagre))
             .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeDagre, config.cdnPaths?.cytoscapeDagre))
             .then(() => {
-                if (!document.getElementById("cy-navigator-css")) {
-                    const link = document.createElement("link");
-                    link.id = "cy-navigator-css"; 
-                    link.rel = "stylesheet"; 
-                    const sHref = config.localPaths?.navigatorCss || config.cdnPaths?.navigatorCss;
-                    link.href = sHref ? (sHref.startsWith("./") ? sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/" + sHref.substring(2)) : sHref) : "";
-                    document.head.appendChild(link);
-                    
-                    const style = document.createElement("style"); style.id = "cy-navigator-custom-css";
-                    style.innerHTML = `.cytoscape-navigator { position: absolute !important; z-index: 999 !important; width: 200px !important; height: 200px !important; bottom: 20px !important; left: 20px !important; border-radius: 8px; border: 1px solid #d9d9d9 !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(6px); box-sizing: border-box; transition: opacity 0.2s ease; } .cytoscape-navigator:hover { opacity: 1 !important; }`;
-                    document.head.appendChild(style);
-                }
                 return NetworkManager.loadScript(config.localPaths?.navigatorJs, config.cdnPaths?.navigatorJs);
             })
             .then(() => {
@@ -71,7 +63,7 @@ export default class CytoscapeEngine {
                     const oData = JSON.parse(sPayload);
                     
                     // Fiori UI binds to formatCytoscape. Fallback to format for legacy payloads.
-                    const oFormat = oData.config?.formatCytoscape || oData.config?.format || {};
+                    const oFormat = oConfig || oData.config?.formatCytoscape || oData.config?.format || {};
                     const parsedConfig = CytoscapeConfigParser.parse(oFormat);
 
                     const oContainer = document.getElementById(sRenderId);

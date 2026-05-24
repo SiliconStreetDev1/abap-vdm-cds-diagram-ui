@@ -12,7 +12,6 @@ import MessageToast from "sap/m/MessageToast";
 import File from "sap/ui/core/util/File";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Renderer from "../renderer/Renderer";
-import CytoscapeEngine from "../renderer/engines/CytoscapeEngine";
 import { EngineType } from "../types";
 
 export default class ExportHandler {
@@ -50,9 +49,8 @@ export default class ExportHandler {
         BusyIndicator.show(0);
 
         try {
-            if (oData.engine === EngineType.CYTOSCAPE) {
-                // Cytoscape manages its own internal Canvas state for PNG exports
-                const b64Image = CytoscapeEngine.exportPng();
+            if (Renderer.supportsNativePngExport(oData.engine)) {
+                const b64Image = Renderer.exportPng(oData.engine);
                 if (!b64Image) throw new Error("Canvas is empty or not initialized.");
                 
                 const link = document.createElement("a");
@@ -104,16 +102,9 @@ export default class ExportHandler {
         BusyIndicator.show(0);
 
         try {
-            let sSvgData = "";
-
-            if (oData.engine === EngineType.CYTOSCAPE) {
-                sSvgData = CytoscapeEngine.exportSvg();
-                if (!sSvgData) throw new Error("SVG Export Failed. Ensure the cytoscape-svg plugin is loaded.");
-            } else {
-                // Request a brand new, clean SVG string from the isolated headless engine
-                sSvgData = await Renderer.generateExportSvg(oData.engine, oData.payload);
-                if (!sSvgData) throw new Error("Headless SVG generation failed.");
-            }
+            // Request a brand new, clean SVG string from the isolated headless engine
+            const sSvgData = await Renderer.generateExportSvg(oData.engine, oData.payload);
+            if (!sSvgData) throw new Error("Headless SVG generation failed.");
 
             // Convert the standard XML string into a downloadable File Blob
             const blob = new Blob([sSvgData], { type: "image/svg+xml;charset=utf-8" });

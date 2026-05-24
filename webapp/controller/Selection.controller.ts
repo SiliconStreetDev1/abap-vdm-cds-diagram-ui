@@ -143,19 +143,6 @@ export default class Selection extends Controller {
 
             let sPayload = oResult.DiagramPayload;
             
-            // Guarantee Cytoscape layout settings are respected by injecting them directly into 
-            // the payload, bypassing the ABAP backend which is silently dropping 'rank_dir'
-            if (sEngine === EngineType.CYTOSCAPE) {
-                try {
-                    const oData = JSON.parse(sPayload);
-                    oData.config = oData.config || {};
-                    oData.config.formatCytoscape = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
-                    sPayload = JSON.stringify(oData);
-                } catch (e) {
-                    // Ignore parsing errors
-                }
-            }
-
             // PUBLISH TO EVENTBUS
             // We do not care how it is drawn. The Diagram.controller.ts is listening 
             // for this exact signature and will route it to the correct JS library.
@@ -169,6 +156,11 @@ export default class Selection extends Controller {
                     rootCdsName: this._sRootCdsName,
                     breadcrumbs: this._aBreadcrumbs
                 };
+                
+                if (sEngine === EngineType.CYTOSCAPE) {
+                    oPayload.engineConfig = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
+                }
+
                 oEventBus.publish("DiagramEngine", "RenderRequest", oPayload);
             }
 

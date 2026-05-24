@@ -16,4 +16,5 @@ export interface IRenderRequestPayload {
     engine: EngineType;
     rootCdsName: string;
     breadcrumbs: string[];
+    engineConfig?: any;
 }

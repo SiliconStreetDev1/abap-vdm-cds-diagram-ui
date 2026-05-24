@@ -3,7 +3,7 @@
  * @fileoverview Style builder for Cytoscape.js rendering.
  * @description Generates the Cytoscape stylesheet array tailored to Fiori design guidelines.
  */
-import { ICyConfig } from "./types/ICyConfig";
+import { ICyConfig } from "../../../types";
 
 export default class CytoscapeStyleBuilder {
 

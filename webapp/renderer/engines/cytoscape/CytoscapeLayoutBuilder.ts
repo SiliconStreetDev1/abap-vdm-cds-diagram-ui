@@ -3,7 +3,7 @@
  * @fileoverview Layout builder for Cytoscape.js rendering.
  * @description Translates standardized configuration into native Cytoscape layout parameters (e.g., dagre, cose).
  */
-import { ICyConfig } from "./types/ICyConfig";
+import { ICyConfig } from "../../../types";
 
 export default class CytoscapeLayoutBuilder {
 

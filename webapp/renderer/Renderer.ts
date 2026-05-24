@@ -18,35 +18,36 @@ import { EngineType } from "../types";
 
 export default class Renderer {
 
+    private static _getEngine(sEngine: string): any {
+        switch (sEngine) {
+            case EngineType.MERMAID: return MermaidEngine;
+            case EngineType.GRAPHVIZ: return GraphvizEngine;
+            case EngineType.PLANTUML: return PlantUmlEngine;
+            case EngineType.CYTOSCAPE: return CytoscapeEngine;
+            default: return null;
+        }
+    }
+
     /**
      * @public
      * @static
      * @description Renders the diagram visually into the active Fiori UI5 DOM.
-     * @param {EngineType} sEngine - Target Engine
+     * @param {EngineType | string} sEngine - Target Engine
      * @param {string} sPayload - Syntax payload
      * @param {HTML} oHtmlControl - UI5 Control target
      * @param {Function} fnOnError - Error handler
+     * @param {any} [oConfig] - Engine-specific configuration
      * @returns {Promise<void>}
      */
-    public static async renderDiagram(sEngine: EngineType, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void): Promise<void> {
+    public static async renderDiagram(sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: any): Promise<void> {
         await ConfigManager.initialize();
 
         DomManager.setupCanvas(oHtmlControl, fnOnError, (sRenderId: string) => {
-            switch (sEngine) {
-                case EngineType.MERMAID:
-                    MermaidEngine.render(sPayload, sRenderId, fnOnError);
-                    break;
-                case EngineType.GRAPHVIZ:
-                    GraphvizEngine.render(sPayload, sRenderId, fnOnError);
-                    break;
-                case EngineType.PLANTUML:
-                    PlantUmlEngine.render(sPayload, sRenderId, fnOnError);
-                    break;
-                case EngineType.CYTOSCAPE:
-                    CytoscapeEngine.render(sPayload, sRenderId, fnOnError);
-                    break;
-                default:
-                    fnOnError(`Unsupported rendering engine: ${sEngine}`);
+            const engine = this._getEngine(sEngine);
+            if (engine) {
+                engine.render(sPayload, sRenderId, fnOnError, oConfig);
+            } else {
+                fnOnError(`Unsupported rendering engine: ${sEngine}`);
             }
         });
     }
@@ -60,27 +61,15 @@ export default class Renderer {
      * @param {string} sPayload - The source syntax or JSON payload.
      * @returns {Promise<string>} A promise resolving to the finalized, standard XML/SVG string.
      */
-    public static async generateExportSvg(sEngine: EngineType, sPayload: string): Promise<string> {
+    public static async generateExportSvg(sEngine: EngineType | string, sPayload: string): Promise<string> {
         await ConfigManager.initialize();
         
-        let sRawSvg = "";
-
-        switch (sEngine) {
-            case EngineType.CYTOSCAPE:
-                sRawSvg = CytoscapeEngine.exportSvg();
-                break;
-            case EngineType.MERMAID:
-                sRawSvg = await MermaidEngine.exportSvg(sPayload);
-                break;
-            case EngineType.PLANTUML:
-                sRawSvg = await PlantUmlEngine.exportSvg(sPayload);
-                break;
-            case EngineType.GRAPHVIZ:
-                sRawSvg = await GraphvizEngine.exportSvg(sPayload);
-                break;
-            default:
-                throw new Error(`Unsupported export engine: ${sEngine}`);
+        const engine = this._getEngine(sEngine);
+        if (!engine || !engine.exportSvg) {
+            throw new Error(`Unsupported export engine or SVG export not supported: ${sEngine}`);
         }
+
+        const sRawSvg = await engine.exportSvg(sPayload);
 
         // Pipe the raw engine output through the enterprise XML standardizer
         return SvgProcessor.standardize(sRawSvg);
@@ -102,8 +91,11 @@ export default class Renderer {
      * @static
      * @description Toggles the minimap display
      */
-    public static toggleMinimap(bShow: boolean): void {
-        CytoscapeEngine.toggleMinimap(bShow);
+    public static toggleMinimap(sEngine: string, bShow: boolean): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.toggleMinimap) {
+            engine.toggleMinimap(bShow);
+        }
     }
 
     /**
@@ -114,8 +106,29 @@ export default class Renderer {
      * @param {string} sQuery - Search string
      */
     public static searchCanvas(sEngine: string, sQuery: string): void {
-        if (sEngine === "CYTOSCAPE") {
-            CytoscapeEngine.search(sQuery);
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.search) {
+            engine.search(sQuery);
         }
+    }
+
+    public static supportsMinimap(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsMinimap : false;
+    }
+
+    public static supportsSearch(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsSearch : false;
+    }
+
+    public static supportsNativePngExport(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.exportPng : false;
+    }
+
+    public static exportPng(sEngine: string): string {
+        const engine = this._getEngine(sEngine);
+        return engine && engine.exportPng ? engine.exportPng() : "";
     }
 }
