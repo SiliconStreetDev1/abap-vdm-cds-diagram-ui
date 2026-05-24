@@ -41,7 +41,8 @@ export default class Diagram extends Controller {
             payload: "", 
             extension: "", 
             cdsName: "", 
-            engine: "" 
+            engine: "",
+            rootCdsName: ""
         }), "diagramData");
 
         // Initialize the export service
@@ -77,7 +78,8 @@ export default class Diagram extends Controller {
             payload: oData.payload,
             extension: oData.extension,
             cdsName: oData.cdsName,
-            engine: oData.engine
+            engine: oData.engine,
+            rootCdsName: oData.rootCdsName
         });
 
         // 2. Engine-specific UI validation
@@ -89,6 +91,7 @@ export default class Diagram extends Controller {
         // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
         oViewModel.setProperty("/canExportImg", oData.engine !== "D2");
         oViewModel.setProperty("/hasDiagram", true);
+        oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
 
         // 4. Trigger the WASM/JS rendering engine
         try {
@@ -133,6 +136,21 @@ export default class Diagram extends Controller {
             }
         }
     }
+
+    /**
+     * @public
+     * @description Fires a drill-down request for the root node, gracefully returning the user.
+     */
+    public onReturnToRoot(): void {
+        const sRoot = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/rootCdsName");
+        if (sRoot) {
+            const event = new CustomEvent("CdsNodeDrillDownRequest", {
+                detail: { viewName: sRoot }
+            });
+            document.dispatchEvent(event);
+        }
+    }
+
 
     /**
      * @private

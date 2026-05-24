@@ -10,6 +10,8 @@ export interface IConfigPaths {
     graphvizPlugin?: string;
     pako?: string;
     cytoscape?: string; 
+    dagre?: string;
+    cytoscapeDagre?: string;
     cytoscapeSvg?: string; 
 }
 

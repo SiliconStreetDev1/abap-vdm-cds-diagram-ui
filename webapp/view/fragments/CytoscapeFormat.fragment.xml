@@ -3,9 +3,17 @@
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Layout Algorithm" design="Bold"/>
             <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}">
+                <core:Item key="dagre" text="Dagre (Hierarchical)" />
                 <core:Item key="cose" text="Physics (Auto-Untangle)" />
                 <core:Item key="grid" text="Grid (Structured)" />
                 <core:Item key="circle" text="Circular" />
+            </Select>
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+            <Label text="Flow Direction" design="Bold"/>
+            <Select selectedKey="{ui>/formatCytoscape/rank_dir}" enabled="{= ${ui>/formatCytoscape/layout_algorithm} === 'dagre' }">
+                <core:Item key="TB" text="Top to Bottom" />
+                <core:Item key="LR" text="Left to Right" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">

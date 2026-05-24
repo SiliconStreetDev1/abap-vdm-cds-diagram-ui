@@ -49,6 +49,9 @@ export default class Selection extends Controller {
     /** @private {ResponsivePopover | undefined} Popover instance for inline contextual help */
     private _oInfoPopover?: ResponsivePopover;
 
+    /** @private {string} Tracks the root CDS view during drill-down sessions */
+    private _sRootCdsName: string = "";
+
     /**
      * @public
      * @description Lifecycle hook. Bootstraps local handlers, validators, and default UI state.
@@ -71,18 +74,9 @@ export default class Selection extends Controller {
 
         // Pre-load previous user sessions (Local Storage or LREP)
         this._oVariantHandler.loadHistoryAndVariants();
-        
-        // Ensure formatting models exist so FilterBuilder doesn't crash on empty lookups
-        // This maps exactly to the camelCase JSON needed by the ABAP XCO Framework
-        const oUiModel = oView.getModel("ui") as JSONModel;
-        if (oUiModel && !oUiModel.getProperty("/formatCytoscape")) {
-            oUiModel.setProperty("/formatCytoscape", {
-                layoutAlgorithm: "cose",
-                theme: "fiori_light",
-                animate: true,
-                nodeSpacing: 100
-            });
-        }
+
+        // Listen for Drill Down Requests from rendering engines (like Cytoscape double-click)
+        document.addEventListener("CdsNodeDrillDownRequest", this._onNodeDrillDownRequest.bind(this) as EventListener);
     }
 
     /**
@@ -91,13 +85,29 @@ export default class Selection extends Controller {
      * Provider, and publishes the payload via EventBus for the rendering engine.
      * @returns {Promise<void>}
      */
-    public async onGenerate(): Promise<void> {
+    public onGenerate(oEvent?: Event): void {
+        this._executeGeneration(false);
+    }
+
+    /**
+     * @private
+     * @description Internal method to handle diagram generation, separating the UI
+     * event logic from programmatic drill-down requests.
+     * @param {boolean} bIsDrillDown - Whether this generation preserves the existing root.
+     */
+    private async _executeGeneration(bIsDrillDown: boolean): Promise<void> {
+
         const oComboBox = this.byId("cmbCdsName") as ComboBox;
         const sCdsName = oComboBox.getValue().trim().toUpperCase();
         
         if (!sCdsName) {
             MessageToast.show(this._getText("msgEnterCds"));
             return;
+        }
+
+        // If this is a fresh user search (not a canvas drill-down), set the new root
+        if (!bIsDrillDown) {
+            this._sRootCdsName = sCdsName;
         }
 
         const sEngine = (this.byId("selEngine") as Select).getSelectedKey();
@@ -117,16 +127,32 @@ export default class Selection extends Controller {
             this._oVariantHandler.updateHistory(oResult.CdsName);
             DiagramService.validatePayloadSize(oResult.DiagramPayload);
 
+            let sPayload = oResult.DiagramPayload;
+            
+            // Guarantee Cytoscape layout settings are respected by injecting them directly into 
+            // the payload, bypassing the ABAP backend which is silently dropping 'rank_dir'
+            if (sEngine === "CYTOSCAPE") {
+                try {
+                    const oData = JSON.parse(sPayload);
+                    oData.config = oData.config || {};
+                    oData.config.formatCytoscape = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
+                    sPayload = JSON.stringify(oData);
+                } catch (e) {
+                    // Ignore parsing errors
+                }
+            }
+
             // PUBLISH TO EVENTBUS
             // We do not care how it is drawn. The Diagram.controller.ts is listening 
             // for this exact signature and will route it to the correct JS library.
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
                 oEventBus.publish("DiagramEngine", "RenderRequest", {
-                    payload: oResult.DiagramPayload, // PlantUML String OR Cytoscape JSON
+                    payload: sPayload, // PlantUML String OR Cytoscape JSON
                     extension: oResult.FileExtension,
                     cdsName: oResult.CdsName,
-                    engine: sEngine
+                    engine: sEngine,
+                    rootCdsName: this._sRootCdsName
                 });
             }
 
@@ -186,6 +212,21 @@ export default class Selection extends Controller {
             (this.byId("btnGenerate") as Button)?.focus();
         }
         this._oActiveSearchField = undefined;
+    }
+
+    /**
+     * @private
+     * @description Handles drill down requests emitted by interacting with the canvas.
+     * Updates the target CDS view name and immediately fires a new rendering request.
+     */
+    private _onNodeDrillDownRequest(oEvent: CustomEvent): void {
+        const sViewName = oEvent.detail?.viewName;
+        if (sViewName) {
+            const oComboBox = this.byId("cmbCdsName") as ComboBox;
+            oComboBox.setValue(sViewName);
+            
+            this._executeGeneration(true);
+        }
     }
 
     // ========================================================================

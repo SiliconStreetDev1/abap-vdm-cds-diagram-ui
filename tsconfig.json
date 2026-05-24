@@ -10,6 +10,8 @@
     "rootDir": "./webapp",
     "outDir": "./dist",
     "baseUrl": "./",
+    "ignoreDeprecations": "5.0",
+    
     "paths": {
       "nz/co/siliconstreet/vdmdiagrammer/*": [
         "./webapp/*"

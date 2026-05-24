@@ -27,6 +27,16 @@ export default class Main extends Controller {
         // Add the FCL layout property to control pane widths dynamically
         oUiModel.setProperty("/fclLayout", "TwoColumnsMidExpanded"); 
         
+        // Set Cytoscape defaults so the UI bindings evaluate immediately on load
+        oUiModel.setProperty("/formatCytoscape", {
+            layout_algorithm: "dagre",
+            rank_dir: "TB",
+            theme: "fiori_light",
+            line_style: "bezier",
+            animate: true,
+            node_spacing: 200
+        });
+
         oView.setModel(oUiModel, "ui");
     }
 }

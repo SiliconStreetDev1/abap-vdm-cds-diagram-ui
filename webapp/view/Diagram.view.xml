@@ -4,6 +4,13 @@
     xmlns:core="sap.ui.core">
 
         <Toolbar id="toolbarActions" visible="{view>/hasDiagram}">
+            <Button id="btnReturnRoot" 
+                    icon="sap-icon://sys-back-2" 
+                    text="Back to Root ({diagramData>/rootCdsName})" 
+                    press="onReturnToRoot" 
+                    visible="{view>/isDrillDown}" 
+                    class="sapUiTinyMarginEnd" />
+
             <ToolbarSpacer />
             
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" text="Full Screen" press="onToggleFullScreen" type="Transparent" />
