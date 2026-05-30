@@ -35,7 +35,8 @@ export default class DomManager {
             if (oParentDiv) {
                 oParentDiv.innerHTML = "";
                 
-                const sRenderId = "render-" + Date.now();
+                // Random alphanumeric salt prevents WebGL ID collisions during rapid re-renders
+                const sRenderId = "render-" + Math.random().toString(36).substring(2, 9) + "-" + Date.now();
                 oParentDiv.innerHTML = `<div id="${sRenderId}" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>`;
                 
                 // Ensure DOM has physically updated before Cytoscape attempts to attach WebGL

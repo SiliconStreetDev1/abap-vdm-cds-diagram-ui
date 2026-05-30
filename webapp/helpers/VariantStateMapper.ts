@@ -13,6 +13,7 @@ import MultiInput from "sap/m/MultiInput";
 import Token from "sap/m/Token";
 import VBox from "sap/m/VBox";
 import Renderer from "../renderer/Renderer";
+import { IVariantState } from "../types/IVariantState";
 
 export default class VariantStateMapper {
     /**
@@ -20,7 +21,7 @@ export default class VariantStateMapper {
      * @static
      * @description Captures the current state of the UI and the Canvas (if applicable) into a serializable object.
      */
-    public static captureState(oView: View, sName: string, bSavePositions: boolean): any {
+    public static captureState(oView: View, sName: string, bSavePositions: boolean): IVariantState {
         const aIncTokens = (oView.byId("inpInclude") as MultiInput).getTokens();
         const aExcTokens = (oView.byId("inpExclude") as MultiInput).getTokens();
         
@@ -71,7 +72,7 @@ export default class VariantStateMapper {
      * @static
      * @description Applies a saved variant object to the UI controls and models.
      */
-    public static applyState(oView: View, oVariant: any): void {
+    public static applyState(oView: View, oVariant: IVariantState): void {
         const oUiModel = oView.getModel("ui") as JSONModel;
 
         const sVariantCdsName = (oVariant.cdsName || "").toUpperCase(); // Normalizes to prevent the Uppercase Bug

@@ -6,6 +6,8 @@
  * we keep the Main controller clean and make it easier to replace 
  * localStorage with an OData/Backend variant service in the future if required.
  */
+import { IVariantState } from "../types/IVariantState";
+
 export default class VariantManager {
     
     // Local storage keys
@@ -15,7 +17,7 @@ export default class VariantManager {
     /**
      * Retrieves the 10 most recent CDS searches.
      */
-    public static getHistory(): any[] {
+    public static getHistory(): Array<{name: string}> {
         const sHistory = localStorage.getItem(this.KEY_HISTORY);
         return sHistory ? JSON.parse(sHistory) : [];
     }
@@ -24,7 +26,7 @@ export default class VariantManager {
      * Acts as an LRU (Least Recently Used) Cache.
      * Pushes the new search to the top, removes duplicates, and trims the list to 10.
      */
-    public static updateHistory(sName: string): any[] {
+    public static updateHistory(sName: string): Array<{name: string}> {
         let aHistory = this.getHistory();
         // Remove if it already exists to prevent duplicates
         aHistory = aHistory.filter((item: any) => item.name !== sName);
@@ -40,7 +42,7 @@ export default class VariantManager {
     /**
      * Retrieves all saved user variants (UI settings configurations).
      */
-    public static getVariants(): any[] {
+    public static getVariants(): IVariantState[] {
         const sVariants = localStorage.getItem(this.KEY_VARIANTS);
         return sVariants ? JSON.parse(sVariants) : [];
     }
@@ -48,7 +50,7 @@ export default class VariantManager {
     /**
      * Saves or overwrites a specific variant state.
      */
-    public static saveVariant(oState: any): any[] {
+    public static saveVariant(oState: IVariantState): IVariantState[] {
         let aVariants = this.getVariants();
         // Remove existing item if overwriting, then push the fresh state
         aVariants = aVariants.filter(v => v.name !== oState.name);
@@ -61,7 +63,7 @@ export default class VariantManager {
     /**
      * Deletes a variant by name.
      */
-    public static deleteVariant(sName: string): any[] {
+    public static deleteVariant(sName: string): IVariantState[] {
         let aVariants = this.getVariants();
         aVariants = aVariants.filter(v => v.name !== sName);
         

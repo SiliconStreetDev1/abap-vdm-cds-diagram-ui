@@ -71,7 +71,7 @@ export default class ConfigManager {
      * @param {any} source - The external override properties (User Config).
      * @returns {any} The merged object.
      */
-    private static _merge(target: any, source: any): any {
+    private static _merge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
         for (const key in source) {
             if (source[key] instanceof Object && key in target) {
                 Object.assign(source[key], this._merge(target[key], source[key]));

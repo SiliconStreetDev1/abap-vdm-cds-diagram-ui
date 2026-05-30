@@ -5,6 +5,11 @@
  */
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 
+export interface ICytoscapeLayoutConfig {
+    name: string;
+    [key: string]: any;
+}
+
 export default class CytoscapeLayoutBuilder {
 
     /**
@@ -15,8 +20,8 @@ export default class CytoscapeLayoutBuilder {
      * @param {number} [nodeCount=0] - The number of nodes in the graph to aid with circular calculations.
      * @returns {any} The Cytoscape layout configuration object.
      */
-    public static build(config: IParsedCytoscapeConfig, nodeCount: number = 0): any {
-        let oBaseConfig: any = {
+    public static build(config: IParsedCytoscapeConfig, nodeCount: number = 0): ICytoscapeLayoutConfig {
+        let oBaseConfig: ICytoscapeLayoutConfig = {
             name: config.layout,
             animate: config.animate,
             padding: 50,

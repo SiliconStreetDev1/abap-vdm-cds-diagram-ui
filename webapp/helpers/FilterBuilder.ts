@@ -63,7 +63,7 @@ export default class FilterBuilder {
         // DYNAMIC JSON PAYLOAD CONSTRUCTION & TRANSLATION
         // -------------------------------------------------------------------------
         const oUiModel = oView.getModel("ui") as JSONModel;
-        let oFormatConfig: any = {};
+        let oFormatConfig: Record<string, unknown> = {};
 
      // Deep copy properties so we don't accidentally mutate the live UI model during translation
         if (sEngine === EngineType.CYTOSCAPE) {

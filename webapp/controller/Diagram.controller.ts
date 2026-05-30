@@ -12,24 +12,24 @@ import HTML from "sap/ui/core/HTML";
 import Event from "sap/ui/base/Event";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResourceBundle from "sap/base/i18n/ResourceBundle";
+import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
 import ToggleButton from "sap/m/ToggleButton";
 
 import ExportHandler from "../handlers/ExportHandler";
+import FullScreenHandler from "../handlers/FullScreenHandler";
+import CanvasActionHandler from "../handlers/CanvasActionHandler";
 import Renderer from "../renderer/Renderer";
 import { EngineType, IRenderRequestPayload } from "../types";
+import { EventChannels, EventIds } from "../constants/EventConstants";
 
 export default class Diagram extends Controller {
     
-    /** @private {ExportHandler} Service for managing file downloads and clipboard actions */
     private _oExportHandler!: ExportHandler;
+    private _oFullScreenHandler!: FullScreenHandler;
+    private _oCanvasActionHandler!: CanvasActionHandler;
     
-    // Bound event listener references for proper cleanup
-    private _fnFullScreenChangeBind!: EventListener;
-    private _fnCloseMinimapRequestBind!: EventListener;
-    private _fnLayoutUnlockedBind!: EventListener;
-
     /**
      * @public
      * @description Bootstraps local models, EventBus subscriptions, and DOM event listeners.
@@ -65,23 +65,18 @@ export default class Diagram extends Controller {
 
         // Initialize the export service
         this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._showError.bind(this));
+        this._oFullScreenHandler = new FullScreenHandler(oView);
+        this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
 
         // Subscribe to global EventBus for incoming diagram payloads
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
-            oEventBus.subscribe("DiagramEngine", "RenderRequest", this._onRenderRequest, this);
-            oEventBus.subscribe("DiagramEngine", "LiveFormatUpdate", this._onLiveFormatUpdate, this);
+            oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
         }
 
-        this._fnFullScreenChangeBind = this._onFullScreenChange.bind(this);
-        this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
-        this._fnLayoutUnlockedBind = this._onLayoutUnlocked.bind(this) as EventListener;
-
-        // Attach native DOM listeners to catch when a user presses 'ESC' to exit fullscreen natively
-        document.addEventListener("fullscreenchange", this._fnFullScreenChangeBind);
-        document.addEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind); // Safari fallback
-        document.addEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
-        document.addEventListener("CdsLayoutUnlocked", this._fnLayoutUnlockedBind);
+        this._oFullScreenHandler.attachEvents();
+        this._oCanvasActionHandler.attachEvents();
     }
 
     /**
@@ -91,13 +86,11 @@ export default class Diagram extends Controller {
     public onExit(): void {
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
-            oEventBus.unsubscribe("DiagramEngine", "RenderRequest", this._onRenderRequest, this);
-            oEventBus.unsubscribe("DiagramEngine", "LiveFormatUpdate", this._onLiveFormatUpdate, this);
+            oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
         }
-        document.removeEventListener("fullscreenchange", this._fnFullScreenChangeBind);
-        document.removeEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind);
-        document.removeEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
-        document.removeEventListener("CdsLayoutUnlocked", this._fnLayoutUnlockedBind);
+        this._oFullScreenHandler.detachEvents();
+        this._oCanvasActionHandler.detachEvents();
         
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
         Renderer.destroyActiveEngine();
@@ -181,89 +174,15 @@ export default class Diagram extends Controller {
         }
     }
 
-    /**
-     * @public
-     * @description Explicitly toggles the physics locks on all nodes.
-     */
-    public onToggleNodeLock(oEvent: Event): void {
-        const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
-        (this.getView()?.getModel("view") as JSONModel).setProperty("/nodesLocked", bPressed);
-        
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
-        
-        if (!bPressed) {
-            if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-        } else {
-            const oCanvasState = Renderer.getCanvasState(sEngine);
-            if (oUiModel && oCanvasState) oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
-        }
-        
-        Renderer.setNodesLocked(sEngine, bPressed);
-    }
-
-    /**
-     * @public
-     * @description Forces the layout engine to completely recalculate for all unlocked nodes.
-     */
-    public onRelayout(): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        oViewModel.setProperty("/nodesLocked", false);
-        
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-        
-        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.setNodesLocked(sEngine, false);
-        Renderer.runLayout(sEngine);
-    }
-
-    /**
-     * @public
-     * @description Triggers true OS-level HTML5 Fullscreen on the Diagram Canvas.
-     * Targets the specific container ID to ensure only the canvas maximizes.
-     * @returns {void}
-     */
-    public onToggleFullScreen(): void {
-        const oContainer = this.byId("diagramContainer");
-        if (!oContainer) return;
-
-        type FullscreenElement = HTMLElement & {
-            requestFullscreen?: () => Promise<void>;
-            webkitRequestFullscreen?: () => void;
-            msRequestFullscreen?: () => void;
-        };
-        type FullscreenDoc = Document & {
-            webkitFullscreenElement?: Element;
-            webkitExitFullscreen?: () => void;
-            msExitFullscreen?: () => void;
-        };
-
-        const oDomRef = oContainer.getDomRef() as FullscreenElement;
-        if (!oDomRef) return;
-
-        const doc = document as FullscreenDoc;
-
-        if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
-            // Enter Fullscreen (with cross-browser fallbacks)
-            if (oDomRef.requestFullscreen) {
-                oDomRef.requestFullscreen().catch((err: Error) => console.warn(`Fullscreen error: ${err.message}`));
-            } else if (oDomRef.webkitRequestFullscreen) { 
-                oDomRef.webkitRequestFullscreen();
-            } else if (oDomRef.msRequestFullscreen) {
-                oDomRef.msRequestFullscreen();
-            }
-        } else {
-            // Exit Fullscreen
-            if (doc.exitFullscreen) {
-                doc.exitFullscreen();
-            } else if (doc.webkitExitFullscreen) {
-                doc.webkitExitFullscreen();
-            } else if (doc.msExitFullscreen) {
-                doc.msExitFullscreen();
-            }
-        }
-    }
+    // ========================================================================
+    // CANVAS ACTION DELEGATIONS
+    // ========================================================================
+    
+    public onToggleNodeLock(oEvent: Event): void { this._oCanvasActionHandler.toggleNodeLock(oEvent); }
+    public onRelayout(): void { this._oCanvasActionHandler.relayout(); }
+    public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
+    public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
+    public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
 
     /**
      * @public
@@ -275,7 +194,7 @@ export default class Diagram extends Controller {
         if (sViewName) {
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
-                oEventBus.publish("DiagramEngine", "NodeDrillDownRequest", { viewName: sViewName });
+                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sViewName });
             }
         }
     }
@@ -289,79 +208,6 @@ export default class Diagram extends Controller {
         const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
         
         Renderer.searchCanvas(sEngine, sQuery);
-    }
-
-    /**
-     * @private
-     * @description Event handler for close minimap custom event
-     */
-    private _onCloseMinimapRequest(): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (oViewModel) {
-            oViewModel.setProperty("/showMinimap", false);
-        }
-        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.toggleMinimap(sEngine, false);
-    }
-
-    /**
-     * @private
-     * @description Event handler for layout unlocked custom event
-     */
-    private _onLayoutUnlocked(): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (oViewModel) oViewModel.setProperty("/nodesLocked", false);
-        
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-    }
-
-    /**
-     * @public
-     * @description Toggles the minimap display
-     */
-    public onToggleMinimap(oEvent: Event): void {
-        const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
-        (this.getView()?.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
-        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.toggleMinimap(sEngine, bPressed);
-    }
-
-    /**
-     * @public
-     * @description Handles live node spacing changes from the floating slider on the canvas.
-     * Only fires on slider drop (`change`) to prevent layout calculation stutter.
-     */
-    public onSpacingChange(oEvent: Event): void {
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        if (oUiModel) {
-            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
-            }
-        }
-    }
-
-    /**
-     * @private
-     * @description Keeps the UI button icon in sync with the browser's fullscreen state.
-     * This ensures the icon flips back if the user presses the 'ESC' key.
-     * @returns {void}
-     */
-    private _onFullScreenChange(): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (!oViewModel) return;
-
-        type FullscreenDoc = Document & { webkitFullscreenElement?: Element; };
-        const doc = document as FullscreenDoc;
-
-        // Check active fullscreen element
-        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
-            oViewModel.setProperty("/fullScreenIcon", "sap-icon://exit-full-screen");
-        } else {
-            oViewModel.setProperty("/fullScreenIcon", "sap-icon://full-screen");
-        }
     }
 
     /**

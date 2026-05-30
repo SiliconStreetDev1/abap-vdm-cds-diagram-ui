@@ -28,6 +28,8 @@ import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import CheckBox from "sap/m/CheckBox";
 import VariantStateMapper from "../helpers/VariantStateMapper";
+import { IVariantState } from "../types/IVariantState";
+
 
 export default class VariantHandler {
     private _oView: View;
@@ -124,7 +126,7 @@ export default class VariantHandler {
         const oModel = this._oView.getModel("variants") as JSONModel;
         
         // Retrieve the full variant configuration object
-        const aVariants: any[] = oModel.getProperty("/items");
+        const aVariants: IVariantState[] = oModel.getProperty("/items");
         const oVariant = aVariants.find(v => v.name === sSelectedName);
 
         if (oVariant) {

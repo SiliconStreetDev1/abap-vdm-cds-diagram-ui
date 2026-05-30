@@ -3,6 +3,8 @@
  * @fileoverview Event handler registry for Cytoscape.js.
  * @description Binds user interaction events (click, double click, selection) on the graph to Fiori UI dispatchers.
  */
+import { DomEvents } from "../../../constants/EventConstants";
+
 export default class CytoscapeEventHandler {
 
     /**
@@ -31,16 +33,16 @@ export default class CytoscapeEventHandler {
 
         cyInstance.on('tap', 'node', (evt: any) => {
             const node = evt.target;
-            document.dispatchEvent(new CustomEvent("CdsNodeClicked", { detail: { viewName: node.data('id') } }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_CLICKED, { detail: { viewName: node.data('id') } }));
         });
 
         cyInstance.on('dbltap', 'node', (evt: any) => {
             const node = evt.target;
-            document.dispatchEvent(new CustomEvent("CdsNodeDrillDownRequest", { detail: { viewName: node.data('id') } }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewName: node.data('id') } }));
         });
 
         cyInstance.on('closeMinimap', () => {
-            document.dispatchEvent(new CustomEvent("CdsCloseMinimapRequest", {}));
+            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, {}));
         });
     }
 

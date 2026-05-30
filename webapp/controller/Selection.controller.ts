@@ -38,6 +38,7 @@ import CdsValueHelpHandler from "../handlers/CdsValueHelpHandler";
 import DiagramService from "../services/DiagramService";
 import InputValidationService from "../services/InputValidationService";
 import { EngineType, IRenderRequestPayload } from "../types";
+import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 
 export default class Selection extends Controller {
 
@@ -88,16 +89,16 @@ export default class Selection extends Controller {
 
         // Listen for Drill Down Requests from rendering engines (like Cytoscape double-click)
         this._fnNodeDrillDownRequestBind = this._onNodeDrillDownRequest.bind(this) as EventListener;
-        document.addEventListener("CdsNodeDrillDownRequest", this._fnNodeDrillDownRequestBind);
+        document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
 
         // Standardize internal UI5-to-UI5 drill down requests via EventBus
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
-            oEventBus.subscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
+            oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
         }
 
         this._fnSliderUpdateBind = this._onSliderUpdate.bind(this) as EventListener;
-        document.addEventListener("CdsFormatSliderUpdate", this._fnSliderUpdateBind);
+        document.addEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
     }
 
     /**
@@ -105,13 +106,13 @@ export default class Selection extends Controller {
      * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
      */
     public onExit(): void {
-        document.removeEventListener("CdsNodeDrillDownRequest", this._fnNodeDrillDownRequestBind);
+        document.removeEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
         
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
-            oEventBus.unsubscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
+            oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
         }
-        document.removeEventListener("CdsFormatSliderUpdate", this._fnSliderUpdateBind);
+        document.removeEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
     }
 
     /**
@@ -201,7 +202,7 @@ export default class Selection extends Controller {
                     oPayload.engineConfig = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
                 }
 
-                oEventBus.publish("DiagramEngine", "RenderRequest", oPayload);
+                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
             }
 
         } catch (oError: any) {

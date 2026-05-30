@@ -14,7 +14,7 @@ export default class CytoscapeStyleBuilder {
      * @param {IParsedCytoscapeConfig} config - The sanitized configuration containing theme and layout settings.
      * @returns {Array<any>} An array of Cytoscape style definitions.
      */
-    public static build(config: IParsedCytoscapeConfig): Array<any> {
+    public static build(config: IParsedCytoscapeConfig): Array<Record<string, any>> {
         const isDark = config.theme === 'fiori_dark';
         const colors = {
             bg: isDark ? '#29313a' : '#ffffff',

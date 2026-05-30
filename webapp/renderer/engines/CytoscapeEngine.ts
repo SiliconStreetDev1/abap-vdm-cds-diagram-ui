@@ -17,6 +17,8 @@ import CytoscapeExporter from "./cytoscape/CytoscapeExporter";
 import CytoscapeSearchManager from "./cytoscape/CytoscapeSearchManager";
 import CytoscapeEventHandler from "./cytoscape/CytoscapeEventHandler";
 import { ICytoscapeConfig } from "./IEngineFacade";
+import CytoscapeDependencyLoader from "./cytoscape/CytoscapeDependencyLoader";
+import { DomEvents } from "../../constants/EventConstants";
 
 declare const cytoscape: any;
 
@@ -55,38 +57,7 @@ export default class CytoscapeEngine {
      * @param {any} [oConfig] - Cytoscape formatting config
      */
     public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void {
-        const config = ConfigManager.get();
-
-        // Chain the core engine and then the SVG plugin using local-first resolution with Integrity checking
-        NetworkManager.loadScript(config.localPaths?.cytoscape, config.cdnPaths?.cytoscape)
-            .then(() => NetworkManager.loadScript(config.localPaths?.dagre, config.cdnPaths?.dagre))
-            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeDagre, config.cdnPaths?.cytoscapeDagre))
-            .then(() => NetworkManager.loadScript(config.localPaths?.elk, config.cdnPaths?.elk))
-            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeElk, config.cdnPaths?.cytoscapeElk))
-            .then(() => {
-                const cyElk = (window as any).cytoscapeElk;
-                if (cyElk && typeof cytoscape.use === "function") {
-                    try { cytoscape.use(cyElk); } catch(e) { console.warn("Failed to register Cytoscape ELK plugin", e); }
-                }
-            })
-            .then(() => NetworkManager.loadScript(config.localPaths?.gridGuideJs, config.cdnPaths?.gridGuideJs || "https://unpkg.com/cytoscape-grid-guide@2.3.3/cytoscape-grid-guide.js"))
-            .then(() => {
-                const cyGridGuide = (window as any).cytoscapeGridGuide;
-                if (cyGridGuide && typeof cytoscape.use === "function") {
-                    try { cytoscape.use(cyGridGuide); } catch(e) { console.warn("Failed to register Cytoscape Grid Guide plugin", e); }
-                }
-            })
-            .then(() => {
-                return NetworkManager.loadScript(config.localPaths?.navigatorJs, config.cdnPaths?.navigatorJs);
-            })
-            .then(() => {
-                const nav = (window as any).cytoscapeNavigator;
-                if (nav && typeof cytoscape.use === "function") {
-                    try { cytoscape.use(nav); } catch(e) { console.warn("Failed to register Cytoscape Navigator plugin", e); }
-                }
-            })
-            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg))
-            .then(() => {
+        CytoscapeDependencyLoader.load().then(() => {
                 try {
                     const oData = JSON.parse(sPayload);
                     
@@ -190,7 +161,7 @@ export default class CytoscapeEngine {
             if (bIsLayoutChange) {
                 this._cyInstance.nodes().unlock();
                 if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent("CdsLayoutUnlocked"));
+                    document.dispatchEvent(new CustomEvent(DomEvents.LAYOUT_UNLOCKED));
                 }
             }
 
