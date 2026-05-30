@@ -24,6 +24,14 @@
     
      <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare">
         
+        <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="hoverPillContainer" alignItems="Center">
+            <core:Icon src="sap-icon://resize-horizontal" size="1.5rem" color="#0854a0" tooltip="Adjust Node Spacing" class="pillIcon" />
+            <HBox class="pillContent" alignItems="Center">
+                <Label text="Spacing" class="sapUiSmallMarginEnd" design="Bold" wrapping="false"/>
+                <Slider value="{ui>/formatCytoscape/node_spacing}" min="50" max="400" step="25" width="200px" enableTickmarks="true" change=".onSpacingChange"/>
+            </HBox>
+        </HBox>
+
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
             <IllustratedMessage id="msgEmpty" visible="{= !${view>/hasDiagram} &amp;&amp; !${view>/hasError} }" 
                                 illustrationType="sapIllus-SearchEarth" title="{i18n>msgEmptyTitle}" description="{i18n>msgEmptyDesc}" />

@@ -14,7 +14,9 @@
     "dagre": "./libs/dagre.min.js",
     "cytoscapeDagre": "./libs/cytoscape-dagre.js",
     "navigatorJs": "./libs/cytoscape-navigator.js",
-    "navigatorCss": "./libs/cytoscape.js-navigator.css"
+    "navigatorCss": "./libs/cytoscape.js-navigator.css",
+    "elk": "./libs/elk.bundled.js",
+    "cytoscapeElk": "./libs/cytoscape-elk.js"
   },
   "cdnPaths": {
     "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js",
@@ -27,6 +29,8 @@
     "dagre": "https://unpkg.com/dagre@0.8.5/dist/dagre.min.js",
     "cytoscapeDagre": "https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js",
     "navigatorJs": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape-navigator.js",
-    "navigatorCss": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape.js-navigator.css"
+    "navigatorCss": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape.js-navigator.css",
+    "elk": "https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js",
+    "cytoscapeElk": "https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js"
   }
 }

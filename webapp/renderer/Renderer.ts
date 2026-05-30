@@ -112,6 +112,21 @@ export default class Renderer {
         }
     }
 
+    /**
+     * @public
+     * @static
+     * @description Updates the visual format of the current diagram dynamically without a complete DOM re-render.
+     * @param {EngineType | string} sEngine - Target Engine
+     * @param {any} oFormat - Config Payload
+     * @returns {void}
+     */
+    public static updateLiveFormat(sEngine: EngineType | string, oFormat: any): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.updateFormat) {
+            engine.updateFormat(oFormat);
+        }
+    }
+
     public static supportsMinimap(sEngine: string): boolean {
         const engine = this._getEngine(sEngine);
         return engine ? !!engine.supportsMinimap : false;

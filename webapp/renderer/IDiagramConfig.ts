@@ -15,6 +15,8 @@ export interface IConfigPaths {
     cytoscapeSvg?: string; 
     navigatorJs?: string;
     navigatorCss?: string;
+    elk?: string;
+    cytoscapeElk?: string;
 }
 
 export interface IDiagramConfig {

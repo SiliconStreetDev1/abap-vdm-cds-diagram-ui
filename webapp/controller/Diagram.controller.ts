@@ -58,12 +58,32 @@ export default class Diagram extends Controller {
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
             oEventBus.subscribe("DiagramEngine", "RenderRequest", this._onRenderRequest, this);
+            oEventBus.subscribe("DiagramEngine", "LiveFormatUpdate", this._onLiveFormatUpdate, this);
         }
 
         // Attach native DOM listeners to catch when a user presses 'ESC' to exit fullscreen natively
         document.addEventListener("fullscreenchange", this._onFullScreenChange.bind(this));
         document.addEventListener("webkitfullscreenchange", this._onFullScreenChange.bind(this)); // Safari fallback
         document.addEventListener("CdsCloseMinimapRequest", this._onCloseMinimapRequest.bind(this) as EventListener);
+    }
+
+    /**
+     * @private
+     * @description Intercepts live format updates from the Selection panel and applies them directly to the active canvas.
+     * @param {string} sChannel - Channel ID
+     * @param {string} sEvent - Event ID
+     * @param {any} oData - Format configuration data
+     * @returns {void}
+     */
+    private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        if (oViewModel && oViewModel.getProperty("/hasDiagram")) {
+            try {
+                Renderer.updateLiveFormat(oData.engine, oData.format);
+            } catch (oError: any) {
+                this._showError(oError.message);
+            }
+        }
     }
 
     /**
@@ -204,6 +224,19 @@ export default class Diagram extends Controller {
         (this.getView()?.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
         const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
         Renderer.toggleMinimap(sEngine, bPressed);
+    }
+
+    /**
+     * @public
+     * @description Handles live node spacing changes from the floating slider on the canvas.
+     * Only fires on slider drop (`change`) to prevent layout calculation stutter.
+     */
+    public onSpacingChange(oEvent: any): void {
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        if (oUiModel) {
+            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
+            Renderer.updateLiveFormat(EngineType.CYTOSCAPE, oFormatConfig);
+        }
     }
 
     /**

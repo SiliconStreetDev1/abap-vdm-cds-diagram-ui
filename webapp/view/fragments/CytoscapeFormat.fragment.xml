@@ -2,8 +2,9 @@
     <VBox visible="{= ${ui>/activeEngine} === 'CYTOSCAPE' }" width="100%">
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Layout Algorithm" design="Bold"/>
-            <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}">
+            <Select selectedKey="{ui>/formatCytoscape/layout_algorithm}" change=".onLiveFormatChange">
                 <core:Item key="dagre" text="Dagre (Hierarchical)" />
+                <core:Item key="elk" text="ELK (Eclipse Layout Kernel)" />
                 <core:Item key="cose" text="Physics (Auto-Untangle)" />
                 <core:Item key="breadthfirst" text="Interactive Tree" />
                 <core:Item key="grid" text="Grid (Structured)" />
@@ -12,32 +13,28 @@
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Flow Direction" design="Bold"/>
-            <Select selectedKey="{ui>/formatCytoscape/rank_dir}" enabled="{= ${ui>/formatCytoscape/layout_algorithm} === 'dagre' }">
+            <Select selectedKey="{ui>/formatCytoscape/rank_dir}" enabled="{= ${ui>/formatCytoscape/layout_algorithm} === 'dagre' || ${ui>/formatCytoscape/layout_algorithm} === 'elk' }" change=".onLiveFormatChange">
                 <core:Item key="TB" text="Top to Bottom" />
                 <core:Item key="LR" text="Left to Right" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="SAP Theme" design="Bold"/>
-            <Select selectedKey="{ui>/formatCytoscape/theme}">
+            <Select selectedKey="{ui>/formatCytoscape/theme}" change=".onLiveFormatChange">
                 <core:Item key="fiori_light" text="Morning Horizon (Light)" />
                 <core:Item key="fiori_dark" text="Evening Horizon (Dark)" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Line Routing" design="Bold"/>
-            <Select selectedKey="{ui>/formatCytoscape/line_style}">
+            <Select selectedKey="{ui>/formatCytoscape/line_style}" change=".onLiveFormatChange">
                 <core:Item key="bezier" text="Smooth Curves (Default)" />
                 <core:Item key="taxi" text="Orthogonal (90° Angles)" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Animate Physics" />
-            <Switch state="{ui>/formatCytoscape/animate}" customTextOn="Yes" customTextOff="No"/>
-        </HBox>
-        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginTop">
-            <Label text="Node Spacing (px)" />
-            <StepInput value="{ui>/formatCytoscape/node_spacing}" min="50" max="400" step="25" width="120px" />
+            <Switch state="{ui>/formatCytoscape/animate}" change=".onLiveFormatChange" customTextOn="Yes" customTextOff="No"/>
         </HBox>
     </VBox>
 </core:FragmentDefinition>

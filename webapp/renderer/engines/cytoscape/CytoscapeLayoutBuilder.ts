@@ -50,9 +50,28 @@ export default class CytoscapeLayoutBuilder {
                 oBaseConfig.acyclicer = 'greedy';
                 oBaseConfig.spacingFactor = 1.0;
                 break;
+            case 'elk':
+                oBaseConfig.elk = {
+                    'algorithm': 'layered',
+                    'elk.direction': config.rankDir === 'LR' ? 'RIGHT' : 'DOWN',
+                    'elk.spacing.nodeNode': config.nodeSpacing,
+                    'elk.layered.spacing.nodeNodeBetweenLayers': config.nodeSpacing * 1.5,
+                    'elk.layered.spacing.edgeNodeBetweenLayers': config.nodeSpacing / 2,
+                    'elk.layered.spacing.edgeEdgeBetweenLayers': config.nodeSpacing / 2,
+                    'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+                    'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
+                    'elk.edgeRouting': config.lineStyle === 'taxi' ? 'ORTHOGONAL' : 'SPLINES'
+                };
+                break;
             case 'grid':
+                oBaseConfig.spacingFactor = Math.max(0.5, config.nodeSpacing / 200);
+                oBaseConfig.nodeDimensionsIncludeLabels = false;
+                break;
             case 'circle':
-                oBaseConfig.spacingFactor = Math.max(1, config.nodeSpacing / 100);
+                oBaseConfig.spacingFactor = Math.max(0.5, config.nodeSpacing / 200);
+                oBaseConfig.nodeDimensionsIncludeLabels = false;
+                oBaseConfig.avoidOverlap = false; // Stop the algorithm from inflating the circle
+                oBaseConfig.radius = config.nodeSpacing * 3; // Hardwire the diameter to the UI slider
                 break;
         }
         return oBaseConfig;

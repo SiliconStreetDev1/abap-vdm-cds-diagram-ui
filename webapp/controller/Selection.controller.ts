@@ -180,6 +180,23 @@ export default class Selection extends Controller {
         ViewStateHelper.handleEngineChange(oEvent, oUiModel);
     }
 
+    /**
+     * @public
+     * @description Handles live formatting changes. Broadcasts the new config to the active engine to update without a full re-render.
+     */
+    public onLiveFormatChange(oEvent: Event): void {
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        const sEngine = oUiModel.getProperty("/activeEngine");
+
+        if (sEngine === EngineType.CYTOSCAPE) {
+            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
+            const oEventBus = this.getOwnerComponent()?.getEventBus();
+            if (oEventBus) {
+                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: sEngine, format: oFormatConfig });
+            }
+        }
+    }
+
     public onRelModeChange(oEvent: Event): void {
         const oBoxLines = this.byId("boxLines") as VBox;
         const oBoxDiscovery = this.byId("boxDiscovery") as VBox;

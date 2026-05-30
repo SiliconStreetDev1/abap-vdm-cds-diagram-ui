@@ -24,7 +24,7 @@ export default class ViewStateHelper {
             activeEngine: "GRAPHVIZ",
             
             // Note: Cytoscape uses exact snake_case to match the ABAP XCO Framework directly
-            formatCytoscape: { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 200 },
+            formatCytoscape: { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125 },
             formatPlantUML: { lineStyle: "default", spaced_out: false, staggered: false, modern: true },
             formatGraphviz: { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false },
             formatMermaid: { direction: "TB", theme: "default" }
@@ -45,7 +45,7 @@ export default class ViewStateHelper {
         oUiModel.setProperty("/activeEngine", sEngine);
         
         // Reset all format configurations to their defaults
-        oUiModel.setProperty("/formatCytoscape", { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 200 });
+        oUiModel.setProperty("/formatCytoscape", { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125 });
         oUiModel.setProperty("/formatPlantUML", { lineStyle: "default", spaced_out: false, staggered: false, modern: true });
         oUiModel.setProperty("/formatGraphviz", { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false });
         oUiModel.setProperty("/formatMermaid", { direction: "TB", theme: "default" });

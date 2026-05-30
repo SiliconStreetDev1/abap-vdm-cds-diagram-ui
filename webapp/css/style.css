@@ -6,6 +6,11 @@
     justify-content: center;
 }
 
+/* Ensure floating children anchor to the diagram container bounds */
+[id$="diagramContainer"] {
+    position: relative;
+}
+
 /* Fix for the "void" area around the diagram */
 [id$="diagramContainer"]::backdrop {
     background-color: white;
@@ -60,4 +65,43 @@
     height: 100% !important;
     z-index: 3 !important;
     cursor: crosshair;
+}
+
+/* Expandable Hover Pill for Node Spacing */
+.hoverPillContainer {
+    position: absolute !important;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(6px);
+    padding: 0.5rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid #d9d9d9;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.hoverPillContainer .pillIcon {
+    cursor: pointer;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.hoverPillContainer .pillContent {
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    white-space: nowrap;
+}
+
+.hoverPillContainer:hover {
+    border-radius: 25px;
+    padding-right: 1.5rem;
+}
+
+.hoverPillContainer:hover .pillContent {
+    max-width: 300px;
+    opacity: 1;
+    margin-left: 0.5rem;
 }

@@ -10,4 +10,5 @@ export interface IEngineFacade {
     exportPng?(): string;
     toggleMinimap?(bShow: boolean): void;
     search?(sQuery: string): void;
+    updateFormat?(oFormat: any): void;
 }

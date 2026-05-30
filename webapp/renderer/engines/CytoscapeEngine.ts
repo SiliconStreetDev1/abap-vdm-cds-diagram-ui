@@ -48,6 +48,14 @@ export default class CytoscapeEngine {
         NetworkManager.loadScript(config.localPaths?.cytoscape, config.cdnPaths?.cytoscape)
             .then(() => NetworkManager.loadScript(config.localPaths?.dagre, config.cdnPaths?.dagre))
             .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeDagre, config.cdnPaths?.cytoscapeDagre))
+            .then(() => NetworkManager.loadScript(config.localPaths?.elk, config.cdnPaths?.elk))
+            .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeElk, config.cdnPaths?.cytoscapeElk))
+            .then(() => {
+                const cyElk = (window as any).cytoscapeElk;
+                if (cyElk && typeof cytoscape.use === "function") {
+                    try { cytoscape.use(cyElk); } catch(e) {}
+                }
+            })
             .then(() => {
                 return NetworkManager.loadScript(config.localPaths?.navigatorJs, config.cdnPaths?.navigatorJs);
             })
@@ -107,6 +115,25 @@ export default class CytoscapeEngine {
             }).catch((oNetworkError: any) => {
                 fnOnError(`Cytoscape Loading Error: ${oNetworkError.message || oNetworkError}`);
             });
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Dynamically updates the active Cytoscape instance with new layout and style configurations without a full re-render.
+     * @param {any} oConfig - The updated formatting configuration.
+     */
+    public static updateFormat(oConfig: any): void {
+        if (this._cyInstance) {
+            const parsedConfig = CytoscapeConfigParser.parse(oConfig);
+            
+            // 1. Update visual styles dynamically
+            this._cyInstance.style(CytoscapeStyleBuilder.build(parsedConfig));
+            
+            // 2. Rerun the physical layout with the new rules
+            const layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig);
+            this._cyInstance.layout(layoutConfig).run();
+        }
     }
 
     /**
