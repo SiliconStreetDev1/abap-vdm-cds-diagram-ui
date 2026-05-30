@@ -32,6 +32,10 @@
                 <core:Item key="taxi" text="Orthogonal (90° Angles)" />
             </Select>
         </HBox>
+        <VBox width="100%" class="sapUiTinyMarginBottom">
+            <Label text="Node Spacing" design="Bold"/>
+            <Slider value="{ui>/formatCytoscape/node_spacing}" min="10" max="300" step="10" change=".onLiveFormatChange" />
+        </VBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Animate Physics" />
             <Switch state="{ui>/formatCytoscape/animate}" change=".onLiveFormatChange" customTextOn="Yes" customTextOff="No"/>

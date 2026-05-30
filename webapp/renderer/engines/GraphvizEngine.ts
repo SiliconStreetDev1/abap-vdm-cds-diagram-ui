@@ -12,6 +12,26 @@ declare const d3: any;
 
 export default class GraphvizEngine {
     
+    public static supportsMinimap = false;
+    public static supportsSearch = false;
+
+    /**
+     * @public
+     * @returns {number} The maximum supported payload size in KB.
+     * @description Provides the standard limit for Graphviz WASM rendering.
+     */
+    public static getMaxPayloadSize(): number {
+        return 100;
+    }
+
+    /**
+     * @public
+     * @description Handled by the UI5 Fiori DomManager clearing the innerHTML.
+     */
+    public static destroy(): void {
+        // No explicit persistent memory instances required for D3 selections.
+    }
+
     /**
      * @public
      * @static
@@ -40,6 +60,19 @@ export default class GraphvizEngine {
                 .fit(true)
                 .zoom(false)
                 .on("renderEnd", () => {
+                    // Graphviz relies on a critical initial transform on <g id="graph0"> to flip the Y-axis.
+                    // The standard zoom manager attaches a d3 zoom behavior which overwrites the transform 
+                    // of the first <g> element upon the first zoom/pan, causing the diagram to jump.
+                    // We wrap graph0 in an identity <g> so the zoom manager targets the wrapper instead.
+                    const oSvg = document.querySelector(`#${sRenderId} svg`);
+                    const oGraph = oSvg?.querySelector("#graph0");
+                    if (oSvg && oGraph && oGraph.parentNode) {
+                        const oWrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                        oWrapper.id = "graphviz-zoom-wrapper";
+                        oGraph.parentNode.insertBefore(oWrapper, oGraph);
+                        oWrapper.appendChild(oGraph);
+                    }
+
                     // Delegate zoom and pan to the standard DOM Manager
                     // so it can seamlessly sync with the custom minimap
                     DomManager.attachStandardZoom(sRenderId);

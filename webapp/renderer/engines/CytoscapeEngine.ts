@@ -16,6 +16,7 @@ import CytoscapeDataProcessor from "./cytoscape/CytoscapeDataProcessor";
 import CytoscapeExporter from "./cytoscape/CytoscapeExporter";
 import CytoscapeSearchManager from "./cytoscape/CytoscapeSearchManager";
 import CytoscapeEventHandler from "./cytoscape/CytoscapeEventHandler";
+import { ICytoscapeConfig } from "./IEngineFacade";
 
 declare const cytoscape: any;
 
@@ -34,6 +35,15 @@ export default class CytoscapeEngine {
 
     /**
      * @public
+     * @returns {number} The maximum supported payload size in KB.
+     * @description Cytoscape uses WebGL/Canvas and can handle much larger graph payloads natively.
+     */
+    public static getMaxPayloadSize(): number {
+        return 200;
+    }
+
+    /**
+     * @public
      * @description Initializes and renders the Cytoscape graph inside the target DOM container.
      * Fetches dependencies using local-first/CDN-fallback strategies before execution.
      * @param {string} sPayload - The JSON payload containing nodes, edges, and config.
@@ -41,7 +51,7 @@ export default class CytoscapeEngine {
      * @param {function} fnOnError - Callback function to handle rendering errors.
      * @param {any} [oConfig] - Cytoscape formatting config
      */
-    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: any): void {
+    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void {
         const config = ConfigManager.get();
 
         // Chain the core engine and then the SVG plugin using local-first resolution with Integrity checking
@@ -123,7 +133,7 @@ export default class CytoscapeEngine {
      * @description Dynamically updates the active Cytoscape instance with new layout and style configurations without a full re-render.
      * @param {any} oConfig - The updated formatting configuration.
      */
-    public static updateFormat(oConfig: any): void {
+    public static updateFormat(oConfig: ICytoscapeConfig): void {
         if (this._cyInstance) {
             const parsedConfig = CytoscapeConfigParser.parse(oConfig);
             

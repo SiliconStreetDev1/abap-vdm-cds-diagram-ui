@@ -15,15 +15,19 @@ import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
 import SvgProcessor from "../helpers/SvgProcessor";
 import { EngineType } from "../types";
+import { IEngineFacade, ICytoscapeConfig } from "./engines/IEngineFacade";
 
 export default class Renderer {
 
-    private static _getEngine(sEngine: string): any {
-        switch (sEngine) {
-            case EngineType.MERMAID: return MermaidEngine;
-            case EngineType.GRAPHVIZ: return GraphvizEngine;
-            case EngineType.PLANTUML: return PlantUmlEngine;
-            case EngineType.CYTOSCAPE: return CytoscapeEngine;
+    private static _activeEngine: IEngineFacade | null = null;
+
+    private static _getEngine(sEngine: string): IEngineFacade | null {
+        const sNormalizedEngine = String(sEngine).toUpperCase();
+        switch (sNormalizedEngine) {
+            case String(EngineType.MERMAID).toUpperCase(): return MermaidEngine;
+            case String(EngineType.GRAPHVIZ).toUpperCase(): return GraphvizEngine;
+            case String(EngineType.PLANTUML).toUpperCase(): return PlantUmlEngine;
+            case String(EngineType.CYTOSCAPE).toUpperCase(): return CytoscapeEngine;
             default: return null;
         }
     }
@@ -39,16 +43,33 @@ export default class Renderer {
      * @param {any} [oConfig] - Engine-specific configuration
      * @returns {Promise<void>}
      */
-    public static async renderDiagram(sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: any): Promise<void> {
+    public static async renderDiagram(sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): Promise<void> {
         await ConfigManager.initialize();
 
+        const engine = this._getEngine(sEngine);
+        if (!engine) {
+            fnOnError(`Unsupported rendering engine: ${sEngine}`);
+            return;
+        }
+
+        // Clean up previous engine instances to prevent memory leaks and duplicate UI artifacts
+        if (this._activeEngine && this._activeEngine !== engine && this._activeEngine.destroy) {
+            this._activeEngine.destroy();
+        }
+        this._activeEngine = engine;
+
+        // Enforce engine-specific rendering limits to prevent browser thread crashes.
+        const iMaxSizeKb = engine.getMaxPayloadSize();
+        const iMaxChars = iMaxSizeKb * 1024;
+
+        if (sPayload.length > iMaxChars) {
+            const iActualKb = Math.round(sPayload.length / 1024);
+            fnOnError(`Diagram too large to render (${iActualKb} KB). Please use "Download Source".`);
+            return;
+        }
+
         DomManager.setupCanvas(oHtmlControl, fnOnError, (sRenderId: string) => {
-            const engine = this._getEngine(sEngine);
-            if (engine) {
-                engine.render(sPayload, sRenderId, fnOnError, oConfig);
-            } else {
-                fnOnError(`Unsupported rendering engine: ${sEngine}`);
-            }
+            engine.render(sPayload, sRenderId, fnOnError, oConfig);
         });
     }
 
@@ -120,7 +141,7 @@ export default class Renderer {
      * @param {any} oFormat - Config Payload
      * @returns {void}
      */
-    public static updateLiveFormat(sEngine: EngineType | string, oFormat: any): void {
+    public static updateLiveFormat(sEngine: EngineType | string, oFormat: ICytoscapeConfig): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.updateFormat) {
             engine.updateFormat(oFormat);

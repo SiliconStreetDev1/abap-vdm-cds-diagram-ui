@@ -51,21 +51,4 @@ export default class DiagramService {
             throw new Error(sErrorMsg);
         }
     }
-
-    /**
-     * @public
-     * @description Enforces rendering limits to prevent browser thread crashes.
-     * @param {string} sPayload - The raw syntax payload from the backend.
-     * @param {number} [iMaxSizeKb=100] - The maximum allowable size in kilobytes.
-     * @returns {void}
-     * @throws {Error} Throws if the payload exceeds the safe rendering threshold.
-     */
-    public static validatePayloadSize(sPayload: string, iMaxSizeKb: number = 100): void {
-        const iMaxChars = iMaxSizeKb * 1024;
-        
-        if (sPayload.length > iMaxChars) {
-            const iActualKb = Math.round(sPayload.length / 1024);
-            throw new Error(`Diagram too large to render (${iActualKb} KB). Please use "Download Source".`);
-        }
-    }
 }

@@ -28,6 +28,8 @@ import ResponsivePopover from "sap/m/ResponsivePopover";
 import Text from "sap/m/Text";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
+import ResourceModel from "sap/ui/model/resource/ResourceModel";
+import ResourceBundle from "sap/base/i18n/ResourceBundle";
 
 import FilterBuilder from "../helpers/FilterBuilder";
 import ViewStateHelper from "../helpers/ViewStateHelper";
@@ -57,6 +59,9 @@ export default class Selection extends Controller {
     /** @private {string[]} Tracks the breadcrumb trail for drill-down navigation */
     private _aBreadcrumbs: string[] = [];
 
+    // Bound event listener reference for proper cleanup
+    private _fnNodeDrillDownRequestBind!: EventListener;
+
     /**
      * @public
      * @description Lifecycle hook. Bootstraps local handlers, validators, and default UI state.
@@ -81,7 +86,27 @@ export default class Selection extends Controller {
         this._oVariantHandler.loadHistoryAndVariants();
 
         // Listen for Drill Down Requests from rendering engines (like Cytoscape double-click)
-        document.addEventListener("CdsNodeDrillDownRequest", this._onNodeDrillDownRequest.bind(this) as EventListener);
+        this._fnNodeDrillDownRequestBind = this._onNodeDrillDownRequest.bind(this) as EventListener;
+        document.addEventListener("CdsNodeDrillDownRequest", this._fnNodeDrillDownRequestBind);
+
+        // Standardize internal UI5-to-UI5 drill down requests via EventBus
+        const oEventBus = this.getOwnerComponent()?.getEventBus();
+        if (oEventBus) {
+            oEventBus.subscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
+        }
+    }
+
+    /**
+     * @public
+     * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
+     */
+    public onExit(): void {
+        document.removeEventListener("CdsNodeDrillDownRequest", this._fnNodeDrillDownRequestBind);
+        
+        const oEventBus = this.getOwnerComponent()?.getEventBus();
+        if (oEventBus) {
+            oEventBus.unsubscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
+        }
     }
 
     /**
@@ -139,7 +164,6 @@ export default class Selection extends Controller {
             
             // Log successful search for the dropdown history
             this._oVariantHandler.updateHistory(oResult.CdsName);
-            DiagramService.validatePayloadSize(oResult.DiagramPayload);
 
             let sPayload = oResult.DiagramPayload;
             
@@ -186,13 +210,14 @@ export default class Selection extends Controller {
      */
     public onLiveFormatChange(oEvent: Event): void {
         const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        const sEngine = oUiModel.getProperty("/activeEngine");
+        const sEngine = oUiModel.getProperty("/activeEngine") || "";
 
-        if (sEngine === EngineType.CYTOSCAPE) {
+        // Guarantee execution regardless of case mismatch between the XML literal and the TypeScript enum
+        if (sEngine === EngineType.CYTOSCAPE || String(sEngine).toUpperCase() === "CYTOSCAPE") {
             const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
-                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: sEngine, format: oFormatConfig });
+                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
             }
         }
     }
@@ -240,8 +265,22 @@ export default class Selection extends Controller {
 
     /**
      * @private
-     * @description Handles drill down requests emitted by interacting with the canvas.
+     * @description Handles drill down requests emitted gracefully by standard UI5 components.
      * Updates the target CDS view name and immediately fires a new rendering request.
+     */
+    private _onEventBusDrillDown(sChannel: string, sEvent: string, oData: any): void {
+        const sViewName = oData?.viewName;
+        if (sViewName) {
+            const oComboBox = this.byId("cmbCdsName") as ComboBox;
+            oComboBox.setValue(sViewName);
+            
+            this._executeGeneration(true);
+        }
+    }
+
+    /**
+     * @private
+     * @description Fallback to catch native DOM events from pure JS rendering engines that lack EventBus access.
      */
     private _onNodeDrillDownRequest(oEvent: CustomEvent): void {
         const sViewName = oEvent.detail?.viewName;
@@ -285,7 +324,8 @@ export default class Selection extends Controller {
      * @returns {string} Translated text.
      */
     private _getText(sKey: string): string {
-        const oBundle = (this.getOwnerComponent()?.getModel("i18n") as any)?.getResourceBundle();
+        const oModel = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
+        const oBundle = oModel?.getResourceBundle() as ResourceBundle;
         return oBundle ? oBundle.getText(sKey) || sKey : sKey;
     }
 }

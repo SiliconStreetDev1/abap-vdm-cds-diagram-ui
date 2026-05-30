@@ -13,6 +13,9 @@ declare const mermaid: any;
 export default class MermaidEngine {
     private static _bMermaidInit: boolean = false;
 
+    public static supportsMinimap = false;
+    public static supportsSearch = false;
+
     /**
      * @public
      * @static
@@ -61,6 +64,23 @@ export default class MermaidEngine {
         }).catch((oNetworkError: any) => {
             fnOnError(`Mermaid CDN Error: ${oNetworkError.message || oNetworkError}`);
         });
+    }
+
+    /**
+     * @public
+     * @returns {number} The maximum supported payload size in KB.
+     * @description Provides the standard limit for Mermaid.js rendering.
+     */
+    public static getMaxPayloadSize(): number {
+        return 100;
+    }
+
+    /**
+     * @public
+     * @description Destroys the Mermaid active context.
+     */
+    public static destroy(): void {
+        this._bMermaidInit = false;
     }
 
     /**

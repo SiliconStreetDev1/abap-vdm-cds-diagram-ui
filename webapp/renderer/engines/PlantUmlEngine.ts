@@ -12,6 +12,26 @@ declare const pako: any;
 
 export default class PlantUmlEngine {
     
+    public static supportsMinimap = false;
+    public static supportsSearch = false;
+
+    /**
+     * @public
+     * @returns {number} The maximum supported payload size in KB.
+     * @description PlantUML requests pass via URL strings, requiring a stricter limit.
+     */
+    public static getMaxPayloadSize(): number {
+        return 50;
+    }
+
+    /**
+     * @public
+     * @description Clean up method for PlantUML.
+     */
+    public static destroy(): void {
+        // Headless engine relying on standard DOM injections. Handled by DomManager.
+    }
+
     /**
      * @public
      * @static

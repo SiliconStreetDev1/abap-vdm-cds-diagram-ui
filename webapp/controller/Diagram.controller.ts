@@ -9,6 +9,12 @@
 import Controller from "sap/ui/core/mvc/Controller";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import HTML from "sap/ui/core/HTML";
+import Event from "sap/ui/base/Event";
+import ResourceModel from "sap/ui/model/resource/ResourceModel";
+import ResourceBundle from "sap/base/i18n/ResourceBundle";
+import { SearchField$SearchEvent } from "sap/m/SearchField";
+import Link from "sap/m/Link";
+import ToggleButton from "sap/m/ToggleButton";
 
 import ExportHandler from "../handlers/ExportHandler";
 import Renderer from "../renderer/Renderer";
@@ -18,6 +24,10 @@ export default class Diagram extends Controller {
     
     /** @private {ExportHandler} Service for managing file downloads and clipboard actions */
     private _oExportHandler!: ExportHandler;
+    
+    // Bound event listener references for proper cleanup
+    private _fnFullScreenChangeBind!: EventListener;
+    private _fnCloseMinimapRequestBind!: EventListener;
 
     /**
      * @public
@@ -61,10 +71,28 @@ export default class Diagram extends Controller {
             oEventBus.subscribe("DiagramEngine", "LiveFormatUpdate", this._onLiveFormatUpdate, this);
         }
 
+        this._fnFullScreenChangeBind = this._onFullScreenChange.bind(this);
+        this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
+
         // Attach native DOM listeners to catch when a user presses 'ESC' to exit fullscreen natively
-        document.addEventListener("fullscreenchange", this._onFullScreenChange.bind(this));
-        document.addEventListener("webkitfullscreenchange", this._onFullScreenChange.bind(this)); // Safari fallback
-        document.addEventListener("CdsCloseMinimapRequest", this._onCloseMinimapRequest.bind(this) as EventListener);
+        document.addEventListener("fullscreenchange", this._fnFullScreenChangeBind);
+        document.addEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind); // Safari fallback
+        document.addEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
+    }
+
+    /**
+     * @public
+     * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
+     */
+    public onExit(): void {
+        const oEventBus = this.getOwnerComponent()?.getEventBus();
+        if (oEventBus) {
+            oEventBus.unsubscribe("DiagramEngine", "RenderRequest", this._onRenderRequest, this);
+            oEventBus.unsubscribe("DiagramEngine", "LiveFormatUpdate", this._onLiveFormatUpdate, this);
+        }
+        document.removeEventListener("fullscreenchange", this._fnFullScreenChangeBind);
+        document.removeEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind);
+        document.removeEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
     }
 
     /**
@@ -123,12 +151,14 @@ export default class Diagram extends Controller {
 
         // 2. Engine-specific UI validation
         if (oData.engine === EngineType.D2) {
+            oViewModel.setProperty("/hasDiagram", true);
+            oViewModel.setProperty("/canExportImg", false);
             this._showError("msgD2Warning");
             return;
         }
 
         // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
-        oViewModel.setProperty("/canExportImg", true); // We return early if D2 above, so this is always true
+        oViewModel.setProperty("/canExportImg", true);
         oViewModel.setProperty("/hasDiagram", true);
         oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
 
@@ -151,11 +181,23 @@ export default class Diagram extends Controller {
         const oContainer = this.byId("diagramContainer");
         if (!oContainer) return;
 
-        // Fetch the raw physical DOM element
-        const oDomRef = oContainer.getDomRef() as any;
+        type FullscreenElement = HTMLElement & {
+            requestFullscreen?: () => Promise<void>;
+            webkitRequestFullscreen?: () => void;
+            msRequestFullscreen?: () => void;
+        };
+        type FullscreenDoc = Document & {
+            webkitFullscreenElement?: Element;
+            webkitExitFullscreen?: () => void;
+            msExitFullscreen?: () => void;
+        };
+
+        const oDomRef = oContainer.getDomRef() as FullscreenElement;
         if (!oDomRef) return;
 
-        if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        const doc = document as FullscreenDoc;
+
+        if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
             // Enter Fullscreen (with cross-browser fallbacks)
             if (oDomRef.requestFullscreen) {
                 oDomRef.requestFullscreen().catch((err: Error) => console.warn(`Fullscreen error: ${err.message}`));
@@ -166,12 +208,12 @@ export default class Diagram extends Controller {
             }
         } else {
             // Exit Fullscreen
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if ((document as any).webkitExitFullscreen) {
-                (document as any).webkitExitFullscreen();
-            } else if ((document as any).msExitFullscreen) {
-                (document as any).msExitFullscreen();
+            if (doc.exitFullscreen) {
+                doc.exitFullscreen();
+            } else if (doc.webkitExitFullscreen) {
+                doc.webkitExitFullscreen();
+            } else if (doc.msExitFullscreen) {
+                doc.msExitFullscreen();
             }
         }
     }
@@ -180,14 +222,14 @@ export default class Diagram extends Controller {
      * @public
      * @description Fires a drill-down request for a specific breadcrumb, gracefully returning the user.
      */
-    public onBreadcrumbPress(oEvent: any): void {
-        const oLink = oEvent.getSource();
+    public onBreadcrumbPress(oEvent: Event): void {
+        const oLink = oEvent.getSource() as Link;
         const sViewName = oLink.getText();
         if (sViewName) {
-            const event = new CustomEvent("CdsNodeDrillDownRequest", {
-                detail: { viewName: sViewName }
-            });
-            document.dispatchEvent(event);
+            const oEventBus = this.getOwnerComponent()?.getEventBus();
+            if (oEventBus) {
+                oEventBus.publish("DiagramEngine", "NodeDrillDownRequest", { viewName: sViewName });
+            }
         }
     }
 
@@ -195,8 +237,8 @@ export default class Diagram extends Controller {
      * @public
      * @description Search handler for locating specific nodes in the active canvas.
      */
-    public onSearchCanvas(oEvent: any): void {
-        const sQuery = oEvent.getParameter("query");
+    public onSearchCanvas(oEvent: SearchField$SearchEvent): void {
+        const sQuery = oEvent.getParameter("query") || "";
         const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
         
         Renderer.searchCanvas(sEngine, sQuery);
@@ -219,8 +261,8 @@ export default class Diagram extends Controller {
      * @public
      * @description Toggles the minimap display
      */
-    public onToggleMinimap(oEvent: any): void {
-        const bPressed = oEvent.getSource().getPressed();
+    public onToggleMinimap(oEvent: Event): void {
+        const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
         (this.getView()?.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
         const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
         Renderer.toggleMinimap(sEngine, bPressed);
@@ -231,11 +273,14 @@ export default class Diagram extends Controller {
      * @description Handles live node spacing changes from the floating slider on the canvas.
      * Only fires on slider drop (`change`) to prevent layout calculation stutter.
      */
-    public onSpacingChange(oEvent: any): void {
+    public onSpacingChange(oEvent: Event): void {
         const oUiModel = this.getView()?.getModel("ui") as JSONModel;
         if (oUiModel) {
             const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-            Renderer.updateLiveFormat(EngineType.CYTOSCAPE, oFormatConfig);
+            const oEventBus = this.getOwnerComponent()?.getEventBus();
+            if (oEventBus) {
+                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
+            }
         }
     }
 
@@ -249,8 +294,11 @@ export default class Diagram extends Controller {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         if (!oViewModel) return;
 
+        type FullscreenDoc = Document & { webkitFullscreenElement?: Element; };
+        const doc = document as FullscreenDoc;
+
         // Check active fullscreen element
-        if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
             oViewModel.setProperty("/fullScreenIcon", "sap-icon://exit-full-screen");
         } else {
             oViewModel.setProperty("/fullScreenIcon", "sap-icon://full-screen");
@@ -265,7 +313,6 @@ export default class Diagram extends Controller {
     private _showError(sMessage: string): void {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         oViewModel.setProperty("/hasError", true);
-      //  oViewModel.setProperty("/hasDiagram", false);
         oViewModel.setProperty("/errorText", this._getText(sMessage) || sMessage);
     }
 
@@ -286,7 +333,8 @@ export default class Diagram extends Controller {
      * @returns {string} Translated text.
      */
     private _getText(sKey: string): string {
-        const oBundle = (this.getOwnerComponent()?.getModel("i18n") as any)?.getResourceBundle();
+        const oModel = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
+        const oBundle = oModel?.getResourceBundle() as ResourceBundle;
         return oBundle ? oBundle.getText(sKey) || sKey : sKey;
     }
 
