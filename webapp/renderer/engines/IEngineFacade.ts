@@ -11,7 +11,7 @@ export interface ICytoscapeConfig {
     node_spacing?: number;
     animate?: boolean;
     snapGuides?: boolean;
-    presetPositions?: Record<string, {x: number, y: number}>;
+    presetPositions?: Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}>;
 }
 
 export interface IEngineFacade {
@@ -30,9 +30,10 @@ export interface IEngineFacade {
     toggleMinimap?(bShow: boolean): void;
     search?(sQuery: string): void;
     updateFormat?(oFormat: ICytoscapeConfig): void;
-    getCanvasState?(): Record<string, {x: number, y: number}>;
+    getCanvasState?(): Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}>;
     setNodesLocked?(bLocked: boolean): void;
     runLayout?(): void;
+    showHiddenNodes?(): void;
 
     /**
      * @public

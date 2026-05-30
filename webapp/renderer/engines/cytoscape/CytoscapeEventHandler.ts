@@ -44,6 +44,10 @@ export default class CytoscapeEventHandler {
         cyInstance.on('closeMinimap', () => {
             document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, {}));
         });
+
+        cyInstance.on('drag', 'node', () => {
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+        });
     }
 
     /**

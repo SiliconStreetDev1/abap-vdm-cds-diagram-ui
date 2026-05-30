@@ -18,5 +18,10 @@ export const DomEvents = {
     LAYOUT_UNLOCKED: "CdsLayoutUnlocked",
     NODE_CLICKED: "CdsNodeClicked",
     NODE_DRILL_DOWN: "CdsNodeDrillDownRequest",
-    FORMAT_SLIDER_UPDATE: "CdsFormatSliderUpdate"
+    FORMAT_SLIDER_UPDATE: "CdsFormatSliderUpdate",
+    NODE_DRAGGED: "CdsNodeDragged",
+    NODE_PINNED: "CdsNodePinned",
+    NODE_HIDDEN: "CdsNodeHidden",
+    NODE_UNHIDDEN: "CdsNodeUnhidden",
+    NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged"
 };

@@ -25,5 +25,5 @@ export interface IVariantState {
     formatGraphviz: Record<string, unknown>;
     formatMermaid: Record<string, unknown>;
     formatCytoscape: Record<string, unknown>;
-    canvasState: Record<string, { x: number, y: number }> | null;
+    canvasState: Record<string, { x: number, y: number, isPinned?: boolean, isHidden?: boolean }> | null;
 }

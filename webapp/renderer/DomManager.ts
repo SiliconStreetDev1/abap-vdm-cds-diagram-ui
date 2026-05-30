@@ -26,7 +26,7 @@ export default class DomManager {
 
         const bNeedsContent = !oHtml.getContent();
         if (bNeedsContent) {
-            oHtml.setContent(`<div id="${sParentId}" style="width:100%; height:100%; overflow:hidden; display:flex; justify-content:center; align-items:center;"></div>`);
+            oHtml.setContent(`<div id="${sParentId}" style="width:100%; height:100%; overflow:hidden; position:relative;"></div>`);
         }
 
         const executeMount = () => {
@@ -37,10 +37,10 @@ export default class DomManager {
                 
                 // Random alphanumeric salt prevents WebGL ID collisions during rapid re-renders
                 const sRenderId = "render-" + Math.random().toString(36).substring(2, 9) + "-" + Date.now();
-                oParentDiv.innerHTML = `<div id="${sRenderId}" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>`;
+                oParentDiv.innerHTML = `<div id="${sRenderId}" style="width:100%; height:100%; position:relative; overflow:hidden;"></div>`;
                 
                 // Ensure DOM has physically updated before Cytoscape attempts to attach WebGL
-                setTimeout(() => fnCallback(sRenderId), 10);
+                requestAnimationFrame(() => fnCallback(sRenderId));
             } else {
                 fnOnError("Renderer Error: Target DOM container not found.");
             }
@@ -53,7 +53,7 @@ export default class DomManager {
             const oDelegate = {
                 onAfterRendering: () => {
                     oHtml.removeEventDelegate(oDelegate);
-                    setTimeout(executeMount, 10);
+                    requestAnimationFrame(executeMount);
                 }
             };
             oHtml.addEventDelegate(oDelegate);

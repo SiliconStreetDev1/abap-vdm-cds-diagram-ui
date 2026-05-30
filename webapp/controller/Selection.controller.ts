@@ -4,65 +4,34 @@
  * @version 2.1
  * @description Manages configuration state, triggers the OData backend service, 
  * and broadcasts the resulting payload via the EventBus. 
- * * ARCHITECTURE NOTE: This controller implements the "Command Center" pattern. 
- * It has zero knowledge of the DOM canvas, Cytoscape, Mermaid, or PlantUML. 
- * It simply gathers the UI parameters, asks the ABAP backend for a string/JSON, 
- * and tosses that payload over the wall (EventBus) for the Renderer to catch.
  */
 
 import Controller from "sap/ui/core/mvc/Controller";
-import MessageToast from "sap/m/MessageToast";
-import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Event from "sap/ui/base/Event";
-import Control from "sap/ui/core/Control";
-
-import ComboBox from "sap/m/ComboBox";
 import Select from "sap/m/Select";
-import Button from "sap/m/Button";
-import Input from "sap/m/Input";
 import MultiInput from "sap/m/MultiInput";
-import Token from "sap/m/Token";
-import VBox from "sap/m/VBox";
-import Icon from "sap/ui/core/Icon"; 
-import ResponsivePopover from "sap/m/ResponsivePopover";
-import Text from "sap/m/Text";
-import JSONModel from "sap/ui/model/json/JSONModel";
-import ODataModel from "sap/ui/model/odata/v4/ODataModel";
+import MessageToast from "sap/m/MessageToast";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResourceBundle from "sap/base/i18n/ResourceBundle";
 
-import FilterBuilder from "../helpers/FilterBuilder";
-import ViewStateHelper from "../helpers/ViewStateHelper";
 import VariantHandler from "../handlers/VariantHandler";
-import CdsValueHelpHandler from "../handlers/CdsValueHelpHandler";
-import DiagramService from "../services/DiagramService";
+import DiagramGenerationHandler from "../handlers/DiagramGenerationHandler";
+import SelectionStateHandler from "../handlers/SelectionStateHandler";
+import SelectionUIHandler from "../handlers/SelectionUIHandler";
 import InputValidationService from "../services/InputValidationService";
-import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 
 export default class Selection extends Controller {
 
-    /** @private {VariantHandler} Manages saving/loading of user configurations */
     private _oVariantHandler!: VariantHandler;
-    
-    /** @private {CdsValueHelpHandler | undefined} Dialog manager for F4 search */
-    private _oCdsValueHelpHandler?: CdsValueHelpHandler;
-    
-    /** @private {Control | undefined} Tracks the field triggering F4 to route selection back */
-    private _oActiveSearchField?: Control;
-    
-    /** @private {ResponsivePopover | undefined} Popover instance for inline contextual help */
-    private _oInfoPopover?: ResponsivePopover;
+    private _oGenerationHandler!: DiagramGenerationHandler;
+    private _oStateHandler!: SelectionStateHandler;
+    private _oUIHandler!: SelectionUIHandler;
 
-    /** @private {string} Tracks the root CDS view during drill-down sessions */
-    private _sRootCdsName: string = "";
-
-    /** @private {string[]} Tracks the breadcrumb trail for drill-down navigation */
-    private _aBreadcrumbs: string[] = [];
-
-    // Bound event listener reference for proper cleanup
     private _fnNodeDrillDownRequestBind!: EventListener;
     private _fnSliderUpdateBind!: EventListener;
+    private _fnCanvasStateChangedBind!: EventListener;
+    private _fnEventBusDrillDownBind!: (c: string, e: string, d: any) => void;
 
     /**
      * @public
@@ -74,8 +43,12 @@ export default class Selection extends Controller {
         if (!oView) return;
 
         this._oVariantHandler = new VariantHandler(oView, this._getText.bind(this));
+        this._oStateHandler = new SelectionStateHandler(oView, this._getText.bind(this));
+        
+        const oEventBus = this.getOwnerComponent()?.getEventBus();
+        this._oGenerationHandler = new DiagramGenerationHandler(oView, oEventBus, this._getText.bind(this));
+        this._oUIHandler = new SelectionUIHandler(oView, oEventBus, this._oStateHandler, this._getText.bind(this));
 
-        // Attach Token Validators to prevent users from adding empty/invalid filters
         const oIncInput = this.byId("inpInclude") as MultiInput;
         const oExcInput = this.byId("inpExclude") as MultiInput;
         const fnWarn = (sKey: string) => MessageToast.show(this._getText(sKey));
@@ -84,21 +57,24 @@ export default class Selection extends Controller {
         oIncInput.addValidator(fnTokenValidator);
         oExcInput.addValidator(fnTokenValidator);
 
-        // Pre-load previous user sessions (Local Storage or LREP)
         this._oVariantHandler.loadHistoryAndVariants();
 
-        // Listen for Drill Down Requests from rendering engines (like Cytoscape double-click)
-        this._fnNodeDrillDownRequestBind = this._onNodeDrillDownRequest.bind(this) as EventListener;
+        this._fnNodeDrillDownRequestBind = ((e: CustomEvent) => this._oGenerationHandler.handleDrillDown(e.detail?.viewName)) as EventListener;
         document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
 
-        // Standardize internal UI5-to-UI5 drill down requests via EventBus
-        const oEventBus = this.getOwnerComponent()?.getEventBus();
+        this._fnEventBusDrillDownBind = (c: string, e: string, d: any) => this._oGenerationHandler.handleDrillDown(d?.viewName);
         if (oEventBus) {
-            oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
+            oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._fnEventBusDrillDownBind, this);
         }
 
-        this._fnSliderUpdateBind = this._onSliderUpdate.bind(this) as EventListener;
+        this._fnSliderUpdateBind = this._oUIHandler.onSliderUpdate.bind(this._oUIHandler) as EventListener;
         document.addEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+
+        this._fnCanvasStateChangedBind = this._oStateHandler.onCanvasStateChanged.bind(this._oStateHandler) as EventListener;
+        document.addEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
+        document.addEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
+        document.addEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
+        document.addEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
     }
 
     /**
@@ -110,240 +86,112 @@ export default class Selection extends Controller {
         
         const oEventBus = this.getOwnerComponent()?.getEventBus();
         if (oEventBus) {
-            oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
+            oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._fnEventBusDrillDownBind, this);
         }
         document.removeEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+        document.removeEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
+        document.removeEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
+        document.removeEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
+        document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
     }
+
+    // ========================================================================
+    // DELEGATED EVENT HANDLERS
+    // ========================================================================
 
     /**
      * @public
-     * @description Core execution routine. Gathers all UI inputs, calls the ABAP RAP 
-     * Provider, and publishes the payload via EventBus for the rendering engine.
-     * @returns {Promise<void>}
+     * @description Triggers diagram generation.
+     * @returns {void}
      */
-    public onGenerate(oEvent?: Event): void {
-        this._executeGeneration(false);
-    }
-
-    /**
-     * @private
-     * @description Internal method to handle diagram generation, separating the UI
-     * event logic from programmatic drill-down requests.
-     * @param {boolean} bIsDrillDown - Whether this generation preserves the existing root.
-     */
-    private async _executeGeneration(bIsDrillDown: boolean): Promise<void> {
-
-        const oComboBox = this.byId("cmbCdsName") as ComboBox;
-        const sCdsName = oComboBox.getValue().trim().toUpperCase();
-        
-        if (!sCdsName) {
-            MessageToast.show(this._getText("msgEnterCds"));
-            return;
-        }
-        
-        // Prevent cross-diagram variant leaks: If generating a NEW diagram, wipe old preset coordinates
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        const sLastCdsName = oUiModel.getProperty("/lastGeneratedCdsName");
-        if (sLastCdsName && sLastCdsName !== sCdsName) {
-            oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-            if (oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
-                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
-            }
-        }
-        oUiModel.setProperty("/lastGeneratedCdsName", sCdsName);
-
-        // If this is a fresh user search (not a canvas drill-down), set the new root
-        if (!bIsDrillDown) {
-            this._sRootCdsName = sCdsName;
-            this._aBreadcrumbs = [sCdsName];
-        } else {
-            const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
-            if (iIndex > -1) {
-                // Navigating backwards truncates the trail
-                this._aBreadcrumbs = this._aBreadcrumbs.slice(0, iIndex + 1);
-            } else {
-                this._aBreadcrumbs.push(sCdsName);
-            }
-        }
-
-        const sEngine = (this.byId("selEngine") as Select).getSelectedKey() as EngineType;
-        const oModel = this.getOwnerComponent()?.getModel() as ODataModel; 
-        
-        BusyIndicator.show(0);
-
-        try {
-            // FilterBuilder scrapes the UI Model (including the new /formatCytoscape)
-            // and packages it into RAP-compliant filter ranges.
-            const aFilters = FilterBuilder.buildFiltersFromView(this.getView()!, sCdsName, sEngine);
-            
-            // Execute the backend call (Hits zcl_vdm_diagram_query)
-            const oResult = await DiagramService.fetchDiagram(oModel, aFilters);
-            
-            // Log successful search for the dropdown history
-            this._oVariantHandler.updateHistory(oResult.CdsName);
-
-            let sPayload = oResult.DiagramPayload;
-            
-            // PUBLISH TO EVENTBUS
-            // We do not care how it is drawn. The Diagram.controller.ts is listening 
-            // for this exact signature and will route it to the correct JS library.
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                const oPayload: IRenderRequestPayload = {
-                    payload: sPayload, // PlantUML String OR Cytoscape JSON
-                    extension: oResult.FileExtension,
-                    cdsName: oResult.CdsName,
-                    engine: sEngine,
-                    rootCdsName: this._sRootCdsName,
-                    breadcrumbs: this._aBreadcrumbs
-                };
-                
-                if (sEngine === EngineType.CYTOSCAPE) {
-                    oPayload.engineConfig = (this.getView()?.getModel("ui") as JSONModel).getProperty("/formatCytoscape");
-                }
-
-                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
-            }
-
-        } catch (oError: any) {
-            MessageToast.show(this._getText(oError.message) || oError.message);
-        } finally {
-            BusyIndicator.hide();
-        }
-    }
-
-    // ========================================================================
-    // UI EVENT DELEGATIONS (Managed by Helpers to keep Controller thin)
-    // ========================================================================
-
-    public onEngineChange(oEvent: Event): void {
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        ViewStateHelper.handleEngineChange(oEvent, oUiModel);
-    }
+    public onGenerate(): void { this._oGenerationHandler.generate(false); }
 
     /**
      * @public
-     * @description Handles live formatting changes. Broadcasts the new config to the active engine to update without a full re-render.
+     * @description Handles engine select change.
+     * @param {Event} e - Control event.
+     * @returns {void}
      */
-    public onLiveFormatChange(oEvent: Event): void {
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        const sEngine = oUiModel.getProperty("/activeEngine") || "";
-
-        // Guarantee execution regardless of case mismatch between the XML literal and the TypeScript enum
-        if (sEngine === EngineType.CYTOSCAPE || String(sEngine).toUpperCase() === "CYTOSCAPE") {
-            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                oEventBus.publish("DiagramEngine", "LiveFormatUpdate", { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
-            }
-        }
-    }
-
-    public onRelModeChange(oEvent: Event): void {
-        const oBoxLines = this.byId("boxLines") as VBox;
-        const oBoxDiscovery = this.byId("boxDiscovery") as VBox;
-        ViewStateHelper.toggleRelMode(oEvent, oBoxLines, oBoxDiscovery);
-    }
-
-    public onSaveVariant(): void         { this._oVariantHandler.openSaveDialog(); }
-    public onDeleteVariant(): void       { this._oVariantHandler.deleteSelected(); }
-    public onVariantChange(e: Event): void { this._oVariantHandler.applyVariant(e, () => this.onGenerate()); }
-
-    // ========================================================================
-    // VALUE HELP (F4 SEARCH) LOGIC
-    // ========================================================================
-
-    public onCdsValueHelpRequest(oEvent: Event): void {
-        this._oActiveSearchField = oEvent.getSource() as Control;
-        if (!this._oCdsValueHelpHandler) {
-            this._oCdsValueHelpHandler = new CdsValueHelpHandler(this.getView()!, (s: string) => this._processValueHelpSelection(s));
-        }
-        this._oCdsValueHelpHandler.open();
-    }
-
-    private _processValueHelpSelection(sSelectedCds: string): void {
-        const oActiveField = this._oActiveSearchField as any;
-        if (!oActiveField) return;
-
-        if (oActiveField.isA("sap.m.MultiInput")) {
-            const oMI = oActiveField as MultiInput;
-            if (!oMI.getTokens().some((t: Token) => t.getKey() === sSelectedCds)) {
-                oMI.addToken(new Token({ key: sSelectedCds, text: sSelectedCds }));
-            }
-            oMI.focus();
-        } 
-        else if (oActiveField.isA("sap.m.Input") || oActiveField.isA("sap.m.ComboBox")) {
-            const oInputField = oActiveField as Input | ComboBox;
-            oInputField.setValue(sSelectedCds);
-            (this.byId("btnGenerate") as Button)?.focus();
-        }
-        this._oActiveSearchField = undefined;
-    }
+    public onEngineChange(e: Event): void { this._oUIHandler.onEngineChange(e); }
 
     /**
-     * @private
-     * @description Handles drill down requests emitted gracefully by standard UI5 components.
-     * Updates the target CDS view name and immediately fires a new rendering request.
+     * @public
+     * @description Handles live visual formatting updates.
+     * @returns {void}
      */
-    private _onEventBusDrillDown(sChannel: string, sEvent: string, oData: any): void {
-        const sViewName = oData?.viewName;
-        if (sViewName) {
-            const oComboBox = this.byId("cmbCdsName") as ComboBox;
-            oComboBox.setValue(sViewName);
-            
-            this._executeGeneration(true);
-        }
-    }
+    public onLiveFormatChange(): void { this._oUIHandler.onLiveFormatChange(); }
 
     /**
-     * @private
-     * @description Fallback to catch native DOM events from pure JS rendering engines that lack EventBus access.
+     * @public
+     * @description Switches layout rendering parameters.
+     * @param {Event} e - SegmentedButton event.
+     * @returns {void}
      */
-    private _onNodeDrillDownRequest(oEvent: CustomEvent): void {
-        const sViewName = oEvent.detail?.viewName;
-        if (sViewName) {
-            const oComboBox = this.byId("cmbCdsName") as ComboBox;
-            oComboBox.setValue(sViewName);
-            
-            this._executeGeneration(true);
-        }
-    }
+    public onRelModeChange(e: Event): void { this._oUIHandler.onRelModeChange(e); }
 
     /**
-     * @private
-     * @description Updates the slider position in the UI when the rendering engine dictates a default constraint.
+     * @public
+     * @description Opens the Variant save dialog.
+     * @returns {void}
      */
-    private _onSliderUpdate(oEvent: any): void {
-        const iSpacing = oEvent.detail?.node_spacing;
-        if (iSpacing) {
-            (this.getView()?.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", iSpacing);
+    public onSaveVariant(): void { this._oVariantHandler.openSaveDialog(); }
+
+    /**
+     * @public
+     * @description Deletes the selected user variant.
+     * @returns {void}
+     */
+    public onDeleteVariant(): void { this._oVariantHandler.deleteSelected(); }
+
+    /**
+     * @public
+     * @description Applies a variant configuration and refreshes the canvas.
+     * @param {Event} e - Select event.
+     * @returns {void}
+     */
+    public onVariantChange(e: Event): void { this._oVariantHandler.applyVariant(e, () => this._oGenerationHandler.generate(false)); }
+
+    /**
+     * @public
+     * @description Restores the original state of the loaded variant, eliminating dirty edits.
+     * @returns {void}
+     */
+    public onRevertVariant(): void {
+        const oVariantSelect = this.byId("selVariant") as Select;
+        if (oVariantSelect && oVariantSelect.getSelectedKey()) {
+            this._oVariantHandler.applyVariant(new Event("dummy", oVariantSelect, {}), () => this._oGenerationHandler.generate(false));
         }
     }
+    
+    /**
+     * @public
+     * @description Opens the F4 Value Help for CDS searches.
+     * @param {Event} e - ValueHelp request event.
+     * @returns {void}
+     */
+    public onCdsValueHelpRequest(e: Event): void { this._oUIHandler.onCdsValueHelpRequest(e); }
 
-    // ========================================================================
-    // CONTEXTUAL HELP (POPOVER)
-    // ========================================================================
+    /**
+     * @public
+     * @description Triggered on core input edits to break layouts.
+     * @returns {void}
+     */
+    public onCdsNameChange(): void { this._oStateHandler.onCdsNameChange(); }
 
-    public onShowInfo(oEvent: Event): void {
-        const oIcon = oEvent.getSource() as Icon;
-        const sInfoType = oIcon.data("infoType") as string;
-        
-        // Dynamically fetch translations based on the CustomData attribute attached to the Icon
-        const sTitle = this._getText(`infoTitle${sInfoType}`);
-        const sText = this._getText(`infoText${sInfoType}`);
+    /**
+     * @public
+     * @description Triggered on auxiliary filter edits to mark unsaved states.
+     * @returns {void}
+     */
+    public onFormChange(): void { this._oStateHandler.onFormChange(); }
 
-        if (!this._oInfoPopover) {
-            this._oInfoPopover = new ResponsivePopover({
-                placement: "Right", contentWidth: "300px", showHeader: true,
-                content: [ new Text({ text: "{popover>/text}" }).addStyleClass("sapUiSmallMargin") ]
-            });
-            this.getView()?.addDependent(this._oInfoPopover);
-        }
-
-        this._oInfoPopover.setModel(new JSONModel({ text: sText }), "popover");
-        this._oInfoPopover.setTitle(sTitle);
-        this._oInfoPopover.openBy(oIcon);
-    }
+    /**
+     * @public
+     * @description Displays inline contextual popover info.
+     * @param {Event} e - Icon press event.
+     * @returns {void}
+     */
+    public onShowInfo(e: Event): void { this._oUIHandler.onShowInfo(e); }
 
     /**
      * @private

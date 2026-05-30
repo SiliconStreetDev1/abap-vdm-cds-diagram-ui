@@ -14,7 +14,14 @@ export default class CytoscapeExporter {
      */
     public static exportPng(cyInstance: any): string {
         if (!cyInstance) return "";
-        return cyInstance.png({ bg: '#ffffff', full: true, scale: 2 });
+        
+        // Temporarily hide pin indicators from the export image
+        const pinnedNodes = cyInstance.nodes('[?isPinned]');
+        pinnedNodes.data('isPinned', false);
+        const sPng = cyInstance.png({ bg: '#ffffff', full: true, scale: 2 });
+        pinnedNodes.data('isPinned', true); // Restore immediately
+        
+        return sPng;
     }
 
     /**
@@ -28,7 +35,11 @@ export default class CytoscapeExporter {
     public static exportSvg(cyInstance: any): string {
         if (!cyInstance || typeof cyInstance.svg !== "function") return "";
         
+        // Temporarily hide pin indicators from the export vector
+        const pinnedNodes = cyInstance.nodes('[?isPinned]');
+        pinnedNodes.data('isPinned', false);
         let sRawSvg = cyInstance.svg({ scale: 1, full: true, bg: '#ffffff' });
+        pinnedNodes.data('isPinned', true); // Restore immediately
 
         try {
             const oParser = new DOMParser();

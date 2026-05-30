@@ -7,7 +7,7 @@ export default class MinimapManager {
     
     private static _minimapState = { w: 200, h: 200, x: 0, y: 0 };
 
-    public static enhancePanel(navElem: HTMLElement, cy: any, currentInstance: unknown): void {
+    public static enhancePanel(navElem: HTMLElement, cy: any): () => void {
         // Apply persisted session state immediately to prevent layout jumping
         navElem.style.setProperty("width", `${this._minimapState.w}px`, "important");
         navElem.style.setProperty("height", `${this._minimapState.h}px`, "important");
@@ -29,16 +29,12 @@ export default class MinimapManager {
         const dragCleanup = this._attachDragLogic(dragHandle, navElem);
         const resizeObj = this._attachResizeLogic(trResizeHandle, navElem, cy);
 
-        // Defensively clean up global listeners if minimap is toggled off mid-drag
-        const inst = currentInstance as { destroy: Function };
-        const origDestroy = inst.destroy;
-        inst.destroy = function() {
+        return () => {
             dragCleanup();
             if (resizeObj) {
                 if (resizeObj.cleanup) resizeObj.cleanup();
                 if (resizeObj.ro) resizeObj.ro.disconnect();
             }
-            origDestroy.apply(this, arguments);
         };
     }
 

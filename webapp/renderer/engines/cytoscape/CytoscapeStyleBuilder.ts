@@ -67,6 +67,19 @@ export default class CytoscapeStyleBuilder {
                 }
             },
             {
+                selector: 'node[?isPinned]',
+                style: {
+                    'border-width': '2px',
+                    'border-color': '#d32f2f',
+                    'border-style': 'solid',
+                    'background-image': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2QzMmYyZiIgZD0iTTE2IDEyVjRoMVYySDd2MmgxdjhsLTIgMnYyaDUuMnY2aDEuNnYtNkgxOHYtMmwtMi0yeiIvPjwvc3ZnPg==',
+                    'background-position-x': '100%',
+                    'background-position-y': '0%',
+                    'background-width': '24px',
+                    'background-height': '24px'
+                }
+            },
+            {
                 selector: 'node:selected',
                 style: {
                     'border-width': '4px',
@@ -129,6 +142,12 @@ export default class CytoscapeStyleBuilder {
                     'color': '#ffffff',
                     'text-border-color': 'data(colorHint)'
                 }
+        },
+        {
+            selector: '.hidden',
+            style: {
+                'display': 'none'
+            }
             }
         ];
 

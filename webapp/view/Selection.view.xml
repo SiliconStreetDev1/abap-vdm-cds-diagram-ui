@@ -58,6 +58,7 @@
                     </layoutData>
                     <core:Item key="{variants>name}" text="{variants>name}" />
                 </Select>
+                <Button id="btnRevertVariant" icon="sap-icon://undo" tooltip="Revert to Saved Variant" press="onRevertVariant" type="Transparent" visible="{= ${ui>/variantDirty} === true }" />
                 <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
                 <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
             </HBox>

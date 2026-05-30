@@ -173,7 +173,7 @@ export default class Renderer {
      * @static
      * @description Extracts the live X/Y canvas coordinates for layout persistence.
      */
-    public static getCanvasState(sEngine: string): Record<string, {x: number, y: number}> | null {
+    public static getCanvasState(sEngine: string): Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> | null {
         const engine = this._getEngine(sEngine);
         return engine && engine.getCanvasState ? engine.getCanvasState() : null;
     }
@@ -199,6 +199,18 @@ export default class Renderer {
         const engine = this._getEngine(sEngine);
         if (engine && engine.runLayout) {
             engine.runLayout();
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Instructs the engine to restore visibility to all hidden nodes.
+     */
+    public static showHiddenNodes(sEngine: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.showHiddenNodes) {
+            engine.showHiddenNodes();
         }
     }
 

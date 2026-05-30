@@ -12,7 +12,7 @@ export interface IParsedCytoscapeConfig {
     animate: boolean;
     nodeSpacing: number;
     snapGuides: boolean;
-    presetPositions: Record<string, {x: number, y: number}> | null;
+    presetPositions: Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> | null;
 }
 
 export default class CytoscapeConfigParser {

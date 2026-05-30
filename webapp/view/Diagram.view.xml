@@ -14,7 +14,7 @@
 
             <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap" type="Transparent" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
 
-            <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" text="Full Screen" press="onToggleFullScreen" type="Transparent" />
+            <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" tooltip="{i18n>ttFullScreen}" press="onToggleFullScreen" type="Transparent" />
             
             <Button id="btnCopy" icon="sap-icon://copy" text="{i18n>btnCopy}" press="onCopySyntax" visible="{= ${diagramData>/engine} !== 'CYTOSCAPE' }" />
             <Button id="btnDownloadSrc" icon="sap-icon://download" text="{i18n>btnDownloadSrc}" press="onDownloadSource" visible="{= ${diagramData>/engine} !== 'CYTOSCAPE' }" />
@@ -22,7 +22,7 @@
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
         </Toolbar>   
     
-     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare">
+     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/nodesLocked} ? 'lockedCanvasBg' : '' }">
         
         <!-- Inject CSS directly to Fiori theme variables for Light/Dark Mode support -->
         <core:HTML content='&lt;style&gt;
@@ -42,6 +42,11 @@
                 opacity: 0.8;
                 transform: scale(1.15);
             \}
+            .lockedCanvasBg \{
+                background-image: linear-gradient(rgba(0, 84, 160, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 84, 160, 0.05) 1px, transparent 1px);
+                background-size: 20px 20px;
+            \}
         &lt;/style&gt;' />
 
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="hoverPillContainer" alignItems="Center">
@@ -53,6 +58,7 @@
         </HBox>
 
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' &amp;&amp; ${view>/hasDiagram} }" class="floatingLayoutActions" alignItems="Center">
+            <core:Icon id="btnShowHidden" src="sap-icon://show" color="#f57c00" size="1.75rem" press="onShowHiddenNodes" tooltip="Show All Hidden Nodes" visible="{view>/hasHiddenNodes}" class="actionIcon" />
             <core:Icon id="btnLockNodes" src="{= ${view>/nodesLocked} ? 'sap-icon://locked' : 'sap-icon://unlocked' }" color="{= ${view>/nodesLocked} ? '#d32f2f' : '#4caf50' }" size="1.75rem" press="onToggleNodeLock" tooltip="{= ${view>/nodesLocked} ? 'Unlock Layout' : 'Lock Layout' }" class="actionIcon" />
             <core:Icon id="btnRelayout" src="sap-icon://org-chart" color="#2196f3" size="1.75rem" press="onRelayout" tooltip="Re-run layout algorithm" visible="{= !${view>/nodesLocked} }" class="actionIcon" />
         </HBox>

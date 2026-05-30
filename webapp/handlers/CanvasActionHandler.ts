@@ -7,6 +7,8 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import ToggleButton from "sap/m/ToggleButton";
+import MessageToast from "sap/m/MessageToast";
+import MessageBox from "sap/m/MessageBox";
 import EventBus from "sap/ui/core/EventBus";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
@@ -17,25 +19,45 @@ export default class CanvasActionHandler {
     private _oEventBus?: EventBus;
     private _fnCloseMinimapRequestBind!: EventListener;
     private _fnLayoutUnlockedBind!: EventListener;
+    private _fnVisibilityChangedBind!: EventListener;
 
     constructor(oView: View, oEventBus?: EventBus) {
         this._oView = oView;
         this._oEventBus = oEventBus;
     }
 
+    /**
+     * @public
+     * @description Attaches custom DOM event listeners.
+     * @returns {void}
+     */
     public attachEvents(): void {
         this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
         this._fnLayoutUnlockedBind = this._onLayoutUnlocked.bind(this) as EventListener;
+        this._fnVisibilityChangedBind = this._onVisibilityChanged.bind(this) as EventListener;
 
         document.addEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
         document.addEventListener(DomEvents.LAYOUT_UNLOCKED, this._fnLayoutUnlockedBind);
+        document.addEventListener(DomEvents.NODES_VISIBILITY_CHANGED, this._fnVisibilityChangedBind);
     }
 
+    /**
+     * @public
+     * @description Detaches DOM event listeners.
+     * @returns {void}
+     */
     public detachEvents(): void {
         document.removeEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
         document.removeEventListener(DomEvents.LAYOUT_UNLOCKED, this._fnLayoutUnlockedBind);
+        document.removeEventListener(DomEvents.NODES_VISIBILITY_CHANGED, this._fnVisibilityChangedBind);
     }
 
+    /**
+     * @public
+     * @description Toggles global layout physics locks across all entities.
+     * @param {Event} oEvent - The button press event.
+     * @returns {void}
+     */
     public toggleNodeLock(oEvent: Event): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         const bPressed = !oViewModel.getProperty("/nodesLocked");
@@ -46,15 +68,47 @@ export default class CanvasActionHandler {
         
         if (!bPressed) {
             if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+            MessageToast.show("Layout Unlocked");
         } else {
             const oCanvasState = Renderer.getCanvasState(sEngine);
             if (oUiModel && oCanvasState) oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
+            MessageToast.show("Layout Frozen");
         }
         
         Renderer.setNodesLocked(sEngine, bPressed);
     }
 
+    /**
+     * @public
+     * @description Resets the canvas via an automated physics layout flow.
+     * @returns {void}
+     */
     public relayout(): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const bIsLocked = oViewModel.getProperty("/nodesLocked");
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        const bHasPresets = oUiModel && oUiModel.getProperty("/formatCytoscape/presetPositions");
+
+        if (bIsLocked || bHasPresets) {
+            MessageBox.confirm("Reset to Auto-Layout? Your custom node positions will be lost.", {
+                title: "Confirm Auto-Layout",
+                onClose: (sAction: string) => {
+                    if (sAction === MessageBox.Action.OK) {
+                        this._executeRelayout();
+                    }
+                }
+            });
+        } else {
+            this._executeRelayout();
+        }
+    }
+
+    /**
+     * @private
+     * @description Standardized execution block for layout resets.
+     * @returns {void}
+     */
+    private _executeRelayout(): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         oViewModel.setProperty("/nodesLocked", false);
         
@@ -66,6 +120,12 @@ export default class CanvasActionHandler {
         Renderer.runLayout(sEngine);
     }
 
+    /**
+     * @public
+     * @description Disables or enables the Cytoscape minimap panel.
+     * @param {Event} oEvent - The toggle button event.
+     * @returns {void}
+     */
     public toggleMinimap(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
         (this._oView.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
@@ -73,6 +133,23 @@ export default class CanvasActionHandler {
         Renderer.toggleMinimap(sEngine, bPressed);
     }
 
+    /**
+     * @public
+     * @description Restores previously excluded/hidden visual nodes back to the canvas.
+     * @returns {void}
+     */
+    public showHiddenNodes(): void {
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.showHiddenNodes(sEngine);
+        (this._oView.getModel("view") as JSONModel).setProperty("/hasHiddenNodes", false);
+        MessageToast.show("All hidden nodes restored");
+    }
+
+    /**
+     * @public
+     * @description Dispatches formatting configuration parameters to the active renderer.
+     * @returns {void}
+     */
     public changeSpacing(): void {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel && this._oEventBus) {
@@ -81,13 +158,34 @@ export default class CanvasActionHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Intercepts events requesting a teardown of the minimap control.
+     * @returns {void}
+     */
     private _onCloseMinimapRequest(): void {
         (this._oView.getModel("view") as JSONModel)?.setProperty("/showMinimap", false);
         Renderer.toggleMinimap((this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine"), false);
     }
 
+    /**
+     * @private
+     * @description Adjusts UI logic when global layout locks are overridden locally.
+     * @returns {void}
+     */
     private _onLayoutUnlocked(): void {
         (this._oView.getModel("view") as JSONModel)?.setProperty("/nodesLocked", false);
         (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/presetPositions", null);
+    }
+
+    /**
+     * @private
+     * @description Updates standard visual indicators dynamically based on node exposure changes.
+     * @param {any} oEvent - Standard Custom DOM Event.
+     * @returns {void}
+     */
+    private _onVisibilityChanged(oEvent: any): void {
+        const bHasHidden = oEvent.detail?.hasHidden || false;
+        (this._oView.getModel("view") as JSONModel)?.setProperty("/hasHiddenNodes", bHasHidden);
     }
 }

@@ -49,7 +49,8 @@ export default class Diagram extends Controller {
             canShowMinimap: false,
             canSearch: false,
             fullScreenIcon: "sap-icon://full-screen", // Default icon state
-            nodesLocked: false
+            nodesLocked: false,
+            hasHiddenNodes: false
         }), "view");
         
         // Data model storage required for ExportHandler operations
@@ -182,6 +183,7 @@ export default class Diagram extends Controller {
     public onRelayout(): void { this._oCanvasActionHandler.relayout(); }
     public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
     public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
+    public onShowHiddenNodes(): void { this._oCanvasActionHandler.showHiddenNodes(); }
     public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
 
     /**

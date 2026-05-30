@@ -28,8 +28,6 @@ import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import CheckBox from "sap/m/CheckBox";
 import VariantStateMapper from "../helpers/VariantStateMapper";
-import { IVariantState } from "../types/IVariantState";
-
 
 export default class VariantHandler {
     private _oView: View;
@@ -70,12 +68,15 @@ export default class VariantHandler {
      * @public
      */
     public openSaveDialog(): void {
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        const bWasDragged = oUiModel ? oUiModel.getProperty("/nodesDragged") : false;
+
         // Pre-fill the input with the currently selected variant name if one exists
         const sCurrentVariant = (this._oView.byId("selVariant") as Select).getSelectedKey() || "";
         const oInput = new Input({ value: sCurrentVariant, placeholder: this._fnGetText("phVariantName") });
 
         const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey();
-        const oCbPositions = new CheckBox({ text: "Save exact node positions (Custom Layout)", selected: true, visible: sEngine === "CYTOSCAPE" });
+        const oCbPositions = new CheckBox({ text: "Save exact node positions (Custom Layout)", selected: bWasDragged, visible: sEngine === "CYTOSCAPE" });
         oCbPositions.addStyleClass("sapUiSmallMarginTop");
 
         // Construct the Dialog control dynamically
@@ -126,16 +127,28 @@ export default class VariantHandler {
         const oModel = this._oView.getModel("variants") as JSONModel;
         
         // Retrieve the full variant configuration object
-        const aVariants: IVariantState[] = oModel.getProperty("/items");
+        const aVariants: any[] = oModel.getProperty("/items");
         const oVariant = aVariants.find(v => v.name === sSelectedName);
 
         if (oVariant) {
             VariantStateMapper.applyState(this._oView, oVariant);
             MessageToast.show(this._fnGetText("msgVariantApplied", [oVariant.name]));
             
+            const oUiModel = this._oView.getModel("ui") as JSONModel;
+            if (oUiModel) {
+                oUiModel.setProperty("/variantDirty", false);
+                oUiModel.setProperty("/nodesDragged", false);
+            }
+
+            const oSelect = this._oView.byId("selVariant") as Select;
+            if (oSelect) {
+                oSelect.setValueState("None");
+                oSelect.setValueStateText("");
+            }
+            
             if (fnGenerateCallback) {
-                // Slight timeout ensures UI5 models finish evaluating prior to executing generation
-                setTimeout(fnGenerateCallback, 50);
+                // UI5 model and control getters are synchronous; arbitrary timeouts are unnecessary
+                fnGenerateCallback();
             }
         }
     }
@@ -190,7 +203,19 @@ export default class VariantHandler {
         
         // Update the binding so the dropdown immediately reflects the new list
         oModel.setProperty("/items", aVariants);
-        (this._oView.byId("selVariant") as Select).setSelectedKey(sName);
+        
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (oUiModel) {
+            oUiModel.setProperty("/variantDirty", false);
+            oUiModel.setProperty("/nodesDragged", false);
+        }
+
+        const oSelect = this._oView.byId("selVariant") as Select;
+        if (oSelect) {
+            oSelect.setSelectedKey(sName);
+            oSelect.setValueState("None");
+            oSelect.setValueStateText("");
+        }
 
         MessageToast.show(this._fnGetText("msgVariantSaved", [sName]));
     }
