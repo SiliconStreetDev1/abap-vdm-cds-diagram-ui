@@ -11,7 +11,7 @@ export default class ConfigManager {
     
     // Initialized as an empty object; populated via fetch requests
     private static _oActiveConfig: IDiagramConfig = {};
-    private static _bIsInitialized: boolean = false;
+    private static _initPromise: Promise<IDiagramConfig> | null = null;
 
     /**
      * @public
@@ -19,13 +19,13 @@ export default class ConfigManager {
      * Caches the result to prevent redundant network calls on subsequent renders.
      * @returns {Promise<IDiagramConfig>} The resolved configuration object.
      */
-    public static async initialize(): Promise<IDiagramConfig> {
-        // Return immediately if we have already built the config object during this session
-        if (this._bIsInitialized) {
-            return this._oActiveConfig;
+    public static initialize(): Promise<IDiagramConfig> {
+        if (this._initPromise) {
+            return this._initPromise;
         }
 
-        try {
+        this._initPromise = (async () => {
+            try {
             // STEP 1: Load the mandatory baseline configuration
             const sDefaultUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/config.default.json");
             const oDefaultResponse = await fetch(sDefaultUrl);
@@ -44,13 +44,14 @@ export default class ConfigManager {
                 const oExternalConfig = await oOverrideResponse.json();
                 this._merge(this._oActiveConfig, oExternalConfig);
             }
-        } catch (oError) {
-            // A 404 on the optional config.json will naturally fall into this catch block.
-            // We swallow the error silently as the baseline config is already safely loaded.
-        }
-        
-        this._bIsInitialized = true;
-        return this._oActiveConfig;
+            } catch (oError) {
+                // A 404 on the optional config.json will naturally fall into this catch block.
+                // We swallow the error silently as the baseline config is already safely loaded.
+            }
+            return this._oActiveConfig;
+        })();
+
+        return this._initPromise;
     }
 
     /**

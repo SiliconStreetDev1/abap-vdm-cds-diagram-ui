@@ -12,9 +12,10 @@ export default class CytoscapeLayoutBuilder {
      * @static
      * @description Generates the layout configuration object for Cytoscape based on the selected algorithm.
      * @param {ICyConfig} config - The sanitized configuration.
+     * @param {number} [nodeCount=0] - The number of nodes in the graph to aid with circular calculations.
      * @returns {any} The Cytoscape layout configuration object.
      */
-    public static build(config: ICyConfig): any {
+    public static build(config: ICyConfig, nodeCount: number = 0): any {
         let oBaseConfig: any = {
             name: config.layout,
             animate: config.animate,
@@ -68,10 +69,13 @@ export default class CytoscapeLayoutBuilder {
                 oBaseConfig.nodeDimensionsIncludeLabels = false;
                 break;
             case 'circle':
-                oBaseConfig.spacingFactor = Math.max(0.5, config.nodeSpacing / 200);
+                oBaseConfig.avoidOverlap = false; // Stop Cytoscape's massive auto-scaling
                 oBaseConfig.nodeDimensionsIncludeLabels = false;
-                oBaseConfig.avoidOverlap = false; // Stop the algorithm from inflating the circle
-                oBaseConfig.radius = config.nodeSpacing * 3; // Hardwire the diameter to the UI slider
+                
+                // Mathematically calculate the radius using the circumference formula (C = 2 * PI * r)
+                const iEffectiveNodes = Math.max(nodeCount, 10); // Prevent tiny rings for small diagrams
+                const iCircumference = iEffectiveNodes * (config.nodeSpacing + 50); // Arc length per node
+                oBaseConfig.radius = Math.max(iCircumference / (2 * Math.PI), 100);
                 break;
         }
         return oBaseConfig;

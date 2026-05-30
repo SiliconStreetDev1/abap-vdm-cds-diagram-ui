@@ -22,28 +22,37 @@ export default class DomManager {
         const sParentId = "vdmCanvasContainer";
         const config = ConfigManager.get();
 
-        if (!oHtml.getContent()) {
+        const bNeedsContent = !oHtml.getContent();
+        if (bNeedsContent) {
             oHtml.setContent(`<div id="${sParentId}" style="width:100%; height:100%; overflow:hidden; display:flex; justify-content:center; align-items:center;"></div>`);
         }
 
-        let iAttempts = 0;
-        const timer = setInterval(() => {
+        const executeMount = () => {
             const oParentDiv = document.getElementById(sParentId);
-            iAttempts++;
-
             if (oParentDiv) {
-                clearInterval(timer);
                 oParentDiv.innerHTML = "";
                 
                 const sRenderId = "render-" + Date.now();
                 oParentDiv.innerHTML = `<div id="${sRenderId}" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;"></div>`;
                 
-                fnCallback(sRenderId);
-            } else if (config.domPollMaxAttempts && iAttempts >= config.domPollMaxAttempts) {
-                clearInterval(timer);
-                fnOnError("Renderer Timeout: UI5 failed to paint the DOM container.");
+                // Ensure DOM has physically updated before Cytoscape attempts to attach WebGL
+                setTimeout(() => fnCallback(sRenderId), 10);
+            } else {
+                fnOnError("Renderer Error: Target DOM container not found.");
             }
-        }, config.domPollIntervalMs || 50);
+        };
+
+        if (!bNeedsContent && document.getElementById(sParentId)) {
+            executeMount();
+        } else {
+            const oDelegate = {
+                onAfterRendering: () => {
+                    oHtml.removeEventDelegate(oDelegate);
+                    setTimeout(executeMount, 10);
+                }
+            };
+            oHtml.addEventDelegate(oDelegate);
+        }
     }
 
     /**

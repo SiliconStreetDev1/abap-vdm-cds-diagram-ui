@@ -29,6 +29,7 @@ export default class CytoscapeEngine {
     private static _cyInstance: any = null;
     private static _navInstance: any = null;
     private static _bShowMinimap: boolean = false;
+    private static _sLastLayout: string = "";
 
     public static supportsMinimap = true;
     public static supportsSearch = true;
@@ -83,6 +84,9 @@ export default class CytoscapeEngine {
                     // Fiori UI binds to formatCytoscape. Fallback to format for legacy payloads.
                     const oFormat = oConfig || oData.config?.formatCytoscape || oData.config?.format || {};
                     const parsedConfig = CytoscapeConfigParser.parse(oFormat);
+                    
+                    const iNodeCount = oData.nodes ? oData.nodes.length : 0;
+                    this._sLastLayout = parsedConfig.layout;
 
                     const oContainer = document.getElementById(sRenderId);
                     if (!oContainer) {
@@ -96,6 +100,12 @@ export default class CytoscapeEngine {
                     // Unpack Arrays and format Labels for display
                     CytoscapeDataProcessor.process(oData.nodes || [], oData.edges || []);
 
+                    // Prevent Cytoscape crash from invalid edges
+                    if (oData.nodes && oData.edges) {
+                        const aNodeIds = new Set(oData.nodes.map((n: any) => n.data.id));
+                        oData.edges = oData.edges.filter((e: any) => aNodeIds.has(e.data.source) && aNodeIds.has(e.data.target));
+                    }
+
                     // Initialize Graph
                     this._cyInstance = cytoscape({
                         container: oContainer,
@@ -104,7 +114,7 @@ export default class CytoscapeEngine {
                             edges: oData.edges || []
                         },
                         style: CytoscapeStyleBuilder.build(parsedConfig),
-                        layout: CytoscapeLayoutBuilder.build(parsedConfig),
+                        layout: CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount),
 
                         // Force higher pixel ratio for crisp Canvas rendering when zoomed out
                         pixelRatio: typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2,
@@ -136,13 +146,16 @@ export default class CytoscapeEngine {
     public static updateFormat(oConfig: ICytoscapeConfig): void {
         if (this._cyInstance) {
             const parsedConfig = CytoscapeConfigParser.parse(oConfig);
+            const iNodeCount = this._cyInstance.nodes().length;
+            
+            const bIsLayoutChange = parsedConfig.layout !== this._sLastLayout;
+            this._sLastLayout = parsedConfig.layout;
             
             // 1. Update visual styles dynamically
             this._cyInstance.style(CytoscapeStyleBuilder.build(parsedConfig));
             
             // 2. Rerun the physical layout with the new rules
-            const layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig);
-            this._cyInstance.layout(layoutConfig).run();
+            this._cyInstance.layout(CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount)).run();
         }
     }
 

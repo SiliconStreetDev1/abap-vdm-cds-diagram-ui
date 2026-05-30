@@ -5,7 +5,8 @@ ui5.yaml
 ui5-mock.yaml
 config.json
 .env
-
+.aiexclude
+flush.js
 # --- Silicon Street UI5 Pattern ---
 node_modules/
 dist/

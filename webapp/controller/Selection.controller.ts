@@ -61,6 +61,7 @@ export default class Selection extends Controller {
 
     // Bound event listener reference for proper cleanup
     private _fnNodeDrillDownRequestBind!: EventListener;
+    private _fnSliderUpdateBind!: EventListener;
 
     /**
      * @public
@@ -94,6 +95,9 @@ export default class Selection extends Controller {
         if (oEventBus) {
             oEventBus.subscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
         }
+
+        this._fnSliderUpdateBind = this._onSliderUpdate.bind(this) as EventListener;
+        document.addEventListener("CdsFormatSliderUpdate", this._fnSliderUpdateBind);
     }
 
     /**
@@ -107,6 +111,7 @@ export default class Selection extends Controller {
         if (oEventBus) {
             oEventBus.unsubscribe("DiagramEngine", "NodeDrillDownRequest", this._onEventBusDrillDown, this);
         }
+        document.removeEventListener("CdsFormatSliderUpdate", this._fnSliderUpdateBind);
     }
 
     /**
@@ -289,6 +294,17 @@ export default class Selection extends Controller {
             oComboBox.setValue(sViewName);
             
             this._executeGeneration(true);
+        }
+    }
+
+    /**
+     * @private
+     * @description Updates the slider position in the UI when the rendering engine dictates a default constraint.
+     */
+    private _onSliderUpdate(oEvent: any): void {
+        const iSpacing = oEvent.detail?.node_spacing;
+        if (iSpacing) {
+            (this.getView()?.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", iSpacing);
         }
     }
 
