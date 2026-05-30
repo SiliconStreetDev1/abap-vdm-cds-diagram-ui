@@ -3,7 +3,7 @@
  * @fileoverview Layout builder for Cytoscape.js rendering.
  * @description Translates standardized configuration into native Cytoscape layout parameters (e.g., dagre, cose).
  */
-import { ICyConfig } from "../../../types";
+import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 
 export default class CytoscapeLayoutBuilder {
 
@@ -11,11 +11,11 @@ export default class CytoscapeLayoutBuilder {
      * @public
      * @static
      * @description Generates the layout configuration object for Cytoscape based on the selected algorithm.
-     * @param {ICyConfig} config - The sanitized configuration.
+     * @param {IParsedCytoscapeConfig} config - The sanitized configuration.
      * @param {number} [nodeCount=0] - The number of nodes in the graph to aid with circular calculations.
      * @returns {any} The Cytoscape layout configuration object.
      */
-    public static build(config: ICyConfig, nodeCount: number = 0): any {
+    public static build(config: IParsedCytoscapeConfig, nodeCount: number = 0): any {
         let oBaseConfig: any = {
             name: config.layout,
             animate: config.animate,

@@ -167,4 +167,50 @@ export default class Renderer {
         const engine = this._getEngine(sEngine);
         return engine && engine.exportPng ? engine.exportPng() : "";
     }
+
+    /**
+     * @public
+     * @static
+     * @description Extracts the live X/Y canvas coordinates for layout persistence.
+     */
+    public static getCanvasState(sEngine: string): Record<string, {x: number, y: number}> | null {
+        const engine = this._getEngine(sEngine);
+        return engine && engine.getCanvasState ? engine.getCanvasState() : null;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Instructs the engine to lock or unlock the physical positions of all nodes.
+     */
+    public static setNodesLocked(sEngine: string, bLocked: boolean): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.setNodesLocked) {
+            engine.setNodesLocked(bLocked);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Forces the engine to rerun its layout algorithm.
+     */
+    public static runLayout(sEngine: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.runLayout) {
+            engine.runLayout();
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Safely destroys the active engine to prevent memory and event listener leaks on app exit.
+     */
+    public static destroyActiveEngine(): void {
+        if (this._activeEngine && this._activeEngine.destroy) {
+            this._activeEngine.destroy();
+        }
+        this._activeEngine = null;
+    }
 }

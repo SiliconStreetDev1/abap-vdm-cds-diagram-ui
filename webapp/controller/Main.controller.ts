@@ -34,7 +34,8 @@ export default class Main extends Controller {
             theme: "fiori_light",
             line_style: "bezier",
             animate: true,
-            node_spacing: 125
+            node_spacing: 125,
+            snapGuides: false
         });
 
         oView.setModel(oUiModel, "ui");

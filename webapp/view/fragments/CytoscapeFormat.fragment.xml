@@ -36,6 +36,10 @@
             <Label text="Node Spacing" design="Bold"/>
         <Slider width="240px" value="{ui>/formatCytoscape/node_spacing}" min="10" max="250" step="5" change=".onLiveFormatChange" />
     </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+            <Label text="Alignment Guides" design="Bold" tooltip="Shows snap-to-grid lines when dragging nodes manually"/>
+            <Switch state="{ui>/formatCytoscape/snapGuides}" change=".onLiveFormatChange" customTextOn="On" customTextOff="Off"/>
+        </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Animate Physics" />
             <Switch state="{ui>/formatCytoscape/animate}" change=".onLiveFormatChange" customTextOn="Yes" customTextOff="No"/>

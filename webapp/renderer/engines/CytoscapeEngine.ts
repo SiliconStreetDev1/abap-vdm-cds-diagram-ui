@@ -30,6 +30,8 @@ export default class CytoscapeEngine {
     private static _navInstance: any = null;
     private static _bShowMinimap: boolean = false;
     private static _sLastLayout: string = "";
+    private static _oLastParsedConfig: any = null;
+    private static _bSnapGuides: boolean = false;
 
     public static supportsMinimap = true;
     public static supportsSearch = true;
@@ -64,7 +66,14 @@ export default class CytoscapeEngine {
             .then(() => {
                 const cyElk = (window as any).cytoscapeElk;
                 if (cyElk && typeof cytoscape.use === "function") {
-                    try { cytoscape.use(cyElk); } catch(e) {}
+                    try { cytoscape.use(cyElk); } catch(e) { console.warn("Failed to register Cytoscape ELK plugin", e); }
+                }
+            })
+            .then(() => NetworkManager.loadScript(config.localPaths?.gridGuideJs, config.cdnPaths?.gridGuideJs || "https://unpkg.com/cytoscape-grid-guide@2.3.3/cytoscape-grid-guide.js"))
+            .then(() => {
+                const cyGridGuide = (window as any).cytoscapeGridGuide;
+                if (cyGridGuide && typeof cytoscape.use === "function") {
+                    try { cytoscape.use(cyGridGuide); } catch(e) { console.warn("Failed to register Cytoscape Grid Guide plugin", e); }
                 }
             })
             .then(() => {
@@ -73,7 +82,7 @@ export default class CytoscapeEngine {
             .then(() => {
                 const nav = (window as any).cytoscapeNavigator;
                 if (nav && typeof cytoscape.use === "function") {
-                    try { cytoscape.use(nav); } catch(e) {}
+                    try { cytoscape.use(nav); } catch(e) { console.warn("Failed to register Cytoscape Navigator plugin", e); }
                 }
             })
             .then(() => NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg))
@@ -86,7 +95,9 @@ export default class CytoscapeEngine {
                     const parsedConfig = CytoscapeConfigParser.parse(oFormat);
                     
                     const iNodeCount = oData.nodes ? oData.nodes.length : 0;
+                    this._oLastParsedConfig = parsedConfig;
                     this._sLastLayout = parsedConfig.layout;
+                    this._bSnapGuides = parsedConfig.snapGuides;
 
                     const oContainer = document.getElementById(sRenderId);
                     if (!oContainer) {
@@ -114,7 +125,6 @@ export default class CytoscapeEngine {
                             edges: oData.edges || []
                         },
                         style: CytoscapeStyleBuilder.build(parsedConfig),
-                        layout: CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount),
 
                         // Force higher pixel ratio for crisp Canvas rendering when zoomed out
                         pixelRatio: typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2,
@@ -125,7 +135,31 @@ export default class CytoscapeEngine {
                         selectionType: 'additive'
                     });
 
+                    let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);
+                    
+                    // HYBRID LAYOUT: Lock saved nodes directly into the canvas.
+                    if (parsedConfig.presetPositions) {
+                        const presets = parsedConfig.presetPositions;
+                        let bHasOrphans = false;
+                        this._cyInstance.nodes().forEach((n: any) => {
+                            const pos = presets[n.data('id')];
+                            if (pos) {
+                                n.position({ x: pos.x, y: pos.y });
+                                n.lock();
+                            } else {
+                                bHasOrphans = true;
+                            }
+                        });
+                        if (bHasOrphans) {
+                            layoutConfig = CytoscapeLayoutBuilder.build({ ...parsedConfig, layout: 'cose' }, iNodeCount);
+                        }
+                    }
+                    
+                    this._cyInstance.layout(layoutConfig).run();
+
                     CytoscapeEventHandler.attachEvents(this._cyInstance);
+                    CytoscapeEventHandler.attachGridSnapEvent(this._cyInstance, () => this._bSnapGuides);
+                    this._applyGridGuide(parsedConfig);
 
                     this.toggleMinimap(this._bShowMinimap);
 
@@ -148,14 +182,80 @@ export default class CytoscapeEngine {
             const parsedConfig = CytoscapeConfigParser.parse(oConfig);
             const iNodeCount = this._cyInstance.nodes().length;
             
+            this._oLastParsedConfig = parsedConfig;
             const bIsLayoutChange = parsedConfig.layout !== this._sLastLayout;
             this._sLastLayout = parsedConfig.layout;
+            this._bSnapGuides = parsedConfig.snapGuides;
             
+            if (bIsLayoutChange) {
+                this._cyInstance.nodes().unlock();
+                if (typeof document !== "undefined") {
+                    document.dispatchEvent(new CustomEvent("CdsLayoutUnlocked"));
+                }
+            }
+
             // 1. Update visual styles dynamically
             this._cyInstance.style(CytoscapeStyleBuilder.build(parsedConfig));
             
+            // 2. Update Alignment Guides dynamically
+            this._applyGridGuide(parsedConfig);
+
             // 2. Rerun the physical layout with the new rules
-            this._cyInstance.layout(CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount)).run();
+            let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);
+
+            this._cyInstance.layout(layoutConfig).run();
+        }
+    }
+
+    /**
+     * @public
+     * @description Toggles the layout locking constraint on all nodes.
+     */
+    public static setNodesLocked(bLocked: boolean): void {
+        if (this._cyInstance) {
+            if (bLocked) {
+                this._cyInstance.nodes().lock();
+            } else {
+                this._cyInstance.nodes().unlock();
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @description Forces a manual layout recalculation on all unlocked nodes.
+     */
+    public static runLayout(): void {
+        if (this._cyInstance && this._oLastParsedConfig) {
+            const iNodeCount = this._cyInstance.nodes().length;
+            const layoutConfig = CytoscapeLayoutBuilder.build(this._oLastParsedConfig, iNodeCount);
+            this._cyInstance.layout(layoutConfig).run();
+        }
+    }
+
+    /**
+     * @private
+     * @description Applies the snap-to-grid and alignment guidelines configurations.
+     */
+    private static _applyGridGuide(config: any): void {
+        if (this._cyInstance && typeof this._cyInstance.gridGuide === 'function') {
+            this._cyInstance.gridGuide({
+                drawGrid: config.snapGuides,
+                snapToGridOnRelease: false, // ALIGNMENT FIX: Handled natively via 'free' event for top-left corners
+                snapToGridDuringDrag: false, 
+                snapToAlignmentLocationOnRelease: false, // Prevent fighting custom snap
+                snapToAlignmentLocationDuringDrag: false, 
+                guidelines: config.snapGuides,
+                geometricGuideline: true, 
+                initPosAlignment: true,
+                gridSpacing: 50,
+                guidelinesStyle: {
+                    strokeStyle: "#0854a0",
+                    horizontalDistColor: "#0854a0",
+                    verticalDistColor: "#0854a0",
+                    lineDash: [5, 5]
+                }
+            });
         }
     }
 
@@ -223,5 +323,19 @@ export default class CytoscapeEngine {
      */
     public static search(sQuery: string): void {
         CytoscapeSearchManager.search(this._cyInstance, sQuery);
+    }
+
+    /**
+     * @public
+     * @description Returns the X/Y coordinates of all current nodes for variant persistence.
+     */
+    public static getCanvasState(): Record<string, {x: number, y: number}> {
+        const state: Record<string, {x: number, y: number}> = {};
+        if (this._cyInstance) {
+            this._cyInstance.nodes().forEach((n: any) => {
+                state[n.data('id')] = { ...n.position() };
+            });
+        }
+        return state;
     }
 }

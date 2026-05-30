@@ -17,6 +17,7 @@ export interface IConfigPaths {
     navigatorCss?: string;
     elk?: string;
     cytoscapeElk?: string;
+    gridGuideJs?: string;
 }
 
 export interface IDiagramConfig {

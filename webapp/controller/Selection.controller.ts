@@ -139,6 +139,17 @@ export default class Selection extends Controller {
             MessageToast.show(this._getText("msgEnterCds"));
             return;
         }
+        
+        // Prevent cross-diagram variant leaks: If generating a NEW diagram, wipe old preset coordinates
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        const sLastCdsName = oUiModel.getProperty("/lastGeneratedCdsName");
+        if (sLastCdsName && sLastCdsName !== sCdsName) {
+            oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+            if (oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
+                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
+            }
+        }
+        oUiModel.setProperty("/lastGeneratedCdsName", sCdsName);
 
         // If this is a fresh user search (not a canvas drill-down), set the new root
         if (!bIsDrillDown) {
@@ -235,7 +246,7 @@ export default class Selection extends Controller {
 
     public onSaveVariant(): void         { this._oVariantHandler.openSaveDialog(); }
     public onDeleteVariant(): void       { this._oVariantHandler.deleteSelected(); }
-    public onVariantChange(e: Event): void { this._oVariantHandler.applyVariant(e); }
+    public onVariantChange(e: Event): void { this._oVariantHandler.applyVariant(e, () => this.onGenerate()); }
 
     // ========================================================================
     // VALUE HELP (F4 SEARCH) LOGIC
@@ -337,11 +348,12 @@ export default class Selection extends Controller {
      * @private
      * @description Safe utility to retrieve translation strings. Fallback to key if missing.
      * @param {string} sKey - i18n key.
+     * @param {any[]} aArgs - Optional arguments for string formatting.
      * @returns {string} Translated text.
      */
-    private _getText(sKey: string): string {
+    private _getText(sKey: string, aArgs?: any[]): string {
         const oModel = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
         const oBundle = oModel?.getResourceBundle() as ResourceBundle;
-        return oBundle ? oBundle.getText(sKey) || sKey : sKey;
+        return oBundle ? oBundle.getText(sKey, aArgs) || sKey : sKey;
     }
 }

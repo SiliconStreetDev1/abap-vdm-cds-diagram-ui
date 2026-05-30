@@ -3,7 +3,7 @@
  * @fileoverview Style builder for Cytoscape.js rendering.
  * @description Generates the Cytoscape stylesheet array tailored to Fiori design guidelines.
  */
-import { ICyConfig } from "../../../types";
+import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 
 export default class CytoscapeStyleBuilder {
 
@@ -11,10 +11,10 @@ export default class CytoscapeStyleBuilder {
      * @public
      * @static
      * @description Builds the array of CSS-like selector styles for the Cytoscape graph elements.
-     * @param {ICyConfig} config - The sanitized configuration containing theme and layout settings.
+     * @param {IParsedCytoscapeConfig} config - The sanitized configuration containing theme and layout settings.
      * @returns {Array<any>} An array of Cytoscape style definitions.
      */
-    public static build(config: ICyConfig): Array<any> {
+    public static build(config: IParsedCytoscapeConfig): Array<any> {
         const isDark = config.theme === 'fiori_dark';
         const colors = {
             bg: isDark ? '#29313a' : '#ffffff',
@@ -26,7 +26,7 @@ export default class CytoscapeStyleBuilder {
             edgeText: isDark ? '#fafafa' : '#32363a'
         };
 
-        return [
+        const styles = [
             {
                 selector: 'node',
                 style: {
@@ -131,5 +131,7 @@ export default class CytoscapeStyleBuilder {
                 }
             }
         ];
+
+        return styles;
     }
 }

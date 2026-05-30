@@ -28,6 +28,7 @@ export default class Diagram extends Controller {
     // Bound event listener references for proper cleanup
     private _fnFullScreenChangeBind!: EventListener;
     private _fnCloseMinimapRequestBind!: EventListener;
+    private _fnLayoutUnlockedBind!: EventListener;
 
     /**
      * @public
@@ -47,7 +48,8 @@ export default class Diagram extends Controller {
             showMinimap: false,
             canShowMinimap: false,
             canSearch: false,
-            fullScreenIcon: "sap-icon://full-screen" // Default icon state
+            fullScreenIcon: "sap-icon://full-screen", // Default icon state
+            nodesLocked: false
         }), "view");
         
         // Data model storage required for ExportHandler operations
@@ -73,11 +75,13 @@ export default class Diagram extends Controller {
 
         this._fnFullScreenChangeBind = this._onFullScreenChange.bind(this);
         this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
+        this._fnLayoutUnlockedBind = this._onLayoutUnlocked.bind(this) as EventListener;
 
         // Attach native DOM listeners to catch when a user presses 'ESC' to exit fullscreen natively
         document.addEventListener("fullscreenchange", this._fnFullScreenChangeBind);
         document.addEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind); // Safari fallback
         document.addEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
+        document.addEventListener("CdsLayoutUnlocked", this._fnLayoutUnlockedBind);
     }
 
     /**
@@ -93,6 +97,10 @@ export default class Diagram extends Controller {
         document.removeEventListener("fullscreenchange", this._fnFullScreenChangeBind);
         document.removeEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind);
         document.removeEventListener("CdsCloseMinimapRequest", this._fnCloseMinimapRequestBind);
+        document.removeEventListener("CdsLayoutUnlocked", this._fnLayoutUnlockedBind);
+        
+        // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
+        Renderer.destroyActiveEngine();
     }
 
     /**
@@ -161,6 +169,8 @@ export default class Diagram extends Controller {
         oViewModel.setProperty("/canExportImg", true);
         oViewModel.setProperty("/hasDiagram", true);
         oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
+        // Automatically engage lock state if coordinates were loaded
+        oViewModel.setProperty("/nodesLocked", !!oData.engineConfig?.presetPositions);
 
         // 4. Trigger the WASM/JS rendering engine
         try {
@@ -169,6 +179,43 @@ export default class Diagram extends Controller {
         } catch (oError: any) {
             this._showError(oError.message);
         }
+    }
+
+    /**
+     * @public
+     * @description Explicitly toggles the physics locks on all nodes.
+     */
+    public onToggleNodeLock(oEvent: Event): void {
+        const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
+        (this.getView()?.getModel("view") as JSONModel).setProperty("/nodesLocked", bPressed);
+        
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
+        
+        if (!bPressed) {
+            if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+        } else {
+            const oCanvasState = Renderer.getCanvasState(sEngine);
+            if (oUiModel && oCanvasState) oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
+        }
+        
+        Renderer.setNodesLocked(sEngine, bPressed);
+    }
+
+    /**
+     * @public
+     * @description Forces the layout engine to completely recalculate for all unlocked nodes.
+     */
+    public onRelayout(): void {
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        oViewModel.setProperty("/nodesLocked", false);
+        
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+        
+        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.setNodesLocked(sEngine, false);
+        Renderer.runLayout(sEngine);
     }
 
     /**
@@ -258,6 +305,18 @@ export default class Diagram extends Controller {
     }
 
     /**
+     * @private
+     * @description Event handler for layout unlocked custom event
+     */
+    private _onLayoutUnlocked(): void {
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        if (oViewModel) oViewModel.setProperty("/nodesLocked", false);
+        
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+    }
+
+    /**
      * @public
      * @description Toggles the minimap display
      */
@@ -330,12 +389,13 @@ export default class Diagram extends Controller {
      * @private
      * @description Safe utility to retrieve translation strings.
      * @param {string} sKey - i18n key.
+     * @param {any[]} aArgs - Optional arguments for string formatting.
      * @returns {string} Translated text.
      */
-    private _getText(sKey: string): string {
+    private _getText(sKey: string, aArgs?: any[]): string {
         const oModel = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
         const oBundle = oModel?.getResourceBundle() as ResourceBundle;
-        return oBundle ? oBundle.getText(sKey) || sKey : sKey;
+        return oBundle ? oBundle.getText(sKey, aArgs) || sKey : sKey;
     }
 
     // ========================================================================

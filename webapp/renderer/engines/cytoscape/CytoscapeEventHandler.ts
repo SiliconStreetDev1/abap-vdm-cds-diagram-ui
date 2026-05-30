@@ -43,4 +43,35 @@ export default class CytoscapeEventHandler {
             document.dispatchEvent(new CustomEvent("CdsCloseMinimapRequest", {}));
         });
     }
+
+    /**
+     * @public
+     * @static
+     * @description Attaches custom snap-to-grid logic. This ensures the top-left corner 
+     * of dynamically sized nodes aligns perfectly with the visual grid, overriding 
+     * the extension's default center-snapping behavior.
+     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {() => boolean} fnIsSnapEnabled - Callback to check if snapping is currently active in the UI.
+     * @returns {void}
+     */
+    public static attachGridSnapEvent(cyInstance: any, fnIsSnapEnabled: () => boolean): void {
+        const GRID_SIZE = 50; // Hardcoded visual grid step size
+
+        cyInstance.on('free', 'node', (evt: any) => {
+            if (!fnIsSnapEnabled()) return;
+            
+            const node = evt.target;
+            const boundingBox = node.boundingBox();
+            
+            // Calculate the delta required to lock the top-left corner (x1, y1) to the nearest 50px grid intersection
+            const deltaX = (Math.round(boundingBox.x1 / GRID_SIZE) * GRID_SIZE) - boundingBox.x1;
+            const deltaY = (Math.round(boundingBox.y1 / GRID_SIZE) * GRID_SIZE) - boundingBox.y1;
+            
+            // Apply the offset to the node's core center position
+            node.position({ 
+                x: node.position('x') + deltaX, 
+                y: node.position('y') + deltaY 
+            });
+        });
+    }
 }

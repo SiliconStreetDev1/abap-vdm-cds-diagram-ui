@@ -26,14 +26,18 @@ export default class MinimapManager {
 
         closeHandle.addEventListener("click", (e: MouseEvent) => { e.stopPropagation(); if (cy) cy.emit("closeMinimap"); });
 
-        this._attachDragLogic(dragHandle, navElem);
-        const ro = this._attachResizeLogic(trResizeHandle, navElem, cy);
+        const dragCleanup = this._attachDragLogic(dragHandle, navElem);
+        const resizeObj = this._attachResizeLogic(trResizeHandle, navElem, cy);
 
         // Defensively clean up global listeners if minimap is toggled off mid-drag
         const inst = currentInstance as { destroy: Function };
         const origDestroy = inst.destroy;
         inst.destroy = function() {
-            if (ro) ro.disconnect();
+            dragCleanup();
+            if (resizeObj) {
+                if (resizeObj.cleanup) resizeObj.cleanup();
+                if (resizeObj.ro) resizeObj.ro.disconnect();
+            }
             origDestroy.apply(this, arguments);
         };
     }
@@ -51,7 +55,7 @@ export default class MinimapManager {
         return handle;
     }
 
-    private static _attachDragLogic(dragHandle: HTMLDivElement, navElem: HTMLElement): void {
+    private static _attachDragLogic(dragHandle: HTMLDivElement, navElem: HTMLElement): () => void {
         let bIsDragging = false;
         let iStartX = 0, iStartY = 0;
         let iCurrentX = this._minimapState.x, iCurrentY = this._minimapState.y;
@@ -83,6 +87,11 @@ export default class MinimapManager {
             document.addEventListener("mouseup", onDragUp);
         });
         dragHandle.addEventListener("mouseleave", () => { if (!bIsDragging) dragHandle.style.opacity = "0.4"; });
+        
+        return () => {
+            document.removeEventListener("mousemove", onDragMove);
+            document.removeEventListener("mouseup", onDragUp);
+        };
     }
 
     private static _attachResizeLogic(resizeHandle: HTMLDivElement, navElem: HTMLElement, cy: any): any {
@@ -120,11 +129,17 @@ export default class MinimapManager {
         });
         resizeHandle.addEventListener("mouseleave", () => { if (!bIsResizing) resizeHandle.style.opacity = "0.4"; });
 
+        let ro = null;
         if (typeof (window as any).ResizeObserver !== "undefined") {
-            const ro = new (window as any).ResizeObserver(() => { if (cy) cy.emit("resize"); });
+            ro = new (window as any).ResizeObserver(() => { if (cy) cy.emit("resize"); });
             ro.observe(navElem);
-            return ro;
         }
-        return null;
+        return {
+            ro: ro,
+            cleanup: () => {
+                document.removeEventListener("mousemove", onResizeMove);
+                document.removeEventListener("mouseup", onResizeUp);
+            }
+        };
     }
 }

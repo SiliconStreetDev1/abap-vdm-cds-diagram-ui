@@ -10,6 +10,8 @@ declare const d3: any;
 
 export default class DomManager {
     
+    private static _bIsMountPending: boolean = false;
+
     /**
      * @public
      * @description Polls the browser DOM until the UI5 framework physically paints the container.
@@ -28,6 +30,7 @@ export default class DomManager {
         }
 
         const executeMount = () => {
+            this._bIsMountPending = false;
             const oParentDiv = document.getElementById(sParentId);
             if (oParentDiv) {
                 oParentDiv.innerHTML = "";
@@ -44,7 +47,8 @@ export default class DomManager {
 
         if (!bNeedsContent && document.getElementById(sParentId)) {
             executeMount();
-        } else {
+        } else if (!this._bIsMountPending) {
+            this._bIsMountPending = true;
             const oDelegate = {
                 onAfterRendering: () => {
                     oHtml.removeEventDelegate(oDelegate);

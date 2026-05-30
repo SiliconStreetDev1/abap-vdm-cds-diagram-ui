@@ -10,6 +10,8 @@ export interface ICytoscapeConfig {
     line_style?: string;
     node_spacing?: number;
     animate?: boolean;
+    snapGuides?: boolean;
+    presetPositions?: Record<string, {x: number, y: number}>;
 }
 
 export interface IEngineFacade {
@@ -28,6 +30,9 @@ export interface IEngineFacade {
     toggleMinimap?(bShow: boolean): void;
     search?(sQuery: string): void;
     updateFormat?(oFormat: ICytoscapeConfig): void;
+    getCanvasState?(): Record<string, {x: number, y: number}>;
+    setNodesLocked?(bLocked: boolean): void;
+    runLayout?(): void;
 
     /**
      * @public

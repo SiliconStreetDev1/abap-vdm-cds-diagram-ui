@@ -24,12 +24,32 @@
     
      <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare">
         
+        <!-- Inject CSS directly to Fiori theme variables for Light/Dark Mode support -->
+        <core:HTML content='&lt;style&gt;
+            .floatingLayoutActions \{
+                position: absolute;
+                bottom: 2rem;
+                left: 2rem;
+                z-index: 10;
+                background-color: var(--sapBaseColor, #ffffff);
+                border-radius: 0.5rem;
+                box-shadow: var(--sapContent_Shadow2, 0 0.125rem 0.5rem rgba(0, 0, 0, 0.15));
+                padding: 0.25rem 0.5rem;
+                border: 1px solid var(--sapContent_ForegroundBorderColor, #e5e5e5);
+            \}
+        &lt;/style&gt;' />
+
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="hoverPillContainer" alignItems="Center">
             <core:Icon src="sap-icon://resize-horizontal" size="1.5rem" color="#0854a0" tooltip="Adjust Node Spacing" class="pillIcon" />
             <HBox class="pillContent" alignItems="Center">
                 <Label text="Spacing" class="sapUiSmallMarginEnd" design="Bold" wrapping="false"/>
                 <Slider value="{ui>/formatCytoscape/node_spacing}" min="50" max="250" step="25" width="200px" enableTickmarks="true" change=".onSpacingChange"/>
             </HBox>
+        </HBox>
+
+        <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' &amp;&amp; ${view>/hasDiagram} }" class="floatingLayoutActions" alignItems="Center">
+            <ToggleButton id="btnLockNodes" icon="{= ${view>/nodesLocked} ? 'sap-icon://locked' : 'sap-icon://unlocked' }" text="{= ${view>/nodesLocked} ? 'Unlock Layout' : 'Lock Layout' }" pressed="{view>/nodesLocked}" press="onToggleNodeLock" tooltip="Freeze node positions" type="Transparent" class="sapUiTinyMarginEnd" />
+            <Button id="btnRelayout" icon="sap-icon://org-chart" text="Auto-Layout" press="onRelayout" tooltip="Re-run layout algorithm" type="Transparent" />
         </HBox>
 
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
