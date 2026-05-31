@@ -10,22 +10,27 @@ export default class CytoscapeContextMenu {
     /**
      * @public
      * @static
+     * @description Safely removes any active context menu and glass pane from the DOM.
+     */
+    public static removeAll(): void {
+        const existing = document.getElementById("vdm-cy-context-menu");
+        if (existing) existing.remove();
+        const glass = document.getElementById("vdm-cy-glass-pane");
+        if (glass) glass.remove();
+    }
+
+    /**
+     * @public
+     * @static
      * @description Intercepts right-clicks on the active graph and builds a floating DOM context menu.
      * @param {any} cyInstance - Cytoscape Core instance.
      * @returns {void}
      */
     public static attach(cyInstance: any): void {
-        const removeMenu = () => {
-            const existing = document.getElementById("vdm-cy-context-menu");
-            if (existing) existing.remove();
-            const glass = document.getElementById("vdm-cy-glass-pane");
-            if (glass) glass.remove();
-        };
-
-        cyInstance.on('tap zoom pan', removeMenu);
+        cyInstance.on('tap zoom pan', () => this.removeAll());
 
         cyInstance.on('cxttap', 'node', (evt: any) => {
-            removeMenu(); 
+            this.removeAll(); 
             
             const node = evt.target;
             const container = cyInstance.container();
@@ -55,48 +60,45 @@ export default class CytoscapeContextMenu {
             const blockEvent = (e: Event) => {
                 e.stopPropagation();
                 e.preventDefault();
-                removeMenu();
+                this.removeAll();
             };
             
-            // Prevent the native browser contextmenu event from instantly triggering the glass pane
+            // Asynchronously bind glass pane events to prevent the initial native right-click 
+            // bubbling phase from instantly destroying the newly created menu.
             setTimeout(() => {
                 if (!document.getElementById("vdm-cy-glass-pane")) return;
                 glass.onmousedown = blockEvent;
                 glass.ontouchstart = blockEvent;
                 glass.oncontextmenu = blockEvent;
-            }, 50);
+            }, 0);
             container.appendChild(glass);
 
             const menu = this._buildMenuElement(evt.renderedPosition.x, evt.renderedPosition.y);
             
-            const totalCount = targetNodes.length;
-            const lockedCount = targetNodes.filter(':locked').length;
-            const suffix = totalCount > 1 ? ` (${totalCount})` : "";
-
-            // Render 'Pin' if ANY nodes in the selection are currently unlocked
-            if (lockedCount < totalCount) {
-                menu.appendChild(this._createMenuItem("📌", `Pin${suffix}`, "#d32f2f", () => {
-                    targetNodes.data('isPinned', true).lock();
-                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {}));
-                }));
-            } 
+            const bIsNote = node.hasClass('annotation-note');
+            if (bIsNote) {
+                targetNodes = targetNodes.filter('.annotation-note');
+            } else {
+                targetNodes = targetNodes.difference('.annotation-note');
+            }
             
-            // Render 'Unlock' if ANY nodes in the selection are currently locked
-            if (lockedCount > 0) {
-                menu.appendChild(this._createMenuItem("🔓", `Unlock${suffix}`, "#4caf50", () => {
-                    targetNodes.data('isPinned', false).unlock();
-                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {})); // Triggers dirty state
-                }));
+            const totalCount = targetNodes.length;
+            const suffix = totalCount > 1 ? ` (${totalCount})` : "";
+            const bIsDrillDown = cyInstance.scratch('_isDrillDown') === true;
+
+            if (bIsNote) {
+                if (!bIsDrillDown) {
+                    this._buildNoteMenu(menu, targetNodes, node, cyInstance, suffix);
+                }
+            } else {
+                this._buildEntityMenu(menu, targetNodes, cyInstance, suffix, totalCount);
             }
 
-            menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", () => {
-                // Hiding a node must instantly sever its selection state to clear Focus Mode ghosts
-                targetNodes.addClass('hidden').data('isHidden', true).unselect();
-                document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, {}));
-                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: true } }));
-            }));
-
-            container.appendChild(menu);
+            if (menu.childNodes.length > 0) {
+                container.appendChild(menu);
+            } else {
+                this.removeAll();
+            }
         });
     }
 
@@ -131,6 +133,89 @@ export default class CytoscapeContextMenu {
     /**
      * @private
      * @static
+     * @description Builds the context menu items specific to annotation notes.
+     * @param {HTMLDivElement} menu - The DOM container for the menu.
+     * @param {any} targetNodes - The collection of Cytoscape nodes to operate on.
+     * @param {any} clickedNode - The specific node that was right-clicked.
+     * @param {any} cyInstance - The Cytoscape graph instance.
+     * @param {string} suffix - Formatting string (e.g. "(3)") for bulk selections.
+     * @returns {void}
+     */
+    private static _buildNoteMenu(menu: HTMLDivElement, targetNodes: any, clickedNode: any, cyInstance: any, suffix: string): void {
+        menu.appendChild(this._createMenuItem("✏️", `Edit Note${suffix}`, "#f57c00", () => {
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { id: clickedNode.id(), text: clickedNode.data('label'), fontFamily: clickedNode.data('fontFamily') } }));
+        }));
+
+        const selectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');
+        if (selectedEntities.length > 0) {
+            menu.appendChild(this._createMenuItem("🔗", `Link to Selected (${selectedEntities.length})`, "#0070f2", () => {
+                targetNodes.forEach((n: any) => {
+                    selectedEntities.forEach((e: any) => {
+                        const edgeId = 'edge_' + n.id() + '_' + e.id();
+                        if (cyInstance.getElementById(edgeId).length === 0) {
+                            cyInstance.add({ group: 'edges', data: { id: edgeId, source: n.id(), target: e.id() }, classes: 'annotation-edge' });
+                        }
+                    });
+                });
+                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+            }));
+        }
+        menu.appendChild(this._createMenuItem("✂️", `Unlink${suffix}`, "#d32f2f", () => {
+            targetNodes.connectedEdges('.annotation-edge').remove();
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+        }));
+        menu.appendChild(this._createMenuItem("🗑️", `Delete Note${suffix}`, "#d32f2f", () => {
+            targetNodes.remove();
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+        }));
+        
+        menu.appendChild(document.createElement("hr")).style.cssText = "margin: 0.25rem 0; border: none; border-top: 1px solid var(--sapContent_ForegroundBorderColor, #e5e5e5);";
+
+        menu.appendChild(this._createMenuItem("🟡", `Yellow${suffix}`, "#fbc02d", () => { targetNodes.forEach((n: any) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { id: n.id(), bgColor: '#fff9c4', borderColor: '#fbc02d' } }))); }));
+        menu.appendChild(this._createMenuItem("🔵", `Blue${suffix}`, "#1976d2", () => { targetNodes.forEach((n: any) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { id: n.id(), bgColor: '#e3f2fd', borderColor: '#1976d2' } }))); }));
+        menu.appendChild(this._createMenuItem("🟢", `Green${suffix}`, "#388e3c", () => { targetNodes.forEach((n: any) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { id: n.id(), bgColor: '#e8f5e9', borderColor: '#388e3c' } }))); }));
+        menu.appendChild(this._createMenuItem("🔴", `Pink${suffix}`, "#d32f2f", () => { targetNodes.forEach((n: any) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { id: n.id(), bgColor: '#ffebee', borderColor: '#d32f2f' } }))); }));
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Builds the context menu items specific to structural CDS entities.
+     * @param {HTMLDivElement} menu - The DOM container for the menu.
+     * @param {any} targetNodes - The collection of Cytoscape nodes to operate on.
+     * @param {any} cyInstance - The Cytoscape graph instance.
+     * @param {string} suffix - Formatting string (e.g. "(3)") for bulk selections.
+     * @param {number} totalCount - Total number of nodes in selection.
+     * @returns {void}
+     */
+    private static _buildEntityMenu(menu: HTMLDivElement, targetNodes: any, cyInstance: any, suffix: string, totalCount: number): void {
+        const bIsDrillDown = cyInstance.scratch('_isDrillDown') === true;
+
+        if (!bIsDrillDown) {
+            menu.appendChild(this._createMenuItem("📝", `Add Linked Note${suffix}`, "#f57c00", () => {
+                cyInstance.elements().unselect();
+                targetNodes.select();
+                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, {}));
+            }));
+        }
+
+        const lockedCount = targetNodes.filter(':locked').length;
+        if (lockedCount < totalCount) {
+            menu.appendChild(this._createMenuItem("📌", `Pin${suffix}`, "#d32f2f", () => { targetNodes.data('isPinned', true).lock(); document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {})); }));
+        } 
+        if (lockedCount > 0) {
+            menu.appendChild(this._createMenuItem("🔓", `Unlock${suffix}`, "#4caf50", () => { targetNodes.data('isPinned', false).unlock(); document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {})); }));
+        }
+        menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", () => {
+            targetNodes.addClass('hidden').data('isHidden', true).unselect();
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, {}));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: true } }));
+        }));
+    }
+
+    /**
+     * @private
+     * @static
      * @description Stitches and wires Fiori-themed clickable interaction row units.
      * @param {string} icon - Native OS string literal character or emoji to use for semantic identification.
      * @param {string} text - Standard textual label.
@@ -158,8 +243,7 @@ export default class CytoscapeContextMenu {
             e.preventDefault();
             e.stopPropagation();
             onClick();
-            const existing = document.getElementById("vdm-cy-context-menu");
-            if (existing) existing.remove();
+            this.removeAll();
         };
         item.onmousedown = fireAction;
         item.ontouchstart = fireAction;

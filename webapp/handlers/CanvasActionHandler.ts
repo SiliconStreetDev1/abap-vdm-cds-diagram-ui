@@ -20,7 +20,6 @@ export default class CanvasActionHandler {
     private _oView: View;
     private _oEventBus?: EventBus;
     private _fnCloseMinimapRequestBind!: EventListener;
-    private _fnLayoutUnlockedBind!: EventListener;
     private _fnVisibilityChangedBind!: EventListener;
     private _fnKeyDownBind!: EventListener;
     private _fnKeyUpBind!: EventListener;
@@ -41,7 +40,6 @@ export default class CanvasActionHandler {
      */
     public attachEvents(): void {
         this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
-        this._fnLayoutUnlockedBind = this._onLayoutUnlocked.bind(this) as EventListener;
         this._fnVisibilityChangedBind = this._onVisibilityChanged.bind(this) as EventListener;
         this._fnKeyDownBind = this._onKeyDown.bind(this) as EventListener;
         this._fnKeyUpBind = this._onKeyUp.bind(this) as EventListener;
@@ -49,7 +47,6 @@ export default class CanvasActionHandler {
         this._fnFocusModeChangedBind = this._onFocusModeChanged.bind(this) as EventListener;
 
         document.addEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
-        document.addEventListener(DomEvents.LAYOUT_UNLOCKED, this._fnLayoutUnlockedBind);
         document.addEventListener(DomEvents.NODES_VISIBILITY_CHANGED, this._fnVisibilityChangedBind);
         document.addEventListener("keydown", this._fnKeyDownBind);
         document.addEventListener("keyup", this._fnKeyUpBind);
@@ -64,80 +61,11 @@ export default class CanvasActionHandler {
      */
     public detachEvents(): void {
         document.removeEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
-        document.removeEventListener(DomEvents.LAYOUT_UNLOCKED, this._fnLayoutUnlockedBind);
         document.removeEventListener(DomEvents.NODES_VISIBILITY_CHANGED, this._fnVisibilityChangedBind);
         document.removeEventListener("keydown", this._fnKeyDownBind);
         document.removeEventListener("keyup", this._fnKeyUpBind);
         window.removeEventListener("blur", this._fnWindowBlurBind);
         document.removeEventListener(DomEvents.FOCUS_MODE_CHANGED, this._fnFocusModeChangedBind);
-    }
-
-    /**
-     * @public
-     * @description Toggles global layout physics locks across all entities.
-     * @param {Event} oEvent - The button press event.
-     * @returns {void}
-     */
-    public toggleNodeLock(oEvent: Event): void {
-        const oViewModel = this._oView.getModel("view") as JSONModel;
-        const bPressed = !oViewModel.getProperty("/nodesLocked");
-        oViewModel.setProperty("/nodesLocked", bPressed);
-        
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-        
-        if (!bPressed) {
-            if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-            MessageToast.show("Layout Unlocked");
-        } else {
-            const oCanvasState = Renderer.getCanvasState(sEngine);
-            if (oUiModel && oCanvasState) oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
-            MessageToast.show("Layout Frozen");
-        }
-        
-        Renderer.setNodesLocked(sEngine, bPressed);
-    }
-
-    /**
-     * @public
-     * @description Resets the canvas via an automated physics layout flow.
-     * @returns {void}
-     */
-    public relayout(): void {
-        const oViewModel = this._oView.getModel("view") as JSONModel;
-        const bIsLocked = oViewModel.getProperty("/nodesLocked");
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const bHasPresets = oUiModel && oUiModel.getProperty("/formatCytoscape/presetPositions");
-
-        if (bIsLocked || bHasPresets) {
-            MessageBox.confirm("Reset to Auto-Layout? Your custom node positions will be lost.", {
-                title: "Confirm Auto-Layout",
-                onClose: (sAction: string) => {
-                    if (sAction === MessageBox.Action.OK) {
-                        this._executeRelayout();
-                    }
-                }
-            });
-        } else {
-            this._executeRelayout();
-        }
-    }
-
-    /**
-     * @private
-     * @description Standardized execution block for layout resets.
-     * @returns {void}
-     */
-    private _executeRelayout(): void {
-        const oViewModel = this._oView.getModel("view") as JSONModel;
-        oViewModel.setProperty("/nodesLocked", false);
-        
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-        
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.setNodesLocked(sEngine, false);
-        Renderer.runLayout(sEngine);
     }
 
     /**
@@ -215,16 +143,6 @@ export default class CanvasActionHandler {
 
     /**
      * @private
-     * @description Adjusts UI logic when global layout locks are overridden locally.
-     * @returns {void}
-     */
-    private _onLayoutUnlocked(): void {
-        (this._oView.getModel("view") as JSONModel)?.setProperty("/nodesLocked", false);
-        (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/presetPositions", null);
-    }
-
-    /**
-     * @private
      * @description Updates standard visual indicators dynamically based on node exposure changes.
      * @param {any} oEvent - Standard Custom DOM Event.
      * @returns {void}
@@ -256,7 +174,8 @@ export default class CanvasActionHandler {
     private _isInputActive(target: any): boolean {
         if (!target) return false;
         const tagName = target.tagName?.toUpperCase();
-        return tagName === 'INPUT' || tagName === 'TEXTAREA' || target.isContentEditable;
+        // Prevents hijacking the spacebar when navigating standard dropdowns or UI5 inputs
+        return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable;
     }
 
     /**
@@ -286,6 +205,12 @@ export default class CanvasActionHandler {
                 const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
                 Renderer.setInteractionMode(sEngine, "pan");
             }
+        }
+
+        // Enterprise UX: Allow deletion of visual sticky notes
+        if ((e.code === "Delete" || e.code === "Backspace") && !this._isInputActive(e.target)) {
+            e.preventDefault();
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.DELETE_SELECTION_REQUEST, {}));
         }
     }
 

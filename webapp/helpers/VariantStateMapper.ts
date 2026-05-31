@@ -28,13 +28,18 @@ export default class VariantStateMapper {
         const oUiModel = oView.getModel("ui") as JSONModel;
         const sEngine = (oView.byId("selEngine") as Select).getSelectedKey();
         
-        const oCanvasState = (sEngine === "CYTOSCAPE" && bSavePositions) ? Renderer.getCanvasState(sEngine) : null;
+        const oCanvasState = sEngine === "CYTOSCAPE" ? Renderer.getCanvasState(sEngine) : null;
         
         const oFormatCy = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-        if (bSavePositions && sEngine === "CYTOSCAPE") {
-            oFormatCy.presetPositions = oCanvasState;
-        } else {
-            oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
+        if (sEngine === "CYTOSCAPE") {
+            if (bSavePositions) {
+                oFormatCy.presetPositions = oCanvasState;
+            } else {
+                oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
+            }
+            if (oCanvasState && oCanvasState.__camera) {
+                oFormatCy.camera = oCanvasState.__camera;
+            }
         }
 
         return {
@@ -63,7 +68,7 @@ export default class VariantStateMapper {
             formatGraphviz: oUiModel.getProperty("/formatGraphviz"),
             formatMermaid: oUiModel.getProperty("/formatMermaid"),
             formatCytoscape: oFormatCy,
-            canvasState: oCanvasState
+            canvasState: bSavePositions ? oCanvasState : null
         };
     }
 
@@ -79,13 +84,14 @@ export default class VariantStateMapper {
         (oView.byId("cmbCdsName") as ComboBox).setValue(sVariantCdsName);
         oUiModel.setProperty("/lastGeneratedCdsName", sVariantCdsName); 
 
-        (oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine);
-        (oView.byId("stepMaxLevel") as StepInput).setValue(oVariant.maxLevel);
-        (oView.byId("swKeys") as Switch).setState(oVariant.keys);
-        (oView.byId("swFields") as Switch).setState(oVariant.fields);
-        (oView.byId("swAssocFields") as Switch).setState(oVariant.assocFields);
-        (oView.byId("swBase") as Switch).setState(oVariant.base);
-        (oView.byId("swCustomOnly") as Switch).setState(oVariant.customOnly);
+        // ENTERPRISE SAFETY: Coerce missing properties to prevent UI5 fatal crashes on older variants
+        (oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine || "PLANTUML");
+        (oView.byId("stepMaxLevel") as StepInput).setValue(oVariant.maxLevel || 1);
+        (oView.byId("swKeys") as Switch).setState(!!oVariant.keys);
+        (oView.byId("swFields") as Switch).setState(!!oVariant.fields);
+        (oView.byId("swAssocFields") as Switch).setState(!!oVariant.assocFields);
+        (oView.byId("swBase") as Switch).setState(!!oVariant.base);
+        (oView.byId("swCustomOnly") as Switch).setState(!!oVariant.customOnly);
         
         oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
         if (oVariant.formatPlantUML) oUiModel.setProperty("/formatPlantUML", oVariant.formatPlantUML);

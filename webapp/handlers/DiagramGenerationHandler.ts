@@ -80,6 +80,7 @@ export default class DiagramGenerationHandler {
         // Only wipe layout presets if we are navigating to a new view WITHOUT a cached restore state
         if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore) {
             oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+            oUiModel.setProperty("/formatCytoscape/camera", null);
             if (oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
                 oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
             }

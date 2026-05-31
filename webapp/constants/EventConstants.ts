@@ -15,7 +15,6 @@ export const EventIds = {
 
 export const DomEvents = {
     CLOSE_MINIMAP: "CdsCloseMinimapRequest",
-    LAYOUT_UNLOCKED: "CdsLayoutUnlocked",
     NODE_CLICKED: "CdsNodeClicked",
     NODE_DRILL_DOWN: "CdsNodeDrillDownRequest",
     FORMAT_SLIDER_UPDATE: "CdsFormatSliderUpdate",
@@ -23,6 +22,13 @@ export const DomEvents = {
     NODE_PINNED: "CdsNodePinned",
     NODE_HIDDEN: "CdsNodeHidden",
     NODE_UNHIDDEN: "CdsNodeUnhidden",
+    PROMPT_ADD_NOTE_REQUEST: "CdsPromptAddNoteRequest",
+    PROMPT_EDIT_NOTE_REQUEST: "CdsPromptEditNoteRequest",
+    ADD_NOTE_REQUEST: "CdsAddNoteRequest",
+    EDIT_NOTE_REQUEST: "CdsEditNoteRequest",
+    CHANGE_NOTE_COLOR_REQUEST: "CdsChangeNoteColorRequest",
+    DELETE_SELECTION_REQUEST: "CdsDeleteSelectionRequest",
     NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged",
-    FOCUS_MODE_CHANGED: "CdsFocusModeChanged"
+    FOCUS_MODE_CHANGED: "CdsFocusModeChanged",
+    CANVAS_VIEWPORT_CHANGED: "CdsCanvasViewportChanged"
 };

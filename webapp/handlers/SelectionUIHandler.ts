@@ -59,6 +59,7 @@ export default class SelectionUIHandler {
 
         if (sEngine === EngineType.CYTOSCAPE || String(sEngine).toUpperCase() === "CYTOSCAPE") {
             const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
+            
             if (this._oEventBus) {
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
             }

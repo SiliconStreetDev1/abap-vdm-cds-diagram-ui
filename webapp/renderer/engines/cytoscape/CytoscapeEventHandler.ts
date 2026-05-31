@@ -15,9 +15,37 @@ export default class CytoscapeEventHandler {
      * @returns {void}
      */
     public static attachEvents(cyInstance: any): void {
+        this._attachLayoutEvents(cyInstance);
+        this._attachSelectionEvents(cyInstance);
+        this._attachInteractionEvents(cyInstance);
+        this._attachDragEvents(cyInstance);
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Attaches graph selection and focus mode events.
+     * @param {any} cyInstance - The active Cytoscape.js instance.
+     */
+    private static _attachSelectionEvents(cyInstance: any): void {
         // Track Box Selection state to prevent Focus Mode from triggering during Marquee lassoing
         cyInstance.on('boxstart', () => cyInstance.scratch('_isBoxSelecting', true));
-        cyInstance.on('boxend', () => setTimeout(() => cyInstance.scratch('_isBoxSelecting', false), 50));
+        cyInstance.on('boxend', () => setTimeout(() => {
+            if (cyInstance && !cyInstance.destroyed()) {
+                cyInstance.scratch('_isBoxSelecting', false);
+            }
+        }, 50));
+
+        // Track modifier keys during tap to prevent Focus Mode from triggering on Ctrl+Click
+        cyInstance.on('tapstart', (evt: any) => {
+            const bIsMulti = evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey);
+            cyInstance.scratch('_isMultiSelectModifier', !!bIsMulti);
+        });
+        cyInstance.on('tapend', () => setTimeout(() => {
+            if (cyInstance && !cyInstance.destroyed()) {
+                cyInstance.scratch('_isMultiSelectModifier', false);
+            }
+        }, 50));
 
         cyInstance.on('select unselect', (evt: any) => {
             const selected = cyInstance.elements('node:selected');
@@ -28,7 +56,7 @@ export default class CytoscapeEventHandler {
             let sFocusName = "";
             
             // Detect if the user is holding a modifier key to perform a multi-select operation
-            const bIsMultiSelectModifier = evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey);
+            const bIsMultiSelectModifier = cyInstance.scratch('_isMultiSelectModifier') || (evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey));
             
             // Detect if the selection was triggered via Marquee Box Selection
             const bIsBoxSelecting = cyInstance.scratch('_isBoxSelecting');
@@ -36,7 +64,7 @@ export default class CytoscapeEventHandler {
             // Enterprise UX: Focus Mode is strictly for single-entity discovery.
             // If > 1 node is selected (Mass Selection), we instantly abort the fade to retain full visual context.
             // We also suppress focus if a modifier key is held, or if the user is actively using the box selection tool.
-            if (selected.length === 1 && !selected.hasClass('hidden') && !bIsMultiSelectModifier && !bIsBoxSelecting) {
+            if (selected.length === 1 && !selected.hasClass('hidden') && !selected.hasClass('annotation-note') && !bIsMultiSelectModifier && !bIsBoxSelecting) {
                 const neighborhood = selected.closedNeighborhood();
                 cyInstance.elements().difference(neighborhood).addClass('faded');
                 neighborhood.addClass('highlighted');
@@ -51,6 +79,15 @@ export default class CytoscapeEventHandler {
                 }));
             }
         });
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Attaches click and double-click interaction events.
+     * @param {any} cyInstance - The active Cytoscape.js instance.
+     */
+    private static _attachInteractionEvents(cyInstance: any): void {
 
         // Enterprise UX: Clicking the background canvas instantly drops any active selections
         cyInstance.on('tap', (evt: any) => {
@@ -77,15 +114,84 @@ export default class CytoscapeEventHandler {
 
         cyInstance.on('dbltap', 'node', (evt: any) => {
             const node = evt.target;
+            if (node.hasClass('annotation-note')) {
+                if (!cyInstance.scratch('_isDrillDown')) {
+                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
+                }
+                return;
+            }
             document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewName: node.data('id') } }));
         });
 
         cyInstance.on('closeMinimap', () => {
             document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, {}));
         });
+    }
 
-        cyInstance.on('drag', 'node', () => {
+    /**
+     * @private
+     * @static
+     * @description Attaches node drag and drop events, including linked sticky note physics.
+     * @param {any} cyInstance - The active Cytoscape.js instance.
+     */
+    private static _attachDragEvents(cyInstance: any): void {
+
+        cyInstance.on('grab', 'node:not(.annotation-note)', (evt: any) => {
+            const node = evt.target;
+            node.scratch('_dragPos', { ...node.position() });
+        });
+
+        cyInstance.on('drag', 'node', (evt: any) => {
+            const node = evt.target;
+            
+            // Enterprise UX: Move linked sticky notes automatically with the entity
+            if (!node.hasClass('annotation-note')) {
+                const prevPos = node.scratch('_dragPos');
+                const currPos = node.position();
+
+                if (prevPos) {
+                    const dx = currPos.x - prevPos.x;
+                    const dy = currPos.y - prevPos.y;
+
+                    node.connectedEdges('.annotation-edge').connectedNodes('.annotation-note:unselected').forEach((note: any) => {
+                        // Prevent double-moving if a note is linked to multiple actively dragged entities
+                        if (note.scratch('_lastDragTime') !== evt.timeStamp) {
+                            note.position({ x: note.position('x') + dx, y: note.position('y') + dy });
+                            note.scratch('_lastDragTime', evt.timeStamp);
+                        }
+                    });
+                    
+                    node.scratch('_dragPos', { ...currPos });
+                }
+            }
+
             document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+        });
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Attaches layout and viewport transformation events.
+     * @param {any} cyInstance - The active Cytoscape.js instance.
+     */
+    private static _attachLayoutEvents(cyInstance: any): void {
+        cyInstance.on('layoutstart', () => cyInstance.scratch('_isLayoutActive', true));
+        cyInstance.on('layoutstop', () => setTimeout(() => {
+            if (cyInstance && !cyInstance.destroyed()) {
+                cyInstance.scratch('_isLayoutActive', false);
+            }
+        }, 50));
+
+        let viewportTimeout: any;
+        cyInstance.on('viewport', () => {
+            if (cyInstance.scratch('_isLayoutActive')) return;
+            clearTimeout(viewportTimeout);
+            viewportTimeout = setTimeout(() => {
+                if (typeof document !== "undefined") {
+                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_VIEWPORT_CHANGED, {}));
+                }
+            }, 300);
         });
     }
 

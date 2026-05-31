@@ -19,55 +19,110 @@ export default class CytoscapeLayoutManager {
      * @returns {void}
      */
     public static applyHybridLayout(cyInstance: any, parsedConfig: IParsedCytoscapeConfig, iNodeCount: number): void {
+        let bIsHybrid = false;
+        const bUsePresetsForPositions = parsedConfig.layout === 'preset';
+
         if (parsedConfig.presetPositions) {
             const presets = parsedConfig.presetPositions;
             
-            cyInstance.nodes().forEach((n: any) => {
-                const pos = presets[n.data('id')];
-                if (pos) {
-                    n.position({ x: pos.x, y: pos.y });
-                    
-                    // Restore Hide State
-                    if (pos.isHidden) {
-                        n.addClass('hidden');
-                        n.data('isHidden', true);
-                    } else {
-                        n.removeClass('hidden');
-                        n.data('isHidden', false);
-                    }
-
-                    // Restore Pin State explicitly
-                    if (pos.isPinned) {
-                        n.data('isPinned', true);
-                    } else {
-                        n.data('isPinned', false);
-                    }
-
-                    // Always lock nodes with saved coordinates to preserve the variant shape
-                    n.lock();
+            // NOTE: Nodes and Edges are deliberately restored in two separate passes.
+            // Cytoscape will throw a fatal exception if an edge is added before its source/target nodes exist.
+            // Pre-flight check: Re-inject visual sticky notes that were saved in the Variant
+            Object.keys(presets).forEach(key => {
+                const pos = presets[key];
+                if (pos.isNote && !cyInstance.getElementById(key).length) {
+                    cyInstance.add({
+                        group: 'nodes',
+                        data: { id: key, label: pos.label, fontFamily: pos.fontFamily, bgColor: pos.bgColor, borderColor: pos.borderColor },
+                        classes: 'annotation-note',
+                        position: { x: pos.x ?? 0, y: pos.y ?? 0 }
+                    });
                 }
             });
+
+            // Pre-flight check: Re-inject visual sticky note edges
+            Object.keys(presets).forEach(key => {
+                const pos = presets[key];
+                // Only restore the line if the entities it connects still exist in the diagram!
+                if (pos.isEdge && pos.source && pos.target && !cyInstance.getElementById(key).length && cyInstance.getElementById(pos.source).length && cyInstance.getElementById(pos.target).length) {
+                    cyInstance.add({
+                        group: 'edges',
+                        data: { id: key, source: pos.source, target: pos.target },
+                        classes: 'annotation-edge'
+                    });
+                }
+            });
+
+            if (bUsePresetsForPositions) {
+                // First pass: identify if there are new nodes without preset positions
+                const unmappedNodes = cyInstance.nodes().filter((n: any) => !presets[n.data('id')] && !n.hasClass('annotation-note'));
+                bIsHybrid = unmappedNodes.length > 0;
+
+                cyInstance.nodes().forEach((n: any) => {
+                    const pos = presets[n.data('id')];
+                    if (pos && !pos.isEdge) {
+                        n.position({ x: pos.x ?? 0, y: pos.y ?? 0 });
+                        
+                        // Restore Hide State
+                        if (pos.isHidden) {
+                            n.addClass('hidden');
+                            n.data('isHidden', true);
+                        } else {
+                            n.removeClass('hidden');
+                            n.data('isHidden', false);
+                        }
+
+                        // Restore Pin State explicitly
+                        if (pos.isPinned) {
+                            n.data('isPinned', true);
+                        } else {
+                            n.data('isPinned', false);
+                        }
+
+                        // Temporarily lock mapped nodes ONLY if the layout engine is going to physically build around them
+                        if (bIsHybrid) {
+                            n.lock();
+                        }
+                    }
+                });
+            }
         }
+
+        // Always lock explicitly pinned nodes regardless of layout type
+        cyInstance.nodes().filter((n: any) => n.data('isPinned')).lock();
 
         const hiddenNodes = cyInstance.nodes('.hidden');
         if (typeof document !== "undefined") {
             document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: hiddenNodes.length > 0 } }));
         }
 
-        const visibleNodes = cyInstance.nodes().filter((n: any) => !n.hasClass('hidden'));
-        const lockedNodes = visibleNodes.filter(':locked');
-        const unlockedNodes = visibleNodes.filter(':unlocked');
         let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);
 
-        if (lockedNodes.length > 0) {
-            if (unlockedNodes.length > 0) {
+        if (parsedConfig.presetPositions && bUsePresetsForPositions) {
+            if (bIsHybrid) {
                 layoutConfig = CytoscapeLayoutBuilder.build({ ...parsedConfig, layout: 'cose' }, iNodeCount);
             } else {
-                layoutConfig = { name: 'preset', animate: false };
+                layoutConfig = { name: 'preset', animate: false, fit: parsedConfig.camera ? false : true };
             }
         }
 
-        cyInstance.layout(layoutConfig).run();
+        const fnUnlock = () => {
+            setTimeout(() => {
+                if (cyInstance && !cyInstance.destroyed()) {
+                    cyInstance.nodes().filter((n: any) => !n.data('isPinned')).unlock();
+                }
+            }, 50);
+        };
+
+        const layoutElements = cyInstance.elements().difference('.annotation-note, .annotation-edge');
+
+        if (layoutConfig.name === 'preset') {
+            layoutElements.layout(layoutConfig).run();
+            fnUnlock(); // Synchronous layout, unlock immediately
+        } else {
+            cyInstance.one('layoutstop', fnUnlock);
+            layoutElements.layout(layoutConfig).run();
+        }
     }
 
     /**

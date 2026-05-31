@@ -52,15 +52,15 @@
                         change="onVariantChange" 
                         forceSelection="false" 
                         visible="{= ${variants>/items}.length > 0 }" 
-                        class="sapUiTinyMarginRight">
+                        class="sapUiTinyMarginRight" enabled="{= !${ui>/isDrillDown} }">
                     <layoutData>
                         <FlexItemData growFactor="1" />
                     </layoutData>
                     <core:Item key="{variants>name}" text="{variants>name}" />
                 </Select>
-                <Button id="btnRevertVariant" icon="sap-icon://undo" tooltip="Revert to Saved Variant" press="onRevertVariant" type="Transparent" visible="{= ${ui>/variantDirty} === true }" />
-                <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" />
-                <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
+                <Button id="btnRevertVariant" icon="sap-icon://undo" tooltip="Revert to Saved Variant" press="onRevertVariant" type="Transparent" visible="{= ${ui>/variantDirty} === true }" enabled="{= !${ui>/isDrillDown} }" />
+                <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" enabled="{= !${ui>/isDrillDown} }" />
+                <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" enabled="{= !${ui>/isDrillDown} }" />
             </HBox>
             
             <Button id="btnGenerate" text="{= ${ui>/isCanvasStale} ? ${i18n>btnGenerateStale} : ${i18n>btnGenerate} }" press="onGenerate" type="{= ${ui>/isCanvasStale} ? 'Attention' : 'Emphasized' }" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />

@@ -12,7 +12,9 @@ export interface IParsedCytoscapeConfig {
     animate: boolean;
     nodeSpacing: number;
     snapGuides: boolean;
-    presetPositions: Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> | null;
+    isDrillDown: boolean;
+    presetPositions: Record<string, {x?: number, y?: number, isPinned?: boolean, isHidden?: boolean, isNote?: boolean, label?: string, fontFamily?: string, bgColor?: string, borderColor?: string, isEdge?: boolean, source?: string, target?: string}> | null;
+    camera?: { zoom: number, pan: { x: number, y: number } } | null;
 }
 
 export default class CytoscapeConfigParser {
@@ -33,7 +35,9 @@ export default class CytoscapeConfigParser {
             animate: format.animate !== false,
             nodeSpacing: parseInt(format.node_spacing || format.nodeSpacing || "200", 10),
             snapGuides: format.snapGuides === true,
-            presetPositions: format.presetPositions || null
+            isDrillDown: format.isDrillDown === true,
+            presetPositions: format.presetPositions || null,
+            camera: format.camera || null
         };
     }
 }

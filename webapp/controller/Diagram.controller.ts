@@ -23,6 +23,7 @@ import ToggleButton from "sap/m/ToggleButton";
 import ExportHandler from "../handlers/ExportHandler";
 import FullScreenHandler from "../handlers/FullScreenHandler";
 import CanvasActionHandler from "../handlers/CanvasActionHandler";
+import NoteDialogHandler from "../handlers/NoteDialogHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType, IRenderRequestPayload } from "../types";
@@ -33,6 +34,7 @@ export default class Diagram extends Controller {
     private _oExportHandler!: ExportHandler;
     private _oFullScreenHandler!: FullScreenHandler;
     private _oCanvasActionHandler!: CanvasActionHandler;
+    private _oNoteDialogHandler!: NoteDialogHandler;
     private _oSpacingPopover?: ResponsivePopover;
     
     /**
@@ -54,7 +56,6 @@ export default class Diagram extends Controller {
             canShowMinimap: false,
             canSearch: false,
             fullScreenIcon: "sap-icon://full-screen", // Default icon state
-            nodesLocked: false,
             hasHiddenNodes: false,
             isSelectMode: true,
             isFocusMode: false,
@@ -76,6 +77,7 @@ export default class Diagram extends Controller {
         this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._showError.bind(this));
         this._oFullScreenHandler = new FullScreenHandler(oView);
         this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
+        this._oNoteDialogHandler = new NoteDialogHandler(oView);
 
         // Subscribe to global EventBus for incoming diagram payloads
         const oEventBus = this.getOwnerComponent()?.getEventBus();
@@ -86,6 +88,7 @@ export default class Diagram extends Controller {
 
         this._oFullScreenHandler.attachEvents();
         this._oCanvasActionHandler.attachEvents();
+        this._oNoteDialogHandler.attachEvents();
     }
 
     /**
@@ -100,7 +103,13 @@ export default class Diagram extends Controller {
         }
         this._oFullScreenHandler.detachEvents();
         this._oCanvasActionHandler.detachEvents();
+        this._oNoteDialogHandler.detachEvents();
         
+        if (this._oSpacingPopover) {
+            this._oSpacingPopover.destroy();
+            this._oSpacingPopover = undefined;
+        }
+
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
         Renderer.destroyActiveEngine();
     }
@@ -137,6 +146,8 @@ export default class Diagram extends Controller {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
 
+        if (!oViewModel || !oDataModel) return;
+
         const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
         if (!bSupportsMinimap) {
             oViewModel.setProperty("/showMinimap", false);
@@ -170,10 +181,20 @@ export default class Diagram extends Controller {
         // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
         oViewModel.setProperty("/canExportImg", true);
         oViewModel.setProperty("/hasDiagram", true);
-        oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
-        // Automatically engage lock state if coordinates were loaded
-        oViewModel.setProperty("/nodesLocked", !!oData.engineConfig?.presetPositions);
+        
+        const bIsDrillDown = !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName);
+        oViewModel.setProperty("/isDrillDown", bIsDrillDown);
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        if (oUiModel) {
+            oUiModel.setProperty("/isDrillDown", bIsDrillDown);
+            if (oData.engineConfig?.presetPositions) oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
+        }
+        
         oViewModel.setProperty("/isSelectMode", false); // Re-enforce default tool on new renders
+
+        if (oData.engineConfig) {
+            oData.engineConfig.isDrillDown = bIsDrillDown;
+        }
 
         // 4. Trigger the WASM/JS rendering engine
         try {
@@ -188,14 +209,13 @@ export default class Diagram extends Controller {
     // CANVAS ACTION DELEGATIONS
     // ========================================================================
     
-    public onToggleNodeLock(oEvent: Event): void { this._oCanvasActionHandler.toggleNodeLock(oEvent); }
-    public onRelayout(): void { this._oCanvasActionHandler.relayout(); }
     public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
     public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
     public onShowHiddenNodes(): void { this._oCanvasActionHandler.showHiddenNodes(); }
     public onChangeInteractionMode(oEvent: Event): void { this._oCanvasActionHandler.changeInteractionMode(oEvent); }
     public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
     public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
+    public onAddNote(): void { this._oNoteDialogHandler.promptAddNote(); }
 
     /**
      * @public
@@ -268,8 +288,10 @@ export default class Diagram extends Controller {
      */
     private _showError(sMessage: string): void {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        oViewModel.setProperty("/hasError", true);
-        oViewModel.setProperty("/errorText", this._getText(sMessage) || sMessage);
+        if (oViewModel) {
+            oViewModel.setProperty("/hasError", true);
+            oViewModel.setProperty("/errorText", this._getText(sMessage) || sMessage);
+        }
     }
 
     /**
@@ -278,8 +300,12 @@ export default class Diagram extends Controller {
      */
     private _resetState(): void {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        oViewModel.setProperty("/hasError", false);
-        oViewModel.setProperty("/hasDiagram", false);
+        if (oViewModel) {
+            oViewModel.setProperty("/hasError", false);
+            oViewModel.setProperty("/hasDiagram", false);
+            oViewModel.setProperty("/isFocusMode", false);
+            oViewModel.setProperty("/focusNodeName", "");
+        }
     }
 
     /**

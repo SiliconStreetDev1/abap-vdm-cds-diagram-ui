@@ -24,6 +24,7 @@ export default class ViewStateHelper {
             showHelp: false,
             activeEngine: "CYTOSCAPE",
             isCanvasStale: false,
+            isDrillDown: false,
             
             // Note: Cytoscape uses exact snake_case to match the ABAP XCO Framework directly
             formatCytoscape: { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125 },

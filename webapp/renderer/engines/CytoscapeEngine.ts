@@ -20,6 +20,7 @@ import { ICytoscapeConfig } from "./IEngineFacade";
 import CytoscapeDependencyLoader from "./cytoscape/CytoscapeDependencyLoader";
 import CytoscapeLayoutManager from "./cytoscape/CytoscapeLayoutManager";
 import CytoscapeContextMenu from "./cytoscape/CytoscapeContextMenu";
+import CytoscapeNoteManager from "./cytoscape/CytoscapeNoteManager";
 import { DomEvents } from "../../constants/EventConstants";
 
 declare const cytoscape: any;
@@ -110,12 +111,25 @@ export default class CytoscapeEngine {
                         selectionType: 'single'
                     });
 
+                    this._cyInstance.scratch('_isDrillDown', parsedConfig.isDrillDown);
+
+                    // Inject visual styling for Sticky Notes and Edges
+                    this._injectAnnotationStyles();
+
                     CytoscapeLayoutManager.applyGridGuide(this._cyInstance, parsedConfig);
+                    
+                    if (parsedConfig.camera) {
+                        this._cyInstance.viewport(parsedConfig.camera);
+                    }
+
                     CytoscapeLayoutManager.applyHybridLayout(this._cyInstance, parsedConfig, iNodeCount);
 
                     CytoscapeEventHandler.attachEvents(this._cyInstance);
                     CytoscapeEventHandler.attachGridSnapEvent(this._cyInstance, () => this._bSnapGuides);
                     CytoscapeContextMenu.attach(this._cyInstance);
+
+                    // Delegate note lifecycle to specialized manager
+                    CytoscapeNoteManager.attachEvents(this._cyInstance);
 
                     this.toggleMinimap(this._bShowMinimap);
 
@@ -145,10 +159,7 @@ export default class CytoscapeEngine {
             
             if (bIsLayoutChange) {
                 this._cyInstance.nodes().unlock();
-                parsedConfig.presetPositions = null; // Explicitly flush so we don't re-lock during the layout switch
-                if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.LAYOUT_UNLOCKED));
-                }
+                parsedConfig.camera = null; // Drop camera to allow auto-fit on layout change
             }
 
             // 1. Update visual styles dynamically
@@ -157,34 +168,11 @@ export default class CytoscapeEngine {
             // 2. Update Alignment Guides dynamically
             CytoscapeLayoutManager.applyGridGuide(this._cyInstance, parsedConfig);
 
-            // 3. Rerun the physical layout using the centralized hybrid rules
+            // 3. Re-inject visual styling for Sticky Notes so they survive format updates
+            this._injectAnnotationStyles();
+
+            // 4. Rerun the physical layout using the centralized hybrid rules
             CytoscapeLayoutManager.applyHybridLayout(this._cyInstance, parsedConfig, iNodeCount);
-        }
-    }
-
-    /**
-     * @public
-     * @description Toggles the layout locking constraint on all nodes.
-     */
-    public static setNodesLocked(bLocked: boolean): void {
-        if (this._cyInstance) {
-            if (bLocked) {
-                this._cyInstance.nodes().lock();
-            } else {
-                    this._cyInstance.nodes().filter((n: any) => !n.data('isPinned')).unlock();
-            }
-        }
-    }
-
-    /**
-     * @public
-     * @description Forces a manual layout recalculation on all unlocked nodes.
-     */
-    public static runLayout(): void {
-        if (this._cyInstance && this._oLastParsedConfig) {
-            const iNodeCount = this._cyInstance.nodes().length;
-            this._oLastParsedConfig.presetPositions = null; // Guarantee the engine forgets coordinates on a forced auto-layout
-            CytoscapeLayoutManager.applyHybridLayout(this._cyInstance, this._oLastParsedConfig, iNodeCount);
         }
     }
 
@@ -261,6 +249,8 @@ export default class CytoscapeEngine {
                 this._navInstance.destroy();
                 this._navInstance = null;
             }
+            CytoscapeNoteManager.detachEvents();
+            CytoscapeContextMenu.removeAll();
             this._cyInstance.destroy();
             this._cyInstance = null;
         }
@@ -312,15 +302,86 @@ export default class CytoscapeEngine {
      * @public
      * @description Returns the X/Y coordinates of all current nodes for variant persistence.
      */
-    public static getCanvasState(): Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> {
-        const state: Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> = {};
+    public static getCanvasState(): Record<string, any> {
+        const state: Record<string, any> = {};
         if (this._cyInstance) {
+            state.__camera = {
+                zoom: this._cyInstance.zoom(),
+                pan: this._cyInstance.pan()
+            };
             this._cyInstance.nodes().forEach((n: any) => {
                 state[n.data('id')] = { ...n.position() };
                 state[n.data('id')].isPinned = !!n.data('isPinned');
                 state[n.data('id')].isHidden = n.hasClass('hidden') || !!n.data('isHidden');
+                if (n.hasClass('annotation-note')) {
+                    state[n.data('id')].isNote = true;
+                    state[n.data('id')].label = n.data('label');
+                    state[n.data('id')].bgColor = n.data('bgColor');
+                    state[n.data('id')].borderColor = n.data('borderColor');
+                    state[n.data('id')].fontFamily = n.data('fontFamily');
+                }
+            });
+            
+            this._cyInstance.edges('.annotation-edge').forEach((e: any) => {
+                state[e.data('id')] = {
+                    isEdge: true,
+                    source: e.data('source'),
+                    target: e.data('target')
+                };
             });
         }
         return state;
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Re-injects visual styling for Sticky Notes so they survive format updates and have proper content mappings.
+     */
+    private static _injectAnnotationStyles(): void {
+        if (!this._cyInstance) return;
+        this._cyInstance.style()
+            .selector('.annotation-note').style({
+                'content': 'data(label)',
+                'shape': 'round-rectangle',
+                'background-color': (ele: any) => ele.data('bgColor') || '#fff9c4',
+                'background-opacity': 0.95,
+                'border-color': (ele: any) => ele.data('borderColor') || '#fbc02d',
+                'border-width': 1,
+                'color': '#333333',
+                'text-wrap': 'wrap',
+                'text-max-width': '200px',
+                'width': 'label',
+                'height': 'label',
+                'padding': '16px',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'font-family': (ele: any) => {
+                    switch(ele.data('fontFamily')) {
+                        case 'Standard': return '"72", Arial, Helvetica, sans-serif';
+                        case 'Monospace': return 'monospace';
+                        case 'Serif': return '"Times New Roman", Times, serif';
+                        default: return '"Comic Sans MS", "Marker Felt", "Segoe Print", monospace'; // Marker
+                    }
+                },
+                'font-size': '15px',
+                'shadow-blur': 12,
+                'shadow-color': '#000000',
+                'shadow-opacity': 0.25,
+                'shadow-offset-x': 4,
+                'shadow-offset-y': 4,
+                'z-index': 100
+            })
+            .selector('.annotation-edge').style({
+                'line-style': 'dashed',
+                'line-color': '#fbc02d',
+                'width': 2,
+                'line-opacity': 0.6,
+                'target-arrow-shape': 'none',
+                'curve-style': 'unbundled-bezier',
+                'control-point-distances': 30,
+                'control-point-weights': 0.5,
+                'z-index': 1
+            }).update();
     }
 }

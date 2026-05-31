@@ -5,6 +5,7 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Select from "sap/m/Select";
+import Renderer from "../renderer/Renderer";
 
 export default class SelectionStateHandler {
     private _oView: View;
@@ -45,6 +46,33 @@ export default class SelectionStateHandler {
         if (oUiModel) {
             oUiModel.setProperty("/nodesDragged", true);
             oUiModel.setProperty("/variantDirty", true);
+            
+            const sEngine = oUiModel.getProperty("/activeEngine");
+            if (sEngine === "CYTOSCAPE") {
+                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
+                const oCanvasState = Renderer.getCanvasState(sEngine);
+                oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @description Triggered when the user pans or zooms the canvas.
+     * @returns {void}
+     */
+    public onViewportChanged(): void {
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (oUiModel) {
+            oUiModel.setProperty("/variantDirty", true);
+            
+            const sEngine = oUiModel.getProperty("/activeEngine");
+            if (sEngine === "CYTOSCAPE") {
+                const oCanvasState = Renderer.getCanvasState(sEngine);
+                if (oCanvasState && oCanvasState.__camera) {
+                    oUiModel.setProperty("/formatCytoscape/camera", oCanvasState.__camera);
+                }
+            }
         }
     }
 
@@ -79,6 +107,7 @@ export default class SelectionStateHandler {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty("/isCanvasStale", true);
+            oUiModel.setProperty("/formatCytoscape/camera", null);
         }
     }
 }

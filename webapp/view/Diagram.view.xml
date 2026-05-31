@@ -23,7 +23,7 @@
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
         </Toolbar>   
     
-     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/nodesLocked} ? 'lockedCanvasBg' : '' } {= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
+     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
         
         <!-- Inject CSS directly to Fiori theme variables for Light/Dark Mode support -->
         <core:HTML content='&lt;style&gt;
@@ -33,11 +33,6 @@
                 left: 2rem;
                 z-index: 10;
                 gap: 0.5rem;
-            \}
-            .lockedCanvasBg \{
-                background-image: linear-gradient(rgba(0, 84, 160, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 84, 160, 0.05) 1px, transparent 1px);
-                background-size: 20px 20px;
             \}
             .selectModeActive, .selectModeActive canvas \{
                 cursor: crosshair !important;
@@ -87,8 +82,8 @@
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
             
             <Button id="btnShowHidden" icon="sap-icon://show" press="onShowHiddenNodes" tooltip="Show All Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
-            <Button id="btnLockNodes" icon="{= ${view>/nodesLocked} ? 'sap-icon://locked' : 'sap-icon://unlocked' }" press="onToggleNodeLock" tooltip="{= ${view>/nodesLocked} ? 'Unlock Layout' : 'Lock Layout' }" class="{= ${view>/nodesLocked} ? 'btnIconRed' : 'btnIconGreen' }" />
-            <Button id="btnRelayout" icon="sap-icon://org-chart" press="onRelayout" tooltip="Re-run layout algorithm" visible="{= !${view>/nodesLocked} }" class="btnIconBlue" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+            <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note" class="btnIconOrange" enabled="{= !${view>/isDrillDown} }" />
         </HBox>
 
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">

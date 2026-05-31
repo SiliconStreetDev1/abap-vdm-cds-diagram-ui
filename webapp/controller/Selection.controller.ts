@@ -35,7 +35,9 @@ export default class Selection extends Controller {
     private _fnNodeDrillDownRequestBind!: EventListener;
     private _fnSliderUpdateBind!: EventListener;
     private _fnCanvasStateChangedBind!: EventListener;
+    private _fnViewportChangedBind!: EventListener;
     private _fnEventBusDrillDownBind!: (c: string, e: string, d: any) => void;
+    private _iDeletePollingTimer?: ReturnType<typeof setInterval>;
 
     /**
      * @public
@@ -75,10 +77,13 @@ export default class Selection extends Controller {
         document.addEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
 
         this._fnCanvasStateChangedBind = this._oStateHandler.onCanvasStateChanged.bind(this._oStateHandler) as EventListener;
+        this._fnViewportChangedBind = this._oStateHandler.onViewportChanged.bind(this._oStateHandler) as EventListener;
+        
         document.addEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
         document.addEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
         document.addEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
         document.addEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+        document.addEventListener(DomEvents.CANVAS_VIEWPORT_CHANGED, this._fnViewportChangedBind);
     }
 
     /**
@@ -97,6 +102,12 @@ export default class Selection extends Controller {
         document.removeEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
         document.removeEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
         document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+        document.removeEventListener(DomEvents.CANVAS_VIEWPORT_CHANGED, this._fnViewportChangedBind);
+
+        if (this._iDeletePollingTimer) {
+            clearInterval(this._iDeletePollingTimer);
+            this._iDeletePollingTimer = undefined;
+        }
     }
 
     // ========================================================================
@@ -145,7 +156,43 @@ export default class Selection extends Controller {
      * @description Deletes the selected user variant.
      * @returns {void}
      */
-    public onDeleteVariant(): void { this._oVariantHandler.deleteSelected(); }
+    public onDeleteVariant(): void { 
+        const oVariantSelect = this.byId("selVariant") as Select;
+        const sKeyBeforeDelete = oVariantSelect ? oVariantSelect.getSelectedKey() : "";
+
+        this._oVariantHandler.deleteSelected(); 
+        
+        // ENTERPRISE UX: Asynchronously check if the deletion succeeded and the variant list was updated.
+        // We poll briefly because deletion might wait for a user confirmation dialog (MessageBox).
+        let iAttempts = 0;
+        this._iDeletePollingTimer = setInterval(() => {
+            iAttempts++;
+            if (iAttempts > 50) { // Timeout after 5 seconds
+                clearInterval(this._iDeletePollingTimer);
+                this._iDeletePollingTimer = undefined;
+                return;
+            }
+            
+            const oVariantsModel = this.getView()?.getModel("variants") as JSONModel;
+            const aVariants = oVariantsModel ? oVariantsModel.getProperty("/items") || [] : [];
+            
+            // If the item we tried to delete is successfully removed from the model
+            if (sKeyBeforeDelete && !aVariants.some((v: any) => v.name === sKeyBeforeDelete)) {
+                clearInterval(this._iDeletePollingTimer);
+                this._iDeletePollingTimer = undefined;
+                if (oVariantSelect) {
+                    oVariantSelect.setSelectedKey("");
+                    oVariantSelect.setValueState("None");
+                }
+                if (aVariants.length === 0) {
+                    const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+                    if (oUiModel) {
+                        oUiModel.setProperty("/variantDirty", false);
+                    }
+                }
+            }
+        }, 100);
+    }
 
     /**
      * @public
@@ -153,7 +200,15 @@ export default class Selection extends Controller {
      * @param {Event} e - Select event.
      * @returns {void}
      */
-    public onVariantChange(e: Event): void { this._oVariantHandler.applyVariant(e, () => this._oGenerationHandler.generate(false)); }
+    public onVariantChange(e: Event): void { 
+        const oVariantSelect = e.getSource() as Select;
+        if (oVariantSelect) oVariantSelect.setValueState("None");
+
+        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+        if (oUiModel) oUiModel.setProperty("/variantDirty", false);
+
+        this._oVariantHandler.applyVariant(e, () => this._oGenerationHandler.generate(false)); 
+    }
 
     /**
      * @public
@@ -163,6 +218,10 @@ export default class Selection extends Controller {
     public onRevertVariant(): void {
         const oVariantSelect = this.byId("selVariant") as Select;
         if (oVariantSelect && oVariantSelect.getSelectedKey()) {
+            oVariantSelect.setValueState("None");
+            const oUiModel = this.getView()?.getModel("ui") as JSONModel;
+            if (oUiModel) oUiModel.setProperty("/variantDirty", false);
+
             this._oVariantHandler.applyVariant(new Event("dummy", oVariantSelect, {}), () => this._oGenerationHandler.generate(false));
         }
     }

@@ -3,6 +3,7 @@
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Layout Algorithm" design="Bold"/>
             <Select width="240px" selectedKey="{ui>/formatCytoscape/layout_algorithm}" change=".onLiveFormatChange">
+                <core:Item key="preset" text="Custom Layout (Variant)" enabled="{= ${ui>/formatCytoscape/presetPositions} ? true : false }" />
                 <core:Item key="dagre" text="Dagre (Hierarchical)" />
                 <core:Item key="elk" text="ELK (Eclipse Layout Kernel)" />
                 <core:Item key="cose" text="Physics (Auto-Untangle)" />
