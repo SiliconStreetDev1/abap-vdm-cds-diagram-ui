@@ -111,8 +111,6 @@ export default class CytoscapeEngine {
                         selectionType: 'single'
                     });
 
-                    this._cyInstance.scratch('_isDrillDown', parsedConfig.isDrillDown);
-
                     // Inject visual styling for Sticky Notes and Edges
                     this._injectAnnotationStyles();
 
@@ -124,9 +122,9 @@ export default class CytoscapeEngine {
 
                     CytoscapeLayoutManager.applyHybridLayout(this._cyInstance, parsedConfig, iNodeCount);
 
-                    CytoscapeEventHandler.attachEvents(this._cyInstance);
+                    CytoscapeEventHandler.attachEvents(this._cyInstance, parsedConfig.isDrillDown);
                     CytoscapeEventHandler.attachGridSnapEvent(this._cyInstance, () => this._bSnapGuides);
-                    CytoscapeContextMenu.attach(this._cyInstance);
+                    CytoscapeContextMenu.attach(this._cyInstance, parsedConfig.isDrillDown);
 
                     // Delegate note lifecycle to specialized manager
                     CytoscapeNoteManager.attachEvents(this._cyInstance);

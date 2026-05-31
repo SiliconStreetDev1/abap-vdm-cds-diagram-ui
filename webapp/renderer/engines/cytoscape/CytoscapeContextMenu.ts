@@ -24,9 +24,10 @@ export default class CytoscapeContextMenu {
      * @static
      * @description Intercepts right-clicks on the active graph and builds a floating DOM context menu.
      * @param {any} cyInstance - Cytoscape Core instance.
+     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      * @returns {void}
      */
-    public static attach(cyInstance: any): void {
+    public static attach(cyInstance: any, bIsDrillDown: boolean): void {
         cyInstance.on('tap zoom pan', () => this.removeAll());
 
         cyInstance.on('cxttap', 'node', (evt: any) => {
@@ -84,7 +85,6 @@ export default class CytoscapeContextMenu {
             
             const totalCount = targetNodes.length;
             const suffix = totalCount > 1 ? ` (${totalCount})` : "";
-            const bIsDrillDown = cyInstance.scratch('_isDrillDown') === true;
 
             if (bIsNote) {
                 if (!bIsDrillDown) {
@@ -186,11 +186,10 @@ export default class CytoscapeContextMenu {
      * @param {any} cyInstance - The Cytoscape graph instance.
      * @param {string} suffix - Formatting string (e.g. "(3)") for bulk selections.
      * @param {number} totalCount - Total number of nodes in selection.
+     * @param {boolean} bIsDrillDown - Whether the user is currently drilled down.
      * @returns {void}
      */
-    private static _buildEntityMenu(menu: HTMLDivElement, targetNodes: any, cyInstance: any, suffix: string, totalCount: number): void {
-        const bIsDrillDown = cyInstance.scratch('_isDrillDown') === true;
-
+    private static _buildEntityMenu(menu: HTMLDivElement, targetNodes: any, cyInstance: any, suffix: string, totalCount: number, bIsDrillDown: boolean): void {
         if (!bIsDrillDown) {
             menu.appendChild(this._createMenuItem("📝", `Add Linked Note${suffix}`, "#f57c00", () => {
                 cyInstance.elements().unselect();

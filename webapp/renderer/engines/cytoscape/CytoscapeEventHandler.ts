@@ -12,12 +12,13 @@ export default class CytoscapeEventHandler {
      * @static
      * @description Attaches standard interaction events to the given Cytoscape instance.
      * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      * @returns {void}
      */
-    public static attachEvents(cyInstance: any): void {
+    public static attachEvents(cyInstance: any, bIsDrillDown: boolean): void {
         this._attachLayoutEvents(cyInstance);
         this._attachSelectionEvents(cyInstance);
-        this._attachInteractionEvents(cyInstance);
+        this._attachInteractionEvents(cyInstance, bIsDrillDown);
         this._attachDragEvents(cyInstance);
     }
 
@@ -86,8 +87,9 @@ export default class CytoscapeEventHandler {
      * @static
      * @description Attaches click and double-click interaction events.
      * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      */
-    private static _attachInteractionEvents(cyInstance: any): void {
+    private static _attachInteractionEvents(cyInstance: any, bIsDrillDown: boolean): void {
 
         // Enterprise UX: Clicking the background canvas instantly drops any active selections
         cyInstance.on('tap', (evt: any) => {
@@ -115,7 +117,7 @@ export default class CytoscapeEventHandler {
         cyInstance.on('dbltap', 'node', (evt: any) => {
             const node = evt.target;
             if (node.hasClass('annotation-note')) {
-                if (!cyInstance.scratch('_isDrillDown')) {
+                if (!bIsDrillDown) {
                     if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
                 }
                 return;
