@@ -15,24 +15,63 @@ export default class CytoscapeEventHandler {
      * @returns {void}
      */
     public static attachEvents(cyInstance: any): void {
-        cyInstance.on('select unselect', () => {
+        // Track Box Selection state to prevent Focus Mode from triggering during Marquee lassoing
+        cyInstance.on('boxstart', () => cyInstance.scratch('_isBoxSelecting', true));
+        cyInstance.on('boxend', () => setTimeout(() => cyInstance.scratch('_isBoxSelecting', false), 50));
+
+        cyInstance.on('select unselect', (evt: any) => {
             const selected = cyInstance.elements('node:selected');
             
             cyInstance.elements().removeClass('faded highlighted');
             
-            if (selected.length === 1) {
+            let bFocus = false;
+            let sFocusName = "";
+            
+            // Detect if the user is holding a modifier key to perform a multi-select operation
+            const bIsMultiSelectModifier = evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey);
+            
+            // Detect if the selection was triggered via Marquee Box Selection
+            const bIsBoxSelecting = cyInstance.scratch('_isBoxSelecting');
+
+            // Enterprise UX: Focus Mode is strictly for single-entity discovery.
+            // If > 1 node is selected (Mass Selection), we instantly abort the fade to retain full visual context.
+            // We also suppress focus if a modifier key is held, or if the user is actively using the box selection tool.
+            if (selected.length === 1 && !selected.hasClass('hidden') && !bIsMultiSelectModifier && !bIsBoxSelecting) {
                 const neighborhood = selected.closedNeighborhood();
                 cyInstance.elements().difference(neighborhood).addClass('faded');
                 neighborhood.addClass('highlighted');
-            } else if (selected.length > 1) {
-                const isolated = selected.union(selected.edgesWith(selected));
-                cyInstance.elements().difference(isolated).addClass('faded');
-                isolated.addClass('highlighted');
+                
+                bFocus = true;
+                sFocusName = selected[0].data('label') || selected[0].id();
             }
+            
+            if (typeof document !== "undefined") {
+                document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { 
+                    detail: { isFocused: bFocus, nodeName: sFocusName } 
+                }));
+            }
+        });
+
+        // Enterprise UX: Clicking the background canvas instantly drops any active selections
+        cyInstance.on('tap', (evt: any) => {
+            if (evt.target === cyInstance) {
+                cyInstance.elements().unselect();
+            }
+        });
+
+        cyInstance.on('select', 'node', (evt: any) => {
+            evt.target.data('_lastSelectTime', Date.now());
         });
 
         cyInstance.on('tap', 'node', (evt: any) => {
             const node = evt.target;
+            
+            // Enterprise UX Toggle-Click: If the node is already selected and wasn't just selected 
+            // in this exact click cycle (300ms buffer), unselect it.
+            if (node.selected() && Date.now() - (node.data('_lastSelectTime') || 0) > 300) {
+                node.unselect();
+            }
+            
             document.dispatchEvent(new CustomEvent(DomEvents.NODE_CLICKED, { detail: { viewName: node.data('id') } }));
         });
 

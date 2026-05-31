@@ -34,6 +34,8 @@ export interface IEngineFacade {
     setNodesLocked?(bLocked: boolean): void;
     runLayout?(): void;
     showHiddenNodes?(): void;
+    setInteractionMode?(sMode: "pan" | "select"): void;
+    clearSelection?(): void;
 
     /**
      * @public

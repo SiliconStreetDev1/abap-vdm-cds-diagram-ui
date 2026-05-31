@@ -8,8 +8,6 @@ import Event from "sap/ui/base/Event";
 import EventBus from "sap/ui/core/EventBus";
 import Control from "sap/ui/core/Control";
 import Icon from "sap/ui/core/Icon";
-import ResponsivePopover from "sap/m/ResponsivePopover";
-import Text from "sap/m/Text";
 import VBox from "sap/m/VBox";
 import Input from "sap/m/Input";
 import ComboBox from "sap/m/ComboBox";
@@ -19,6 +17,7 @@ import Button from "sap/m/Button";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import SelectionStateHandler from "./SelectionStateHandler";
 import CdsValueHelpHandler from "./CdsValueHelpHandler";
+import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
 
@@ -27,7 +26,6 @@ export default class SelectionUIHandler {
     private _oEventBus?: EventBus;
     private _oStateHandler: SelectionStateHandler;
     private _fnGetText: (k: string, args?: any[]) => string;
-    private _oInfoPopover?: ResponsivePopover;
     private _oCdsValueHelpHandler?: CdsValueHelpHandler;
     private _oActiveSearchField?: Control;
 
@@ -64,6 +62,9 @@ export default class SelectionUIHandler {
             if (this._oEventBus) {
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
             }
+        } else {
+            // Other engines require a full rendering cycle for format changes
+            this._oStateHandler.markStaleState();
         }
     }
 
@@ -84,7 +85,7 @@ export default class SelectionUIHandler {
      * @param {any} oEvent - UI Custom Slider Event.
      * @returns {void}
      */
-    public onSliderUpdate(oEvent: any): void {
+    public onSliderUpdate(oEvent: CustomEvent): void {
         if (oEvent.detail?.node_spacing) (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oEvent.detail.node_spacing);
     }
 
@@ -95,15 +96,7 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     public onShowInfo(oEvent: Event): void {
-        const oIcon = oEvent.getSource() as Icon;
-        const sInfoType = oIcon.data("infoType") as string;
-        if (!this._oInfoPopover) {
-            this._oInfoPopover = new ResponsivePopover({ placement: "Right", contentWidth: "300px", showHeader: true, content: [ new Text({ text: "{popover>/text}" }).addStyleClass("sapUiSmallMargin") ] });
-            this._oView.addDependent(this._oInfoPopover);
-        }
-        this._oInfoPopover.setModel(new JSONModel({ text: this._fnGetText(`infoText${sInfoType}`) }), "popover");
-        this._oInfoPopover.setTitle(this._fnGetText(`infoTitle${sInfoType}`));
-        this._oInfoPopover.openBy(oIcon);
+        ContextHelpManager.openPopover(oEvent, this._oView, this._fnGetText);
     }
 
     /**

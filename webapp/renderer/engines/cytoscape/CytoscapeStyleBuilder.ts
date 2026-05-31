@@ -72,11 +72,24 @@ export default class CytoscapeStyleBuilder {
                     'border-width': '2px',
                     'border-color': '#d32f2f',
                     'border-style': 'solid',
-                    'background-image': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2QzMmYyZiIgZD0iTTE2IDEyVjRoMVYySDd2MmgxdjhsLTIgMnYyaDUuMnY2aDEuNnYtNkgxOHYtMmwtMi0yeiIvPjwvc3ZnPg==',
+                    // Base64 SVG hardened with explicit width="24" height="24" to prevent Canvas 0x0 clipping bugs
+                    'background-image': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjZDMyZjJmIiBkPSJNMTYgMTJWNGgxVjJIN3YyaDF2OGwtMiAydjJoNS4ydjZoMS42di02SDE4di0ybC0yLTJ6Ii8+PC9zdmc+',
                     'background-position-x': '100%',
                     'background-position-y': '0%',
                     'background-width': '24px',
-                    'background-height': '24px'
+                    'background-height': '24px',
+                    'background-clip': 'none',
+                    'background-fit': 'none'
+                }
+            },
+            {
+                selector: 'node[?isPinned]:selected',
+                style: {
+                    'border-width': '4px',
+                    'border-color': '#d32f2f', // Retain the critical red anchor warning
+                    'underlay-color': '#0854a0', // Apply the Fiori selection blue as a glowing underlay
+                    'underlay-padding': '8px',
+                    'underlay-opacity': 0.5
                 }
             },
             {

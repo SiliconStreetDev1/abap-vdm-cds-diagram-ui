@@ -1,7 +1,8 @@
 <mvc:View controllerName="nz.co.siliconstreet.vdmdiagrammer.controller.Diagram"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m" 
-    xmlns:core="sap.ui.core">
+    xmlns:core="sap.ui.core"
+    xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1">
 
         <Toolbar id="toolbarActions" visible="{view>/hasDiagram}">
             <Breadcrumbs id="breadcrumbs" links="{diagramData>/breadcrumbLinks}" currentLocationText="{diagramData>/currentBreadcrumb}" class="sapUiTinyMarginEnd">
@@ -22,7 +23,7 @@
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
         </Toolbar>   
     
-     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/nodesLocked} ? 'lockedCanvasBg' : '' }">
+     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/nodesLocked} ? 'lockedCanvasBg' : '' } {= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
         
         <!-- Inject CSS directly to Fiori theme variables for Light/Dark Mode support -->
         <core:HTML content='&lt;style&gt;
@@ -31,36 +32,63 @@
                 bottom: 2rem;
                 left: 2rem;
                 z-index: 10;
-                gap: 2rem;
-            \}
-            .actionIcon \{
-                cursor: pointer;
-                transition: transform 0.2s ease-in-out, opacity 0.2s;
-                text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.25);
-            \}
-            .actionIcon:hover \{
-                opacity: 0.8;
-                transform: scale(1.15);
+                gap: 0.5rem;
             \}
             .lockedCanvasBg \{
                 background-image: linear-gradient(rgba(0, 84, 160, 0.05) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 84, 160, 0.05) 1px, transparent 1px);
                 background-size: 20px 20px;
             \}
+            .selectModeActive, .selectModeActive canvas \{
+                cursor: crosshair !important;
+            \}
+            .btnIconRed .sapMBtnIcon \{ color: var(--sapNegativeColor, #d32f2f) !important; \}
+            .btnIconGreen .sapMBtnIcon \{ color: var(--sapPositiveColor, #4caf50) !important; \}
+            .btnIconBlue .sapMBtnIcon \{ color: var(--sapBrandColor, #2196f3) !important; \}
+            .btnIconOrange .sapMBtnIcon \{ color: var(--sapCriticalColor, #f57c00) !important; \}
+            .btnIconInfo .sapMBtnIcon \{ color: var(--sapActiveColor, #0070f2) !important; \}
+            .focusBadgeContainer \{
+                position: absolute;
+                top: 1.5rem;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 20;
+                background-color: var(--sapInfobg, #e5f0fa);
+                border: 1px solid var(--sapInfoBorderColor, #0854a0);
+                color: var(--sapInfoTextColor, #0854a0);
+                box-shadow: var(--sapContent_Shadow2);
+                border-radius: 4px;
+                padding: 0.5rem 1rem;
+            \}
+            .staleCanvasContainer \{
+                opacity: 0.6;
+                filter: grayscale(50%);
+                transition: opacity 0.3s ease, filter 0.3s ease;
+                pointer-events: none;
+            \}
         &lt;/style&gt;' />
 
-        <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' }" class="hoverPillContainer" alignItems="Center">
-            <core:Icon src="sap-icon://resize-horizontal" size="1.5rem" color="#0854a0" tooltip="Adjust Node Spacing" class="pillIcon" />
-            <HBox class="pillContent" alignItems="Center">
-                <Label text="Spacing" class="sapUiSmallMarginEnd" design="Bold" wrapping="false"/>
-                <Slider value="{ui>/formatCytoscape/node_spacing}" min="50" max="250" step="25" width="200px" enableTickmarks="true" change=".onSpacingChange"/>
-            </HBox>
+        <HBox visible="{view>/isFocusMode}" class="focusBadgeContainer" alignItems="Center" justifyContent="Center">
+             <Label text="👁 Focus Mode: {view>/focusNodeName}" design="Bold" class="sapUiMediumMarginEnd" />
+             <core:Icon src="sap-icon://decline" press=".onClearFocus" color="#d32f2f" tooltip="Clear Focus" class="actionIcon" />
         </HBox>
 
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' &amp;&amp; ${view>/hasDiagram} }" class="floatingLayoutActions" alignItems="Center">
-            <core:Icon id="btnShowHidden" src="sap-icon://show" color="#f57c00" size="1.75rem" press="onShowHiddenNodes" tooltip="Show All Hidden Nodes" visible="{view>/hasHiddenNodes}" class="actionIcon" />
-            <core:Icon id="btnLockNodes" src="{= ${view>/nodesLocked} ? 'sap-icon://locked' : 'sap-icon://unlocked' }" color="{= ${view>/nodesLocked} ? '#d32f2f' : '#4caf50' }" size="1.75rem" press="onToggleNodeLock" tooltip="{= ${view>/nodesLocked} ? 'Unlock Layout' : 'Lock Layout' }" class="actionIcon" />
-            <core:Icon id="btnRelayout" src="sap-icon://org-chart" color="#2196f3" size="1.75rem" press="onRelayout" tooltip="Re-run layout algorithm" visible="{= !${view>/nodesLocked} }" class="actionIcon" />
+            <SegmentedButton id="segInteractionMode" selectedKey="{= ${view>/isSelectMode} ? 'select' : 'pan' }" selectionChange=".onChangeInteractionMode">
+                <items>
+                    <SegmentedButtonItem key="select" icon="sap-icon://draw-rectangle" tooltip="Box Select Mode" width="3rem" />
+                    <SegmentedButtonItem key="pan" icon="sap-icon://move" tooltip="Pan Mode" width="3rem" />
+                </items>
+            </SegmentedButton>
+            
+            <Button id="btnInfo" icon="sap-icon://information" press="onShowInfo" customData:infoType="InteractionMode" tooltip="{i18n>ttClickInfo}" visible="{ui>/showHelp}" class="btnIconInfo" />
+            
+            <Button id="btnSpacing" icon="sap-icon://resize-horizontal" press="onShowSpacing" tooltip="Adjust Node Spacing" class="btnIconBlue" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+            
+            <Button id="btnShowHidden" icon="sap-icon://show" press="onShowHiddenNodes" tooltip="Show All Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
+            <Button id="btnLockNodes" icon="{= ${view>/nodesLocked} ? 'sap-icon://locked' : 'sap-icon://unlocked' }" press="onToggleNodeLock" tooltip="{= ${view>/nodesLocked} ? 'Unlock Layout' : 'Lock Layout' }" class="{= ${view>/nodesLocked} ? 'btnIconRed' : 'btnIconGreen' }" />
+            <Button id="btnRelayout" icon="sap-icon://org-chart" press="onRelayout" tooltip="Re-run layout algorithm" visible="{= !${view>/nodesLocked} }" class="btnIconBlue" />
         </HBox>
 
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">
@@ -69,7 +97,11 @@
             
             <MessageStrip id="msgError" visible="{view>/hasError}" text="{view>/errorText}" type="Error" showIcon="true" class="sapUiMargin" />
             
-            <core:HTML id="htmlRenderer" />
+            <MessageStrip id="msgStale" visible="{= ${ui>/isCanvasStale} === true &amp;&amp; ${view>/hasDiagram} === true }" text="{i18n>msgStaleCanvas}" type="Warning" showIcon="true" class="sapUiMarginTop sapUiMarginBegin sapUiMarginEnd" />
+            
+            <VBox height="100%" width="100%" renderType="Bare" class="{= ${ui>/isCanvasStale} ? 'staleCanvasContainer' : '' }">
+                <core:HTML id="htmlRenderer" />
+            </VBox>
         </VBox>
     </VBox>
 </mvc:View>

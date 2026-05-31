@@ -7,6 +7,14 @@ export default class MinimapManager {
     
     private static _minimapState = { w: 200, h: 200, x: 0, y: 0 };
 
+    /**
+     * @public
+     * @static
+     * @description Injects interactive drag, resize, and close handles into the Cytoscape minimap panel.
+     * @param {HTMLElement} navElem - The DOM element of the navigator panel.
+     * @param {any} cy - The active Cytoscape.js instance.
+     * @returns {() => void} A teardown closure to safely destroy the event listeners.
+     */
     public static enhancePanel(navElem: HTMLElement, cy: any): () => void {
         // Apply persisted session state immediately to prevent layout jumping
         navElem.style.setProperty("width", `${this._minimapState.w}px`, "important");
@@ -38,6 +46,15 @@ export default class MinimapManager {
         };
     }
 
+    /**
+     * @private
+     * @static
+     * @description Constructs a styled, absolutely positioned DOM handle for panel interaction.
+     * @param {string} sHtml - Inner HTML or icon character.
+     * @param {string} sTitle - Tooltip text.
+     * @param {Record<string, string>} oStyles - Map of CSS properties.
+     * @returns {HTMLDivElement} The generated handle DOM element.
+     */
     private static _createHandle(sHtml: string, sTitle: string, oStyles: Record<string, string>): HTMLDivElement {
         const handle = document.createElement("div");
         handle.innerHTML = sHtml;
@@ -51,6 +68,14 @@ export default class MinimapManager {
         return handle;
     }
 
+    /**
+     * @private
+     * @static
+     * @description Binds standard mousedown/mousemove logic to allow the panel to be dragged across the viewport.
+     * @param {HTMLDivElement} dragHandle - The DOM element serving as the drag zone.
+     * @param {HTMLElement} navElem - The minimap panel DOM element.
+     * @returns {() => void} Cleanup function to detach the drag listeners.
+     */
     private static _attachDragLogic(dragHandle: HTMLDivElement, navElem: HTMLElement): () => void {
         let bIsDragging = false;
         let iStartX = 0, iStartY = 0;
@@ -90,6 +115,15 @@ export default class MinimapManager {
         };
     }
 
+    /**
+     * @private
+     * @static
+     * @description Binds resize logic to the minimap panel, enforcing minimum dimensions and triggering engine updates.
+     * @param {HTMLDivElement} resizeHandle - The DOM element serving as the resize grabber.
+     * @param {HTMLElement} navElem - The minimap panel DOM element.
+     * @param {any} cy - The active Cytoscape.js instance to notify of dimension changes.
+     * @returns {any} Cleanup object containing the ResizeObserver and DOM unbinders.
+     */
     private static _attachResizeLogic(resizeHandle: HTMLDivElement, navElem: HTMLElement, cy: any): any {
         let bIsResizing = false;
         let iStartX = 0, iStartY = 0, iStartW = 0, iStartH = 0;

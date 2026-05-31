@@ -17,6 +17,7 @@ import DiagramService from "../services/DiagramService";
 import VariantManager from "../helpers/VariantManager";
 import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
+import { IVariantState } from "../types/IVariantState";
 
 export default class DiagramGenerationHandler {
     private _oView: View;
@@ -24,6 +25,7 @@ export default class DiagramGenerationHandler {
     private _fnGetText: (k: string, args?: any[]) => string;
     private _sRootCdsName: string = "";
     private _aBreadcrumbs: string[] = [];
+    private _oSessionCache: Record<string, IVariantState> = {};
 
     constructor(oView: View, oEventBus: EventBus | undefined, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
@@ -33,12 +35,37 @@ export default class DiagramGenerationHandler {
 
     /**
      * @public
+     * @description Caches a snapshot of the current view's state for seamless breadcrumb restoration.
+     * @param {string} sName - The CDS view name.
+     * @param {IVariantState} oState - The captured canvas and filter state.
+     */
+    public cacheSessionState(sName: string, oState: IVariantState): void {
+        this._oSessionCache[sName.toUpperCase()] = oState;
+    }
+
+    /**
+     * @public
+     * @description Retrieves a cached snapshot for a given CDS view, if one exists in this session.
+     * @param {string} sName - The CDS view name.
+     * @returns {IVariantState | undefined}
+     */
+    public getCachedSessionState(sName: string): IVariantState | undefined {
+        return this._oSessionCache[sName.toUpperCase()];
+    }
+
+    public clearSessionCache(): void {
+        this._oSessionCache = {};
+    }
+
+    /**
+     * @public
      * @description Performs the entire cycle of validating parameters, querying the ABAP backend,
      * and submitting the processed response payload to the application EventBus.
      * @param {boolean} bIsDrillDown - Prevents root CDS mutation if this execution is a nested drill-down.
+     * @param {boolean} bIsRestore - Prevents wiping custom preset positions if restoring from a cached state.
      * @returns {Promise<void>}
      */
-    public async generate(bIsDrillDown: boolean): Promise<void> {
+    public async generate(bIsDrillDown: boolean, bIsRestore: boolean = false): Promise<void> {
         const oComboBox = this._oView.byId("cmbCdsName") as ComboBox;
         const sCdsName = oComboBox.getValue().trim().toUpperCase();
 
@@ -49,7 +76,9 @@ export default class DiagramGenerationHandler {
 
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         const sLastCdsName = oUiModel.getProperty("/lastGeneratedCdsName");
-        if (sLastCdsName && sLastCdsName !== sCdsName) {
+        
+        // Only wipe layout presets if we are navigating to a new view WITHOUT a cached restore state
+        if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore) {
             oUiModel.setProperty("/formatCytoscape/presetPositions", null);
             if (oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
                 oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
@@ -60,6 +89,7 @@ export default class DiagramGenerationHandler {
         if (!bIsDrillDown) {
             this._sRootCdsName = sCdsName;
             this._aBreadcrumbs = [sCdsName];
+            this.clearSessionCache(); // Reset the snapshot memory on completely new searches
         } else {
             const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
             if (iIndex > -1) {
@@ -92,6 +122,10 @@ export default class DiagramGenerationHandler {
                 }
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
             }
+            
+            // Clear the stale state since the canvas is now perfectly in sync
+            oUiModel.setProperty("/isCanvasStale", false);
+            
         } catch (oError: any) {
             MessageToast.show(this._fnGetText(oError.message) || oError.message);
         } finally {
@@ -103,12 +137,13 @@ export default class DiagramGenerationHandler {
      * @public
      * @description Updates the contextual CDS field and reroutes to the standard diagram generator.
      * @param {string} [sViewName] - The entity name specified during a drill down attempt.
+     * @param {boolean} [bIsRestore=false] - Whether this navigation is restoring a previously cached state.
      * @returns {void}
      */
-    public handleDrillDown(sViewName?: string): void {
+    public handleDrillDown(sViewName?: string, bIsRestore: boolean = false): void {
         if (sViewName) {
             (this._oView.byId("cmbCdsName") as ComboBox).setValue(sViewName);
-            this.generate(true);
+            this.generate(true, bIsRestore);
         }
     }
 }

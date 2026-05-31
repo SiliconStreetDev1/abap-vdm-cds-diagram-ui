@@ -22,6 +22,7 @@ export default class SelectionStateHandler {
      */
     public onCdsNameChange(): void { 
         this.markDirtyState(true); 
+        this.markStaleState();
     }
 
     /**
@@ -31,6 +32,7 @@ export default class SelectionStateHandler {
      */
     public onFormChange(): void { 
         this.markDirtyState(false); 
+        this.markStaleState();
     }
 
     /**
@@ -65,6 +67,18 @@ export default class SelectionStateHandler {
         if (bResetLayout && oUiModel && oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
             oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
             oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+        }
+    }
+
+    /**
+     * @public
+     * @description Marks the visual canvas as stale, prompting the user to re-generate.
+     * @returns {void}
+     */
+    public markStaleState(): void {
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (oUiModel) {
+            oUiModel.setProperty("/isCanvasStale", true);
         }
     }
 }

@@ -15,7 +15,10 @@ export default class VariantManager {
     private static readonly KEY_VARIANTS = "vdmVariants";
 
     /**
-     * Retrieves the 10 most recent CDS searches.
+     * @public
+     * @static
+     * @description Retrieves the 10 most recent CDS searches from LocalStorage.
+     * @returns {Array<{name: string}>} Array of historical search objects.
      */
     public static getHistory(): Array<{name: string}> {
         const sHistory = localStorage.getItem(this.KEY_HISTORY);
@@ -23,16 +26,16 @@ export default class VariantManager {
     }
 
     /**
-     * Acts as an LRU (Least Recently Used) Cache.
-     * Pushes the new search to the top, removes duplicates, and trims the list to 10.
+     * @public
+     * @static
+     * @description Acts as an LRU (Least Recently Used) Cache. Pushes the new search to the top, removes duplicates, and trims the list to 10.
+     * @param {string} sName - The newly searched CDS view name.
+     * @returns {Array<{name: string}>} The updated history array.
      */
     public static updateHistory(sName: string): Array<{name: string}> {
         let aHistory = this.getHistory();
-        // Remove if it already exists to prevent duplicates
-        aHistory = aHistory.filter((item: any) => item.name !== sName);
-        // Add to the very top (index 0)
+        aHistory = aHistory.filter(item => item.name !== sName);
         aHistory.unshift({ name: sName });
-        // Enforce the 10-item limit
         if (aHistory.length > 10) aHistory.pop();
         
         localStorage.setItem(this.KEY_HISTORY, JSON.stringify(aHistory));
@@ -40,7 +43,10 @@ export default class VariantManager {
     }
 
     /**
-     * Retrieves all saved user variants (UI settings configurations).
+     * @public
+     * @static
+     * @description Retrieves all saved user variants (UI settings configurations) from LocalStorage.
+     * @returns {IVariantState[]} Array of strictly typed variant configurations.
      */
     public static getVariants(): IVariantState[] {
         const sVariants = localStorage.getItem(this.KEY_VARIANTS);
@@ -48,11 +54,14 @@ export default class VariantManager {
     }
 
     /**
-     * Saves or overwrites a specific variant state.
+     * @public
+     * @static
+     * @description Saves or overwrites a specific variant state to LocalStorage.
+     * @param {IVariantState} oState - The fully serialized variant state object.
+     * @returns {IVariantState[]} The updated array of variants.
      */
     public static saveVariant(oState: IVariantState): IVariantState[] {
         let aVariants = this.getVariants();
-        // Remove existing item if overwriting, then push the fresh state
         aVariants = aVariants.filter(v => v.name !== oState.name);
         aVariants.push(oState);
         
@@ -61,7 +70,11 @@ export default class VariantManager {
     }
 
     /**
-     * Deletes a variant by name.
+     * @public
+     * @static
+     * @description Deletes a variant from LocalStorage by its unique name.
+     * @param {string} sName - The name of the variant to delete.
+     * @returns {IVariantState[]} The updated array of variants after deletion.
      */
     public static deleteVariant(sName: string): IVariantState[] {
         let aVariants = this.getVariants();

@@ -23,5 +23,6 @@ export const DomEvents = {
     NODE_PINNED: "CdsNodePinned",
     NODE_HIDDEN: "CdsNodeHidden",
     NODE_UNHIDDEN: "CdsNodeUnhidden",
-    NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged"
+    NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged",
+    FOCUS_MODE_CHANGED: "CdsFocusModeChanged"
 };

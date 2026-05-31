@@ -217,6 +217,32 @@ export default class Renderer {
     /**
      * @public
      * @static
+     * @description Alters the canvas interaction mode (e.g., standard panning vs marquee box selection).
+     * @param {string} sEngine - Target Engine
+     * @param {"pan" | "select"} sMode - The desired interaction mode.
+     */
+    public static setInteractionMode(sEngine: string, sMode: "pan" | "select"): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.setInteractionMode) {
+            engine.setInteractionMode(sMode);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Clears all active selections from the canvas.
+     */
+    public static clearSelection(sEngine: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.clearSelection) {
+            engine.clearSelection();
+        }
+    }
+
+    /**
+     * @public
+     * @static
      * @description Safely destroys the active engine to prevent memory and event listener leaks on app exit.
      */
     public static destroyActiveEngine(): void {

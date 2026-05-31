@@ -105,8 +105,9 @@ export default class CytoscapeEngine {
                         minZoom: 0.1,
                         maxZoom: 3.0,
                         wheelSensitivity: 0.2,
+                        userPanningEnabled: true, // Syncs with Fiori View Model default (Pan Mode)
                         boxSelectionEnabled: true,
-                        selectionType: 'additive'
+                        selectionType: 'single'
                     });
 
                     CytoscapeLayoutManager.applyGridGuide(this._cyInstance, parsedConfig);
@@ -184,6 +185,36 @@ export default class CytoscapeEngine {
             const iNodeCount = this._cyInstance.nodes().length;
             this._oLastParsedConfig.presetPositions = null; // Guarantee the engine forgets coordinates on a forced auto-layout
             CytoscapeLayoutManager.applyHybridLayout(this._cyInstance, this._oLastParsedConfig, iNodeCount);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Modifies Cytoscape's internal event listeners to switch between standard 
+     * canvas panning and node selection/dragging mode.
+     * @param {"pan" | "select"} sMode - The desired mouse behavior mode.
+     */
+    public static setInteractionMode(sMode: "pan" | "select"): void {
+        if (this._cyInstance) {
+            if (sMode === "select") {
+                this._cyInstance.userPanningEnabled(false);
+                this._cyInstance.boxSelectionEnabled(true);
+                this._cyInstance.autoungrabify(false);
+            } else {
+                this._cyInstance.userPanningEnabled(true);
+                this._cyInstance.boxSelectionEnabled(true); // Shift+Drag fallback
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @description Drops all active selections from the graph.
+     */
+    public static clearSelection(): void {
+        if (this._cyInstance) {
+            this._cyInstance.elements().unselect();
         }
     }
 

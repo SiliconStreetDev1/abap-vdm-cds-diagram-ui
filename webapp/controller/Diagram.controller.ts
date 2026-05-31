@@ -8,6 +8,7 @@
 
 import Controller from "sap/ui/core/mvc/Controller";
 import JSONModel from "sap/ui/model/json/JSONModel";
+import View from "sap/ui/core/mvc/View";
 import HTML from "sap/ui/core/HTML";
 import Event from "sap/ui/base/Event";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
@@ -15,12 +16,15 @@ import ResourceBundle from "sap/base/i18n/ResourceBundle";
 import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
+import ResponsivePopover from "sap/m/ResponsivePopover";
+import Slider from "sap/m/Slider";
 import ToggleButton from "sap/m/ToggleButton";
 
 import ExportHandler from "../handlers/ExportHandler";
 import FullScreenHandler from "../handlers/FullScreenHandler";
 import CanvasActionHandler from "../handlers/CanvasActionHandler";
 import Renderer from "../renderer/Renderer";
+import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
 
@@ -29,6 +33,7 @@ export default class Diagram extends Controller {
     private _oExportHandler!: ExportHandler;
     private _oFullScreenHandler!: FullScreenHandler;
     private _oCanvasActionHandler!: CanvasActionHandler;
+    private _oSpacingPopover?: ResponsivePopover;
     
     /**
      * @public
@@ -50,7 +55,10 @@ export default class Diagram extends Controller {
             canSearch: false,
             fullScreenIcon: "sap-icon://full-screen", // Default icon state
             nodesLocked: false,
-            hasHiddenNodes: false
+            hasHiddenNodes: false,
+            isSelectMode: true,
+            isFocusMode: false,
+            focusNodeName: ""
         }), "view");
         
         // Data model storage required for ExportHandler operations
@@ -165,6 +173,7 @@ export default class Diagram extends Controller {
         oViewModel.setProperty("/isDrillDown", !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName));
         // Automatically engage lock state if coordinates were loaded
         oViewModel.setProperty("/nodesLocked", !!oData.engineConfig?.presetPositions);
+        oViewModel.setProperty("/isSelectMode", false); // Re-enforce default tool on new renders
 
         // 4. Trigger the WASM/JS rendering engine
         try {
@@ -184,7 +193,47 @@ export default class Diagram extends Controller {
     public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
     public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
     public onShowHiddenNodes(): void { this._oCanvasActionHandler.showHiddenNodes(); }
+    public onChangeInteractionMode(oEvent: Event): void { this._oCanvasActionHandler.changeInteractionMode(oEvent); }
     public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
+    public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
+
+    /**
+     * @public
+     * @description Displays the Node Spacing slider in a localized Fiori Popover.
+     * @param {Event} oEvent - Button press event.
+     * @returns {void}
+     */
+    public onShowSpacing(oEvent: Event): void {
+        if (!this._oSpacingPopover) {
+            this._oSpacingPopover = new ResponsivePopover({
+                showHeader: false,
+                placement: "Top",
+                contentWidth: "300px",
+                verticalScrolling: false,
+                horizontalScrolling: false,
+                content: [
+                    new Slider({ 
+                        width: "260px",
+                        value: "{ui>/formatCytoscape/node_spacing}", 
+                        min: 50, max: 250, step: 25, enableTickmarks: true, 
+                        change: this.onSpacingChange.bind(this) 
+                    }).addStyleClass("sapUiSmallMargin")
+                ]
+            });
+            this.getView()?.addDependent(this._oSpacingPopover);
+        }
+        this._oSpacingPopover.openBy(oEvent.getSource() as Control);
+    }
+
+    /**
+     * @public
+     * @description Displays inline contextual popover info for Canvas tools.
+     * @param {Event} oEvent - Icon press event.
+     * @returns {void}
+     */
+    public onShowInfo(oEvent: Event): void { 
+        ContextHelpManager.openPopover(oEvent, this.getView() as View, this._getText.bind(this)); 
+    }
 
     /**
      * @public

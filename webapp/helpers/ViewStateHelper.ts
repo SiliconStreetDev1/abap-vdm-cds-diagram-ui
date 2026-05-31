@@ -4,6 +4,7 @@
  */
 
 import JSONModel from "sap/ui/model/json/JSONModel";
+import View from "sap/ui/core/mvc/View";
 import Select from "sap/m/Select";
 import SegmentedButton from "sap/m/SegmentedButton";
 import Button from "sap/m/Button";
@@ -21,7 +22,8 @@ export default class ViewStateHelper {
     public static initializeUiModel(): JSONModel {
         return new JSONModel({
             showHelp: false,
-            activeEngine: "GRAPHVIZ",
+            activeEngine: "CYTOSCAPE",
+            isCanvasStale: false,
             
             // Note: Cytoscape uses exact snake_case to match the ABAP XCO Framework directly
             formatCytoscape: { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125 },
@@ -84,5 +86,20 @@ export default class ViewStateHelper {
             oLeftPaneLayout.setSize("0px"); 
             oButton.setIcon("sap-icon://exit-full-screen");
         }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Checks if the View's DOM element is physically painted and visible.
+     * Protects global event listeners from firing when the Fiori Launchpad suspends the app in the background.
+     * @param {View} oView - The active UI5 view.
+     * @returns {boolean} True if the view is actively visible on the screen.
+     */
+    public static isViewVisible(oView: View): boolean {
+        if (!oView) return false;
+        const oDomRef = oView.getDomRef() as HTMLElement;
+        // Ensure the element is actually painted and takes up physical space
+        return !!oDomRef && oDomRef.offsetWidth > 0 && oDomRef.offsetHeight > 0;
     }
 }

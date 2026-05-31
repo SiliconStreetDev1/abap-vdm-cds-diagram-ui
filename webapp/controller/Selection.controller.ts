@@ -7,14 +7,18 @@
  */
 
 import Controller from "sap/ui/core/mvc/Controller";
+import View from "sap/ui/core/mvc/View";
+import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import Select from "sap/m/Select";
+import ComboBox from "sap/m/ComboBox";
 import MultiInput from "sap/m/MultiInput";
 import MessageToast from "sap/m/MessageToast";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResourceBundle from "sap/base/i18n/ResourceBundle";
 
 import VariantHandler from "../handlers/VariantHandler";
+import VariantStateMapper from "../helpers/VariantStateMapper";
 import DiagramGenerationHandler from "../handlers/DiagramGenerationHandler";
 import SelectionStateHandler from "../handlers/SelectionStateHandler";
 import SelectionUIHandler from "../handlers/SelectionUIHandler";
@@ -59,10 +63,10 @@ export default class Selection extends Controller {
 
         this._oVariantHandler.loadHistoryAndVariants();
 
-        this._fnNodeDrillDownRequestBind = ((e: CustomEvent) => this._oGenerationHandler.handleDrillDown(e.detail?.viewName)) as EventListener;
+        this._fnNodeDrillDownRequestBind = ((e: CustomEvent) => this._processDrillDown(e.detail?.viewName as string)) as EventListener;
         document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
 
-        this._fnEventBusDrillDownBind = (c: string, e: string, d: any) => this._oGenerationHandler.handleDrillDown(d?.viewName);
+        this._fnEventBusDrillDownBind = (c: string, e: string, d: any) => this._processDrillDown(d?.viewName as string);
         if (oEventBus) {
             oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._fnEventBusDrillDownBind, this);
         }
@@ -163,6 +167,40 @@ export default class Selection extends Controller {
         }
     }
     
+    /**
+     * @private
+     * @description Orchestrates drill-down requests. If navigating back to the root CDS of the 
+     * active variant, it intelligently re-applies the variant to restore custom layout coordinates.
+     * @param {string} sViewName - The target entity name.
+     * @returns {void}
+     */
+    private _processDrillDown(sViewName?: string): void {
+        if (!sViewName) return;
+
+        const oComboBox = this.byId("cmbCdsName") as ComboBox;
+        const sCurrentCdsName = oComboBox ? oComboBox.getValue().trim().toUpperCase() : "";
+        const sTargetCdsName = sViewName.toUpperCase();
+
+        // 1. Snapshot the current view's layout and settings before leaving
+        if (sCurrentCdsName && sCurrentCdsName !== sTargetCdsName) {
+            const oCurrentState = VariantStateMapper.captureState(this.getView() as View, sCurrentCdsName, true);
+            this._oGenerationHandler.cacheSessionState(sCurrentCdsName, oCurrentState);
+        }
+
+        // 2. Check if the target view has a cached session state (i.e., we are navigating BACK to it)
+        const oCachedState = this._oGenerationHandler.getCachedSessionState(sTargetCdsName);
+        if (oCachedState) {
+            // Restore exact coordinates, zoom, pins, and hidden nodes without manual saves
+            VariantStateMapper.applyState(this.getView() as View, oCachedState);
+            this._oGenerationHandler.handleDrillDown(sViewName, true);
+            return;
+        }
+
+        // 3. Standard fresh drill-down (marks the state as dirty because we are deviating from known architectures)
+        this._oStateHandler.onCdsNameChange();
+        this._oGenerationHandler.handleDrillDown(sViewName, false);
+    }
+
     /**
      * @public
      * @description Opens the F4 Value Help for CDS searches.

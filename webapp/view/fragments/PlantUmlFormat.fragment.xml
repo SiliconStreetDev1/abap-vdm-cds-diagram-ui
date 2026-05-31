@@ -2,7 +2,7 @@
     <VBox visible="{= ${ui>/activeEngine} === 'PLANTUML' }" width="100%">
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Line Routing" design="Bold"/>
-            <Select selectedKey="{ui>/formatPlantUML/lineStyle}">
+            <Select selectedKey="{ui>/formatPlantUML/lineStyle}" change="onLiveFormatChange">
                 <core:Item key="default" text="Smooth Curves (Default)" />
                 <core:Item key="ortho" text="Orthogonal (90° Angles)" />
                 <core:Item key="polyline" text="Polyline (Straight Angles)" />
@@ -10,15 +10,15 @@
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Spaced Out" />
-            <Switch state="{ui>/formatPlantUML/spaced_out}" customTextOn="Yes" customTextOff="No"/>
+            <Switch state="{ui>/formatPlantUML/spaced_out}" customTextOn="Yes" customTextOff="No" change="onLiveFormatChange" />
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Staggered" />
-            <Switch state="{ui>/formatPlantUML/staggered}" customTextOn="Yes" customTextOff="No"/>
+            <Switch state="{ui>/formatPlantUML/staggered}" customTextOn="Yes" customTextOff="No" change="onLiveFormatChange" />
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" >
             <Label text="Modern Style" />
-            <Switch state="{ui>/formatPlantUML/modern}" enabled="false" customTextOn="Yes" customTextOff="No"/>
+            <Switch state="{ui>/formatPlantUML/modern}" enabled="false" customTextOn="Yes" customTextOff="No" change="onLiveFormatChange" />
         </HBox>
     </VBox>
 </core:FragmentDefinition>

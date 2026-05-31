@@ -61,7 +61,7 @@ export default class CytoscapeLayoutManager {
 
         if (lockedNodes.length > 0) {
             if (unlockedNodes.length > 0) {
-                layoutConfig = CytoscapeLayoutBuilder.build({ ...parsedConfig, layout: 'cose' } as any, iNodeCount);
+                layoutConfig = CytoscapeLayoutBuilder.build({ ...parsedConfig, layout: 'cose' }, iNodeCount);
             } else {
                 layoutConfig = { name: 'preset', animate: false };
             }

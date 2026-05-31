@@ -11,6 +11,12 @@ declare const cytoscape: any;
 export default class CytoscapeDependencyLoader {
     private static _bDependenciesLoaded = false;
 
+    /**
+     * @public
+     * @static
+     * @description Asynchronously loads required third-party Cytoscape scripts and registers extensions.
+     * @returns {Promise<void>} Resolves when all dependencies are successfully attached to the DOM.
+     */
     public static async load(): Promise<void> {
         if (this._bDependenciesLoaded) return;
 

@@ -18,7 +18,7 @@
                            press="onShowInfo" customData:infoType="CdsName" tooltip="{i18n>ttClickInfo}" />
             </HBox>
             <Input id="cmbCdsName" width="100%" showValueHelp="true" valueHelpRequest="onCdsValueHelpRequest"
-                   showSuggestion="true" suggestionItems="{history>/items}">
+                   showSuggestion="true" suggestionItems="{history>/items}" liveChange="onCdsNameChange">
                 <suggestionItems>
                     <core:Item key="{history>name}" text="{history>name}" />
                 </suggestionItems>
@@ -30,7 +30,7 @@
                            press="onShowInfo" customData:infoType="Engine" tooltip="{i18n>ttClickInfo}" />
             </HBox>
             <Select id="selEngine" width="100%" selectedKey="{ui>/activeEngine}" change="onEngineChange">
-                <core:Item key="CYTOSCAPE" text="Cytoscape (Interactive / Experimental)" />
+                <core:Item key="CYTOSCAPE" text="Cytoscape (Interactive)" />
                 <core:Item key="GRAPHVIZ" text="{i18n>optGraphviz}" />               
                 <core:Item key="MERMAID" text="{i18n>optMermaid}" />  
                 <core:Item key="PLANTUML" text="{i18n>optPlantUml}" />                
@@ -42,7 +42,7 @@
                 <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="Levels" tooltip="{i18n>ttClickInfo}" />
             </HBox>
-            <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" />
+            <StepInput id="stepMaxLevel" value="1" min="1" max="10" width="100%" change="onFormChange" />
 
             <Label text="{i18n>lblVariants}" class="sapUiSmallMarginTop" design="Bold" />
             <HBox width="100%" alignItems="Center">
@@ -63,7 +63,7 @@
                 <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" />
             </HBox>
             
-            <Button id="btnGenerate" text="{i18n>btnGenerate}" press="onGenerate" type="Emphasized" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />
+            <Button id="btnGenerate" text="{= ${ui>/isCanvasStale} ? ${i18n>btnGenerateStale} : ${i18n>btnGenerate} }" press="onGenerate" type="{= ${ui>/isCanvasStale} ? 'Attention' : 'Emphasized' }" width="100%" class="sapUiLargeMarginTop sapUiMediumMarginBottom" />
 
             <Panel headerText="Formatting Options" expandable="true" expanded="true" width="100%" class="sapUiMediumMarginTop sapUiMediumMarginBottom">
                 <core:Fragment fragmentName="nz.co.siliconstreet.vdmdiagrammer.view.fragments.CytoscapeFormat" type="XML" />

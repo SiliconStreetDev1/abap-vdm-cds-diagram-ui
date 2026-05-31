@@ -18,6 +18,8 @@ export default class CytoscapeContextMenu {
         const removeMenu = () => {
             const existing = document.getElementById("vdm-cy-context-menu");
             if (existing) existing.remove();
+            const glass = document.getElementById("vdm-cy-glass-pane");
+            if (glass) glass.remove();
         };
 
         cyInstance.on('tap zoom pan', removeMenu);
@@ -29,26 +31,68 @@ export default class CytoscapeContextMenu {
             const container = cyInstance.container();
             if (!container) return;
 
+            // SMART SELECTION EVALUATION
+            // If the right-clicked node is part of a bulk selection, target the entire block.
+            // Otherwise, Cytoscape treats the single 'node' as a collection of length 1.
+            let targetNodes = node;
+            if (node.selected()) {
+                const selectedNodes = cyInstance.nodes(':selected');
+                if (selectedNodes.length > 1) {
+                    targetNodes = selectedNodes;
+                }
+            }
+
+            // ENTERPRISE UX: Glass Pane Protection
+            // Invisible layer behind the menu that swallows missed clicks to prevent canvas deselection
+            const glass = document.createElement("div");
+            glass.id = "vdm-cy-glass-pane";
+            glass.style.position = "absolute";
+            glass.style.top = "0";
+            glass.style.left = "0";
+            glass.style.width = "100%";
+            glass.style.height = "100%";
+            glass.style.zIndex = "9998"; 
+            const blockEvent = (e: Event) => {
+                e.stopPropagation();
+                e.preventDefault();
+                removeMenu();
+            };
+            
+            // Prevent the native browser contextmenu event from instantly triggering the glass pane
+            setTimeout(() => {
+                if (!document.getElementById("vdm-cy-glass-pane")) return;
+                glass.onmousedown = blockEvent;
+                glass.ontouchstart = blockEvent;
+                glass.oncontextmenu = blockEvent;
+            }, 50);
+            container.appendChild(glass);
+
             const menu = this._buildMenuElement(evt.renderedPosition.x, evt.renderedPosition.y);
             
-            if (!node.locked()) {
-                menu.appendChild(this._createMenuItem("📌", "Pin", "#d32f2f", () => {
-                    node.data('isPinned', true);
-                    node.lock();
-                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, { detail: { viewName: node.data('id') } }));
+            const totalCount = targetNodes.length;
+            const lockedCount = targetNodes.filter(':locked').length;
+            const suffix = totalCount > 1 ? ` (${totalCount})` : "";
+
+            // Render 'Pin' if ANY nodes in the selection are currently unlocked
+            if (lockedCount < totalCount) {
+                menu.appendChild(this._createMenuItem("📌", `Pin${suffix}`, "#d32f2f", () => {
+                    targetNodes.data('isPinned', true).lock();
+                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {}));
                 }));
-            } else {
-                menu.appendChild(this._createMenuItem("🔓", "Unlock", "#4caf50", () => {
-                    node.data('isPinned', false);
-                    node.unlock();
-                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, { detail: { viewName: node.data('id') } }));
+            } 
+            
+            // Render 'Unlock' if ANY nodes in the selection are currently locked
+            if (lockedCount > 0) {
+                menu.appendChild(this._createMenuItem("🔓", `Unlock${suffix}`, "#4caf50", () => {
+                    targetNodes.data('isPinned', false).unlock();
+                    document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, {})); // Triggers dirty state
                 }));
             }
 
-            menu.appendChild(this._createMenuItem("✖", "Hide", "#333333", () => {
-                node.addClass('hidden');
-                node.data('isHidden', true);
-                document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, { detail: { viewName: node.data('id') } }));
+            menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", () => {
+                // Hiding a node must instantly sever its selection state to clear Focus Mode ghosts
+                targetNodes.addClass('hidden').data('isHidden', true).unselect();
+                document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, {}));
                 document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: true } }));
             }));
 
