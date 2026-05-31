@@ -91,7 +91,7 @@ export default class CytoscapeContextMenu {
                     this._buildNoteMenu(menu, targetNodes, node, cyInstance, suffix);
                 }
             } else {
-                this._buildEntityMenu(menu, targetNodes, cyInstance, suffix, totalCount);
+                this._buildEntityMenu(menu, targetNodes, cyInstance, suffix, totalCount, bIsDrillDown);
             }
 
             if (menu.childNodes.length > 0) {
