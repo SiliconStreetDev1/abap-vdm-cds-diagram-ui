@@ -17,13 +17,16 @@ import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
 import ResponsivePopover from "sap/m/ResponsivePopover";
+import Dialog from "sap/m/Dialog";
 import Slider from "sap/m/Slider";
 import ToggleButton from "sap/m/ToggleButton";
+import List from "sap/m/List";
 
 import ExportHandler from "../handlers/ExportHandler";
 import FullScreenHandler from "../handlers/FullScreenHandler";
 import CanvasActionHandler from "../handlers/CanvasActionHandler";
 import NoteDialogHandler from "../handlers/NoteDialogHandler";
+import UndoHandler from "../handlers/UndoHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType, IRenderRequestPayload } from "../types";
@@ -35,6 +38,7 @@ export default class Diagram extends Controller {
     private _oFullScreenHandler!: FullScreenHandler;
     private _oCanvasActionHandler!: CanvasActionHandler;
     private _oNoteDialogHandler!: NoteDialogHandler;
+    private _oUndoHandler!: UndoHandler;
     private _oSpacingPopover?: ResponsivePopover;
     
     /**
@@ -78,6 +82,7 @@ export default class Diagram extends Controller {
         this._oFullScreenHandler = new FullScreenHandler(oView);
         this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
+        this._oUndoHandler = new UndoHandler(oView, this.getOwnerComponent()?.getEventBus());
 
         // Subscribe to global EventBus for incoming diagram payloads
         const oEventBus = this.getOwnerComponent()?.getEventBus();
@@ -89,6 +94,7 @@ export default class Diagram extends Controller {
         this._oFullScreenHandler.attachEvents();
         this._oCanvasActionHandler.attachEvents();
         this._oNoteDialogHandler.attachEvents();
+        this._oUndoHandler.attachEvents();
     }
 
     /**
@@ -104,6 +110,7 @@ export default class Diagram extends Controller {
         this._oFullScreenHandler.detachEvents();
         this._oCanvasActionHandler.detachEvents();
         this._oNoteDialogHandler.detachEvents();
+        this._oUndoHandler.detachEvents();
         
         if (this._oSpacingPopover) {
             this._oSpacingPopover.destroy();
@@ -211,11 +218,33 @@ export default class Diagram extends Controller {
     
     public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
     public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
-    public onShowHiddenNodes(): void { this._oCanvasActionHandler.showHiddenNodes(); }
     public onChangeInteractionMode(oEvent: Event): void { this._oCanvasActionHandler.changeInteractionMode(oEvent); }
     public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
     public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
     public onAddNote(): void { this._oNoteDialogHandler.promptAddNote(); }
+
+    public onOpenHiddenNodes(oEvent: Event): void {
+        const oDialog = this.byId("popHiddenNodes") as Dialog;
+        if (oDialog) oDialog.open();
+    }
+
+    public onCloseHiddenNodes(): void {
+        const oDialog = this.byId("popHiddenNodes") as Dialog;
+        if (oDialog) oDialog.close();
+    }
+
+    public onRestoreSelectedNodes(): void {
+        this._oCanvasActionHandler.restoreSelectedNodes();
+    }
+
+    public onShowHiddenNodes(): void { 
+        this._oCanvasActionHandler.showHiddenNodes(); 
+        const oDialog = this.byId("popHiddenNodes") as Dialog;
+        if (oDialog) {
+            oDialog.close();
+            (this.byId("listHiddenNodes") as List)?.removeSelections(true);
+        }
+    }
 
     /**
      * @public
@@ -262,6 +291,20 @@ export default class Diagram extends Controller {
     public onBreadcrumbPress(oEvent: Event): void {
         const oLink = oEvent.getSource() as Link;
         const sViewName = oLink.getText();
+        if (sViewName) {
+            const oEventBus = this.getOwnerComponent()?.getEventBus();
+            if (oEventBus) {
+                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sViewName });
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @description Fires a drill-down request for the currently focused entity.
+     */
+    public onFocusDrillDown(): void {
+        const sViewName = (this.getView()?.getModel("view") as JSONModel)?.getProperty("/focusNodeName");
         if (sViewName) {
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {

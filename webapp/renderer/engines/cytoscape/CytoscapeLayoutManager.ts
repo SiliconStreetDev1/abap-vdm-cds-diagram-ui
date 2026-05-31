@@ -93,7 +93,8 @@ export default class CytoscapeLayoutManager {
 
         const hiddenNodes = cyInstance.nodes('.hidden');
         if (typeof document !== "undefined") {
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: hiddenNodes.length > 0 } }));
+            const hiddenList = hiddenNodes.map((n: any) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList } }));
         }
 
         let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);
@@ -107,18 +108,16 @@ export default class CytoscapeLayoutManager {
         }
 
         const fnUnlock = () => {
-            setTimeout(() => {
-                if (cyInstance && !cyInstance.destroyed()) {
-                    cyInstance.nodes().filter((n: any) => !n.data('isPinned')).unlock();
-                }
-            }, 50);
+            if (cyInstance && !cyInstance.destroyed()) {
+                cyInstance.nodes().filter((n: any) => !n.data('isPinned')).unlock();
+            }
         };
 
         const layoutElements = cyInstance.elements().difference('.annotation-note, .annotation-edge');
 
         if (layoutConfig.name === 'preset') {
             layoutElements.layout(layoutConfig).run();
-            fnUnlock(); // Synchronous layout, unlock immediately
+            requestAnimationFrame(fnUnlock); // Defer unlock until next frame to ensure coordinates settled
         } else {
             cyInstance.one('layoutstop', fnUnlock);
             layoutElements.layout(layoutConfig).run();

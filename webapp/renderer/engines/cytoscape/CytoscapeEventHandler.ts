@@ -31,22 +31,22 @@ export default class CytoscapeEventHandler {
     private static _attachSelectionEvents(cyInstance: any): void {
         // Track Box Selection state to prevent Focus Mode from triggering during Marquee lassoing
         cyInstance.on('boxstart', () => cyInstance.scratch('_isBoxSelecting', true));
-        cyInstance.on('boxend', () => setTimeout(() => {
+        cyInstance.on('boxend', () => requestAnimationFrame(() => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isBoxSelecting', false);
             }
-        }, 50));
+        }));
 
         // Track modifier keys during tap to prevent Focus Mode from triggering on Ctrl+Click
         cyInstance.on('tapstart', (evt: any) => {
             const bIsMulti = evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey);
             cyInstance.scratch('_isMultiSelectModifier', !!bIsMulti);
         });
-        cyInstance.on('tapend', () => setTimeout(() => {
+        cyInstance.on('tapend', () => requestAnimationFrame(() => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isMultiSelectModifier', false);
             }
-        }, 50));
+        }));
 
         cyInstance.on('select unselect', (evt: any) => {
             const selected = cyInstance.elements('node:selected');
@@ -179,11 +179,15 @@ export default class CytoscapeEventHandler {
      */
     private static _attachLayoutEvents(cyInstance: any): void {
         cyInstance.on('layoutstart', () => cyInstance.scratch('_isLayoutActive', true));
-        cyInstance.on('layoutstop', () => setTimeout(() => {
+        
+        cyInstance.on('layoutstop', () => requestAnimationFrame(() => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isLayoutActive', false);
+                if (typeof document !== "undefined") {
+                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_READY, {}));
+                }
             }
-        }, 50));
+        }));
 
         let viewportTimeout: any;
         cyInstance.on('viewport', () => {

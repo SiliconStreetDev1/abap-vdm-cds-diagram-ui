@@ -45,7 +45,7 @@ export default class SelectionStateHandler {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty("/nodesDragged", true);
-            oUiModel.setProperty("/variantDirty", true);
+            this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
             const sEngine = oUiModel.getProperty("/activeEngine");
             if (sEngine === "CYTOSCAPE") {
@@ -64,7 +64,7 @@ export default class SelectionStateHandler {
     public onViewportChanged(): void {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
-            oUiModel.setProperty("/variantDirty", true);
+            this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
             const sEngine = oUiModel.getProperty("/activeEngine");
             if (sEngine === "CYTOSCAPE") {

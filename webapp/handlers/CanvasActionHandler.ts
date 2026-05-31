@@ -11,6 +11,8 @@ import MessageToast from "sap/m/MessageToast";
 import MessageBox from "sap/m/MessageBox";
 import SegmentedButton from "sap/m/SegmentedButton";
 import EventBus from "sap/ui/core/EventBus";
+import List from "sap/m/List";
+import Dialog from "sap/m/Dialog";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
@@ -95,6 +97,37 @@ export default class CanvasActionHandler {
 
     /**
      * @public
+     * @description Restores specifically selected nodes from the hidden list.
+     * @returns {void}
+     */
+    public restoreSelectedNodes(): void {
+        const oList = this._oView.byId("listHiddenNodes") as List;
+        if (!oList) return;
+        const aSelectedContexts = oList.getSelectedContexts();
+        if (aSelectedContexts.length === 0) {
+            MessageToast.show("No entities selected");
+            return;
+        }
+        
+        const aIds = aSelectedContexts.map((oCtx: any) => oCtx.getProperty("id"));
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        
+        // Enforce strict separation of concerns via the Facade pattern
+        if (typeof (Renderer as any).showSpecificNodes === "function") {
+            (Renderer as any).showSpecificNodes(sEngine, aIds);
+        }
+        
+        oList.removeSelections(true);
+        
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const aRemaining = oViewModel.getProperty("/hiddenNodesList") || [];
+        if (aRemaining.length <= aIds.length) {
+            (this._oView.byId("popHiddenNodes") as Dialog).close();
+        }
+    }
+
+    /**
+     * @public
      * @description Handles explicit user interaction mode selection from the Segmented Button.
      * @param {Event} oEvent - Standard UI5 Selection Change event.
      * @returns {void}
@@ -119,6 +152,10 @@ export default class CanvasActionHandler {
         if (oUiModel && this._oEventBus) {
             const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
             this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
+            
+            if (typeof document !== "undefined") {
+                document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { node_spacing: oFormatConfig.node_spacing } }));
+            }
         }
     }
 
@@ -149,7 +186,12 @@ export default class CanvasActionHandler {
      */
     private _onVisibilityChanged(oEvent: CustomEvent): void {
         const bHasHidden = oEvent.detail?.hasHidden || false;
-        (this._oView.getModel("view") as JSONModel)?.setProperty("/hasHiddenNodes", bHasHidden);
+        const aHiddenNodes = oEvent.detail?.hiddenNodes || [];
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel) {
+            oViewModel.setProperty("/hasHiddenNodes", bHasHidden);
+            oViewModel.setProperty("/hiddenNodesList", aHiddenNodes);
+        }
     }
 
     /**
@@ -187,6 +229,13 @@ export default class CanvasActionHandler {
     private _onKeyDown(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
         
+        // Enterprise UX: Undo Stack
+        if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.code === "KeyZ")) {
+            e.preventDefault();
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, {}));
+            return;
+        }
+
         if (e.code === "Escape") {
             this.clearSelection();
             return;

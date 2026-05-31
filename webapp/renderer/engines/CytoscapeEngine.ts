@@ -290,7 +290,25 @@ export default class CytoscapeEngine {
         if (this._cyInstance) {
             this._cyInstance.nodes('.hidden').removeClass('hidden').data('isHidden', false);
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: false } }));
+                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: false, hiddenNodes: [] } }));
+                document.dispatchEvent(new CustomEvent(DomEvents.NODE_UNHIDDEN, {}));
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @description Selectively restores specifically identified nodes to the canvas.
+     * @param {string[]} aNodeIds - Array of internal node IDs to restore.
+     */
+    public static showSpecificNodes(aNodeIds: string[]): void {
+        if (this._cyInstance && aNodeIds && aNodeIds.length > 0) {
+            const selector = aNodeIds.map(id => `#${id}`).join(', ');
+            this._cyInstance.nodes(selector).removeClass('hidden').data('isHidden', false);
+            const remainingHidden = this._cyInstance.nodes('.hidden');
+            const hiddenList = remainingHidden.map((n: any) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
+            if (typeof document !== "undefined") {
+                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: remainingHidden.length > 0, hiddenNodes: hiddenList } }));
                 document.dispatchEvent(new CustomEvent(DomEvents.NODE_UNHIDDEN, {}));
             }
         }
@@ -339,6 +357,9 @@ export default class CytoscapeEngine {
     private static _injectAnnotationStyles(): void {
         if (!this._cyInstance) return;
         this._cyInstance.style()
+            .selector('edge').style({
+                'control-point-step-size': 46
+            })
             .selector('.annotation-note').style({
                 'content': 'data(label)',
                 'shape': 'round-rectangle',
@@ -377,7 +398,7 @@ export default class CytoscapeEngine {
                 'line-opacity': 0.6,
                 'target-arrow-shape': 'none',
                 'curve-style': 'unbundled-bezier',
-                'control-point-distances': 30,
+                'control-point-distances': 35,
                 'control-point-weights': 0.5,
                 'z-index': 1
             }).update();

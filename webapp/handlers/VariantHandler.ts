@@ -30,17 +30,17 @@ import CheckBox from "sap/m/CheckBox";
 import VariantStateMapper from "../helpers/VariantStateMapper";
 
 export default class VariantHandler {
-    private _oView: View;
-    private _fnGetText: (k: string, args?: any[]) => string;
+    private view: View;
+    private getText: (key: string, args?: any[]) => string;
 
     /**
      * Initializes the VariantHandler.
-     * @param {View} oView - Reference to the main view to access controls and models.
-     * @param {Function} fnGetText - Delegate function to safely retrieve i18n translations.
+     * @param {View} view - Reference to the main view to access controls and models.
+     * @param {Function} getText - Delegate function to safely retrieve i18n translations.
      */
-    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
-        this._fnGetText = fnGetText;
+    constructor(view: View, getText: (key: string, args?: any[]) => string) {
+        this.view = view;
+        this.getText = getText;
     }
 
     /**
@@ -49,18 +49,18 @@ export default class VariantHandler {
      * @public
      */
     public loadHistoryAndVariants(): void {
-        this._oView.setModel(new JSONModel({ items: VariantManager.getHistory() }), "history");
-        this._oView.setModel(new JSONModel({ items: VariantManager.getVariants() }), "variants");
+        this.view.setModel(new JSONModel({ items: VariantManager.getHistory() }), "history");
+        this.view.setModel(new JSONModel({ items: VariantManager.getVariants() }), "variants");
     }
 
     /**
      * Updates the search history persistence layer.
-     * @param {string} sName - Target CDS object name to add to the recent history stack.
+     * @param {string} name - Target CDS object name to add to the recent history stack.
      * @public
      */
-    public updateHistory(sName: string): void {
-        const aHistory = VariantManager.updateHistory(sName);
-        (this._oView.getModel("history") as JSONModel).setProperty("/items", aHistory);
+    public updateHistory(name: string): void {
+        const historyItems = VariantManager.updateHistory(name);
+        (this.view.getModel("history") as JSONModel).setProperty("/items", historyItems);
     }
 
     /**
@@ -68,51 +68,73 @@ export default class VariantHandler {
      * @public
      */
     public openSaveDialog(): void {
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const bWasDragged = oUiModel ? oUiModel.getProperty("/nodesDragged") : false;
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        const wasDragged = uiModel ? uiModel.getProperty("/nodesDragged") : false;
 
         // Pre-fill the input with the currently selected variant name if one exists
-        const sCurrentVariant = (this._oView.byId("selVariant") as Select).getSelectedKey() || "";
-        const oInput = new Input({ value: sCurrentVariant, placeholder: this._fnGetText("phVariantName") });
+        const currentVariant = (this.view.byId("selVariant") as Select).getSelectedKey() || "";
+        const inputField = new Input({ value: currentVariant, placeholder: this.getText("phVariantName") });
 
-        const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey();
-        const oCbPositions = new CheckBox({ text: "Save exact node positions (Custom Layout)", selected: bWasDragged, visible: sEngine === "CYTOSCAPE" });
-        oCbPositions.addStyleClass("sapUiSmallMarginTop");
+        const engineSelect = this.view.byId("selEngine") as Select;
+        const engine = engineSelect ? engineSelect.getSelectedKey() : "";
+        const positionCheckbox = new CheckBox({ text: "Save exact node positions (Custom Layout)", selected: wasDragged, visible: engine === "CYTOSCAPE" });
+        positionCheckbox.addStyleClass("sapUiSmallMarginTop");
 
         // Construct the Dialog control dynamically
-        const oDialog = new Dialog({
-            title: this._fnGetText("ttSaveVariant"),
-            content: [new VBox({ items: [oInput, oCbPositions] })],
+        const saveDialog = new Dialog({
+            title: this.getText("ttSaveVariant"),
+            content: [new VBox({ items: [inputField, positionCheckbox] })],
             beginButton: new Button({
                 text: "Save",
                 type: "Emphasized",
-                press: () => this._handleSaveVariantDialogConfirm(oInput.getValue().trim(), oCbPositions.getSelected(), oDialog)
+                press: () => this.handleSaveVariantDialogConfirm(inputField.getValue().trim(), positionCheckbox.getSelected(), saveDialog)
             }),
-            endButton: new Button({ text: "Cancel", press: () => oDialog.close() }),
+            endButton: new Button({ text: "Cancel", press: () => saveDialog.close() }),
             // Critical: Ensure the DOM is cleaned up to prevent memory leaks with duplicate IDs
-            afterClose: () => oDialog.destroy()
+            afterClose: () => saveDialog.destroy()
         });
 
-        oDialog.addStyleClass("sapUiContentPadding");
+        saveDialog.addStyleClass("sapUiContentPadding");
         
         // Attach to the view to inherit CSS classes (like cozy/compact) and i18n models
-        this._oView.addDependent(oDialog);
-        oDialog.open();
+        this.view.addDependent(saveDialog);
+        saveDialog.open();
     }
 
     /**
      * Removes the currently selected variant from local persistence and updates the UI.
+     * Wraps the asynchronous confirmation prompt in a Promise to eliminate polling.
      * @public
+     * @returns {Promise<void>} Resolves if deleted, rejects if cancelled or failed.
      */
-    public deleteSelected(): void {
-        const sSelectedName = (this._oView.byId("selVariant") as Select).getSelectedKey();
-        if (!sSelectedName) return;
+    public deleteSelected(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const variantSelect = this.view.byId("selVariant") as Select;
+            const selectedName = variantSelect ? variantSelect.getSelectedKey() : "";
+            
+            if (!selectedName) {
+                reject(new Error("No variant selected"));
+                return;
+            }
 
-        // Delete from local storage and update the bound model array
-        const aVariants = VariantManager.deleteVariant(sSelectedName);
-        (this._oView.getModel("variants") as JSONModel).setProperty("/items", aVariants);
-
-        MessageToast.show(this._fnGetText("msgVariantDeleted", [sSelectedName]));
+            MessageBox.confirm(
+                this.getText("msgDeleteVariantConfirm", [selectedName]) || `Delete variant "${selectedName}"?`,
+                {
+                    title: this.getText("ttDeleteVariant"),
+                    actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+                    onClose: (action: string) => {
+                        if (action === MessageBox.Action.YES) {
+                            const remainingVariants = VariantManager.deleteVariant(selectedName);
+                            (this.view.getModel("variants") as JSONModel).setProperty("/items", remainingVariants);
+                            MessageToast.show(this.getText("msgVariantDeleted", [selectedName]));
+                            resolve();
+                        } else {
+                            reject(new Error("Variant deletion aborted by user"));
+                        }
+                    }
+                }
+            );
+        });
     }
 
     /**
@@ -122,33 +144,33 @@ export default class VariantHandler {
      * @param {Function} [fnGenerateCallback] - Optional callback to trigger generation after application.
      * @public
      */
-    public applyVariant(oEvent: Event, fnGenerateCallback?: () => void): void {
-        const sSelectedName = (oEvent.getSource() as Select).getSelectedKey();
-        const oModel = this._oView.getModel("variants") as JSONModel;
+    public applyVariant(event: Event, generateCallback?: () => void): void {
+        const selectedName = (event.getSource() as Select).getSelectedKey();
+        const variantsModel = this.view.getModel("variants") as JSONModel;
         
         // Retrieve the full variant configuration object
-        const aVariants: any[] = oModel.getProperty("/items");
-        const oVariant = aVariants.find(v => v.name === sSelectedName);
+        const variants: any[] = variantsModel.getProperty("/items");
+        const variant = variants.find(v => v.name === selectedName);
 
-        if (oVariant) {
-            VariantStateMapper.applyState(this._oView, oVariant);
-            MessageToast.show(this._fnGetText("msgVariantApplied", [oVariant.name]));
+        if (variant) {
+            VariantStateMapper.applyState(this.view, variant);
+            MessageToast.show(this.getText("msgVariantApplied", [variant.name]));
             
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
-            if (oUiModel) {
-                oUiModel.setProperty("/variantDirty", false);
-                oUiModel.setProperty("/nodesDragged", false);
+            const uiModel = this.view.getModel("ui") as JSONModel;
+            if (uiModel) {
+                uiModel.setProperty("/variantDirty", false);
+                uiModel.setProperty("/nodesDragged", false);
             }
 
-            const oSelect = this._oView.byId("selVariant") as Select;
-            if (oSelect) {
-                oSelect.setValueState("None");
-                oSelect.setValueStateText("");
+            const selectControl = this.view.byId("selVariant") as Select;
+            if (selectControl) {
+                selectControl.setValueState("None");
+                selectControl.setValueStateText("");
             }
             
-            if (fnGenerateCallback) {
+            if (generateCallback) {
                 // UI5 model and control getters are synchronous; arbitrary timeouts are unnecessary
-                fnGenerateCallback();
+                generateCallback();
             }
         }
     }
@@ -156,67 +178,67 @@ export default class VariantHandler {
     /**
      * Validates the provided variant name and checks for existing overwrites.
      * Triggers an explicit confirmation prompt if the name already exists.
-     * @param {string} sName - The name entered by the user in the dialog.
-     * @param {boolean} bSavePositions - Whether to snapshot the canvas X/Y coordinates.
-     * @param {Dialog} oDialog - Reference to the dialog to close upon success.
+     * @param {string} name - The name entered by the user in the dialog.
+     * @param {boolean} savePositions - Whether to snapshot the canvas X/Y coordinates.
+     * @param {Dialog} dialog - Reference to the dialog to close upon success.
      * @private
      */
-    private _handleSaveVariantDialogConfirm(sName: string, bSavePositions: boolean, oDialog: Dialog): void {
-        if (!sName) {
-            MessageToast.show(this._fnGetText("msgEnterName"));
+    private handleSaveVariantDialogConfirm(name: string, savePositions: boolean, dialog: Dialog): void {
+        if (!name) {
+            MessageToast.show(this.getText("msgEnterName"));
             return;
         }
 
-        const oModel = this._oView.getModel("variants") as JSONModel;
-        const bExists = oModel.getProperty("/items").some((v: any) => v.name === sName);
+        const variantsModel = this.view.getModel("variants") as JSONModel;
+        const exists = variantsModel.getProperty("/items").some((v: any) => v.name === name);
 
-        if (bExists) {
+        if (exists) {
             MessageBox.confirm(
-                this._fnGetText("msgOverwriteText", [sName]),
+                this.getText("msgOverwriteText", [name]),
                 {
-                    title: this._fnGetText("msgOverwriteTitle"),
+                    title: this.getText("msgOverwriteTitle"),
                     actions: [MessageBox.Action.YES, MessageBox.Action.NO],
-                    onClose: (sAction: string) => {
-                        if (sAction === MessageBox.Action.YES) {
-                            this._executeVariantSave(sName, bSavePositions, oModel);
-                            oDialog.close();
+                    onClose: (action: string) => {
+                        if (action === MessageBox.Action.YES) {
+                            this.executeVariantSave(name, savePositions, variantsModel);
+                            dialog.close();
                         }
                     }
                 }
             );
         } else {
-            this._executeVariantSave(sName, bSavePositions, oModel);
-            oDialog.close();
+            this.executeVariantSave(name, savePositions, variantsModel);
+            dialog.close();
         }
     }
 
     /**
      * Executes the actual local storage save by capturing the current UI state.
-     * @param {string} sName - Validated variant name.
-     * @param {boolean} bSavePositions - Whether to snapshot the canvas X/Y coordinates.
-     * @param {JSONModel} oModel - The UI model holding the variant list.
+     * @param {string} name - Validated variant name.
+     * @param {boolean} savePositions - Whether to snapshot the canvas X/Y coordinates.
+     * @param {JSONModel} model - The UI model holding the variant list.
      * @private
      */
-    private _executeVariantSave(sName: string, bSavePositions: boolean, oModel: JSONModel): void {
-        const oState = VariantStateMapper.captureState(this._oView, sName, bSavePositions);
-        const aVariants = VariantManager.saveVariant(oState);
+    private executeVariantSave(name: string, savePositions: boolean, model: JSONModel): void {
+        const state = VariantStateMapper.captureState(this.view, name, savePositions);
+        const variants = VariantManager.saveVariant(state);
         
         // Update the binding so the dropdown immediately reflects the new list
-        oModel.setProperty("/items", aVariants);
+        model.setProperty("/items", variants);
         
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel) {
-            oUiModel.setProperty("/variantDirty", false);
-            oUiModel.setProperty("/nodesDragged", false);
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        if (uiModel) {
+            uiModel.setProperty("/variantDirty", false);
+            uiModel.setProperty("/nodesDragged", false);
         }
 
-        const oSelect = this._oView.byId("selVariant") as Select;
-        if (oSelect) {
-            oSelect.setSelectedKey(sName);
-            oSelect.setValueState("None");
-            oSelect.setValueStateText("");
+        const selectControl = this.view.byId("selVariant") as Select;
+        if (selectControl) {
+            selectControl.setSelectedKey(name);
+            selectControl.setValueState("None");
+            selectControl.setValueStateText("");
         }
 
-        MessageToast.show(this._fnGetText("msgVariantSaved", [sName]));
+        MessageToast.show(this.getText("msgVariantSaved", [name]));
     }
 }

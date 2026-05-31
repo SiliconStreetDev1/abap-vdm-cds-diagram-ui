@@ -66,12 +66,12 @@ export default class CytoscapeContextMenu {
             
             // Asynchronously bind glass pane events to prevent the initial native right-click 
             // bubbling phase from instantly destroying the newly created menu.
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 if (!document.getElementById("vdm-cy-glass-pane")) return;
                 glass.onmousedown = blockEvent;
                 glass.ontouchstart = blockEvent;
                 glass.oncontextmenu = blockEvent;
-            }, 0);
+            });
             container.appendChild(glass);
 
             const menu = this._buildMenuElement(evt.renderedPosition.x, evt.renderedPosition.y);
@@ -208,7 +208,8 @@ export default class CytoscapeContextMenu {
         menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", () => {
             targetNodes.addClass('hidden').data('isHidden', true).unselect();
             document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, {}));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: true } }));
+            const hiddenList = cyInstance.nodes('.hidden').map((n: any) => ({ id: n.id(), label: n.data('label') || n.id() }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: hiddenList.length > 0, hiddenNodes: hiddenList } }));
         }));
     }
 

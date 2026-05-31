@@ -87,7 +87,10 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     public onSliderUpdate(oEvent: CustomEvent): void {
-        if (oEvent.detail?.node_spacing) (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oEvent.detail.node_spacing);
+        if (oEvent.detail?.node_spacing) {
+            (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oEvent.detail.node_spacing);
+            this._oStateHandler.markDirtyState(false);
+        }
     }
 
     /**

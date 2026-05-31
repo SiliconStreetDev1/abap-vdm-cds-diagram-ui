@@ -103,6 +103,9 @@ export default class DiagramGenerationHandler {
         const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey() as EngineType;
         const oModel = this._oView.getModel() as ODataModel;
 
+        // Eagerly drop the stale state so the UI doesn't flash yellow behind the BusyIndicator
+        oUiModel.setProperty("/isCanvasStale", false);
+
         BusyIndicator.show(0);
 
         try {
@@ -124,10 +127,9 @@ export default class DiagramGenerationHandler {
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
             }
             
-            // Clear the stale state since the canvas is now perfectly in sync
-            oUiModel.setProperty("/isCanvasStale", false);
-            
         } catch (oError: any) {
+            // Restore the stale state if the diagram generation failed to complete
+            oUiModel.setProperty("/isCanvasStale", true);
             MessageToast.show(this._fnGetText(oError.message) || oError.message);
         } finally {
             BusyIndicator.hide();

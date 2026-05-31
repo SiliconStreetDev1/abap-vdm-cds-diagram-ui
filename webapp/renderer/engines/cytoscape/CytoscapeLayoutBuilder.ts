@@ -52,7 +52,7 @@ export default class CytoscapeLayoutBuilder {
                 oBaseConfig.rankDir = config.rankDir;
                 oBaseConfig.rankSep = config.nodeSpacing * 1.5;
                 oBaseConfig.nodeSep = config.nodeSpacing / 1.5;
-                oBaseConfig.edgeSep = Math.max(30, config.nodeSpacing / 3);
+                oBaseConfig.edgeSep = Math.max(35, (config.nodeSpacing / 3) * 1.15);
                 oBaseConfig.ranker = 'network-simplex';
                 oBaseConfig.acyclicer = 'greedy';
                 oBaseConfig.spacingFactor = 1.0;
@@ -64,7 +64,8 @@ export default class CytoscapeLayoutBuilder {
                     'elk.spacing.nodeNode': config.nodeSpacing,
                     'elk.layered.spacing.nodeNodeBetweenLayers': config.nodeSpacing * 1.5,
                     'elk.layered.spacing.edgeNodeBetweenLayers': config.nodeSpacing / 2,
-                    'elk.layered.spacing.edgeEdgeBetweenLayers': config.nodeSpacing / 2,
+                    'elk.layered.spacing.edgeEdgeBetweenLayers': config.nodeSpacing * 0.575,
+                    'elk.spacing.edgeEdge': config.nodeSpacing * 0.575,
                     'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
                     'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
                     'elk.edgeRouting': config.lineStyle === 'taxi' ? 'ORTHOGONAL' : 'SPLINES'

@@ -30,5 +30,7 @@ export const DomEvents = {
     DELETE_SELECTION_REQUEST: "CdsDeleteSelectionRequest",
     NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged",
     FOCUS_MODE_CHANGED: "CdsFocusModeChanged",
-    CANVAS_VIEWPORT_CHANGED: "CdsCanvasViewportChanged"
+    CANVAS_VIEWPORT_CHANGED: "CdsCanvasViewportChanged",
+    CANVAS_READY: "CdsCanvasReady",
+    UNDO_REQUEST: "CdsUndoRequest"
 };

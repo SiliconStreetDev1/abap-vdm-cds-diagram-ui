@@ -37,7 +37,6 @@ export default class Selection extends Controller {
     private _fnCanvasStateChangedBind!: EventListener;
     private _fnViewportChangedBind!: EventListener;
     private _fnEventBusDrillDownBind!: (c: string, e: string, d: any) => void;
-    private _iDeletePollingTimer?: ReturnType<typeof setInterval>;
 
     /**
      * @public
@@ -104,10 +103,6 @@ export default class Selection extends Controller {
         document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
         document.removeEventListener(DomEvents.CANVAS_VIEWPORT_CHANGED, this._fnViewportChangedBind);
 
-        if (this._iDeletePollingTimer) {
-            clearInterval(this._iDeletePollingTimer);
-            this._iDeletePollingTimer = undefined;
-        }
     }
 
     // ========================================================================
@@ -156,30 +151,18 @@ export default class Selection extends Controller {
      * @description Deletes the selected user variant.
      * @returns {void}
      */
-    public onDeleteVariant(): void { 
+    public async onDeleteVariant(): Promise<void> { 
         const oVariantSelect = this.byId("selVariant") as Select;
         const sKeyBeforeDelete = oVariantSelect ? oVariantSelect.getSelectedKey() : "";
 
-        this._oVariantHandler.deleteSelected(); 
-        
-        // ENTERPRISE UX: Asynchronously check if the deletion succeeded and the variant list was updated.
-        // We poll briefly because deletion might wait for a user confirmation dialog (MessageBox).
-        let iAttempts = 0;
-        this._iDeletePollingTimer = setInterval(() => {
-            iAttempts++;
-            if (iAttempts > 50) { // Timeout after 5 seconds
-                clearInterval(this._iDeletePollingTimer);
-                this._iDeletePollingTimer = undefined;
-                return;
-            }
-            
+        // Enterprise UX: We now await the Promise returned by the VariantHandler to eliminate polling hacks
+        try {
+            await this._oVariantHandler.deleteSelected();
+
             const oVariantsModel = this.getView()?.getModel("variants") as JSONModel;
             const aVariants = oVariantsModel ? oVariantsModel.getProperty("/items") || [] : [];
             
-            // If the item we tried to delete is successfully removed from the model
-            if (sKeyBeforeDelete && !aVariants.some((v: any) => v.name === sKeyBeforeDelete)) {
-                clearInterval(this._iDeletePollingTimer);
-                this._iDeletePollingTimer = undefined;
+            if (sKeyBeforeDelete) {
                 if (oVariantSelect) {
                     oVariantSelect.setSelectedKey("");
                     oVariantSelect.setValueState("None");
@@ -191,7 +174,9 @@ export default class Selection extends Controller {
                     }
                 }
             }
-        }, 100);
+        } catch (e) {
+            // Deletion aborted or failed
+        }
     }
 
     /**
@@ -256,7 +241,7 @@ export default class Selection extends Controller {
         }
 
         // 3. Standard fresh drill-down (marks the state as dirty because we are deviating from known architectures)
-        this._oStateHandler.onCdsNameChange();
+        this._oStateHandler.markDirtyState(true);
         this._oGenerationHandler.handleDrillDown(sViewName, false);
     }
 

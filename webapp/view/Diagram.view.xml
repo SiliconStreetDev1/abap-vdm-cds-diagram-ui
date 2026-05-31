@@ -23,49 +23,27 @@
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
         </Toolbar>   
     
-     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="{= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
+     <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="diagramWrapper {= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
         
-        <!-- Inject CSS directly to Fiori theme variables for Light/Dark Mode support -->
-        <core:HTML content='&lt;style&gt;
-            .floatingLayoutActions \{
-                position: absolute;
-                bottom: 2rem;
-                left: 2rem;
-                z-index: 10;
-                gap: 0.5rem;
-            \}
-            .selectModeActive, .selectModeActive canvas \{
-                cursor: crosshair !important;
-            \}
-            .btnIconRed .sapMBtnIcon \{ color: var(--sapNegativeColor, #d32f2f) !important; \}
-            .btnIconGreen .sapMBtnIcon \{ color: var(--sapPositiveColor, #4caf50) !important; \}
-            .btnIconBlue .sapMBtnIcon \{ color: var(--sapBrandColor, #2196f3) !important; \}
-            .btnIconOrange .sapMBtnIcon \{ color: var(--sapCriticalColor, #f57c00) !important; \}
-            .btnIconInfo .sapMBtnIcon \{ color: var(--sapActiveColor, #0070f2) !important; \}
-            .focusBadgeContainer \{
-                position: absolute;
-                top: 1.5rem;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 20;
-                background-color: var(--sapInfobg, #e5f0fa);
-                border: 1px solid var(--sapInfoBorderColor, #0854a0);
-                color: var(--sapInfoTextColor, #0854a0);
-                box-shadow: var(--sapContent_Shadow2);
-                border-radius: 4px;
-                padding: 0.5rem 1rem;
-            \}
-            .staleCanvasContainer \{
-                opacity: 0.6;
-                filter: grayscale(50%);
-                transition: opacity 0.3s ease, filter 0.3s ease;
-                pointer-events: none;
-            \}
-        &lt;/style&gt;' />
+        <dependents>
+            <Dialog id="popHiddenNodes" title="Hidden Entities" contentWidth="250px" contentHeight="300px" resizable="true" draggable="true">
+                <content>
+                    <List id="listHiddenNodes" mode="MultiSelect" items="{view>/hiddenNodesList}">
+                        <StandardListItem title="{view>label}" description="{view>id}" />
+                    </List>
+                </content>
+                <buttons>
+                    <Button text="Restore Selected" type="Emphasized" press=".onRestoreSelectedNodes" />
+                    <Button text="Restore All" type="Transparent" press=".onShowHiddenNodes" />
+                    <Button text="Close" press=".onCloseHiddenNodes" />
+                </buttons>
+            </Dialog>
+        </dependents>
 
         <HBox visible="{view>/isFocusMode}" class="focusBadgeContainer" alignItems="Center" justifyContent="Center">
-             <Label text="👁 Focus Mode: {view>/focusNodeName}" design="Bold" class="sapUiMediumMarginEnd" />
-             <core:Icon src="sap-icon://decline" press=".onClearFocus" color="#d32f2f" tooltip="Clear Focus" class="actionIcon" />
+             <Label text="{view>/focusNodeName}" design="Bold" class="sapUiSmallMarginEnd" />
+             <Button icon="sap-icon://chain-link" text="Drill Down" press=".onFocusDrillDown" type="Transparent" class="sapUiTinyMarginEnd" tooltip="Open this view" />
+             <core:Icon src="sap-icon://decline" press=".onClearFocus" color="#d32f2f" tooltip="Clear Focus" cursor="pointer" class="actionIcon sapUiTinyMarginBegin" />
         </HBox>
 
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' &amp;&amp; ${view>/hasDiagram} }" class="floatingLayoutActions" alignItems="Center">
@@ -81,7 +59,7 @@
             <Button id="btnSpacing" icon="sap-icon://resize-horizontal" press="onShowSpacing" tooltip="Adjust Node Spacing" class="btnIconBlue" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
             
-            <Button id="btnShowHidden" icon="sap-icon://show" press="onShowHiddenNodes" tooltip="Show All Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
+            <Button id="btnShowHidden" icon="sap-icon://show" press=".onOpenHiddenNodes" tooltip="Manage Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
             <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note" class="btnIconOrange" enabled="{= !${view>/isDrillDown} }" />
         </HBox>

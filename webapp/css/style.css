@@ -1,107 +1,39 @@
-/* Minimal fix for the Fullscreen Black Screen */
-[id$="diagramContainer"]:fullscreen {
-    background-color: white !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Ensure floating children anchor to the diagram container bounds */
-[id$="diagramContainer"] {
+/* Extracted Fiori Component CSS for strict CSP compliance */
+.diagramWrapper {
     position: relative;
+    width: 100%;
+    height: 100%;
 }
-
-/* Fix for the "void" area around the diagram */
-[id$="diagramContainer"]::backdrop {
-    background-color: white;
+.floatingLayoutActions {
+    position: absolute;
+    bottom: 2rem;
+    left: 2rem;
+    z-index: 10;
+    gap: 0.5rem;
 }
-
-/* Ensure the SVG is visible and scaled */
-[id$="diagramContainer"]:fullscreen svg {
-    max-width: 100%;
-    max-height: 100%;
+.selectModeActive, .selectModeActive canvas {
+    cursor: crosshair !important;
 }
-
-/* Cytoscape Minimap Navigator */
-.cytoscape-navigator {
-    position: absolute !important;
-    z-index: 999 !important;
-    width: 200px !important;
-    height: 200px !important;
-    bottom: 20px !important;
-    left: 20px !important;
-    border-radius: 8px;
-    border: 1px solid #d9d9d9 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    background: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(6px);
-    box-sizing: border-box;
-    transition: opacity 0.2s ease;
+.btnIconRed .sapMBtnIcon { color: var(--sapNegativeColor, #d32f2f) !important; }
+.btnIconGreen .sapMBtnIcon { color: var(--sapPositiveColor, #4caf50) !important; }
+.btnIconBlue .sapMBtnIcon { color: var(--sapBrandColor, #2196f3) !important; }
+.btnIconOrange .sapMBtnIcon { color: var(--sapCriticalColor, #f57c00) !important; }
+.btnIconInfo .sapMBtnIcon { color: var(--sapActiveColor, #0070f2) !important; }
+.focusBadgeContainer {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 20;
+    background-color: var(--sapInfobg, #e5f0fa);
+    border: 1px solid var(--sapInfoBorderColor, #0854a0);
+    color: var(--sapInfoTextColor, #0854a0);
+    box-shadow: var(--sapContent_Shadow2);
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
 }
-.cytoscape-navigator:hover {
-    opacity: 1 !important;
-}
-
-/* Internal Navigator structure */
-.cytoscape-navigator canvas {
-    position: absolute !important;
-    top: 0;
-    left: 0;
-    z-index: 1 !important;
-}
-
-.cytoscape-navigator .cytoscape-navigatorView {
-    position: absolute !important;
-    border: 1px solid #0854a0 !important;
-    background: rgba(8, 84, 160, 0.3) !important;
-    z-index: 2 !important;
-}
-
-.cytoscape-navigator .cytoscape-navigatorOverlay {
-    position: absolute !important;
-    top: 0;
-    left: 0;
-    width: 100% !important;
-    height: 100% !important;
-    z-index: 3 !important;
-    cursor: crosshair;
-}
-
-/* Expandable Hover Pill for Node Spacing */
-.hoverPillContainer {
-    position: absolute !important;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1000;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(6px);
-    padding: 0.5rem;
-    border-radius: 50px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: 1px solid #d9d9d9;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.hoverPillContainer .pillIcon {
-    cursor: pointer;
-    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
-}
-
-.hoverPillContainer .pillContent {
-    max-width: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    white-space: nowrap;
-}
-
-.hoverPillContainer:hover {
-    border-radius: 25px;
-    padding-right: 1.5rem;
-}
-
-.hoverPillContainer:hover .pillContent {
-    max-width: 300px;
-    opacity: 1;
-    margin-left: 0.5rem;
+.staleCanvasContainer {
+    opacity: 0.6;
+    filter: grayscale(50%);
+    transition: opacity 0.3s ease, filter 0.3s ease;
+    pointer-events: none;
 }

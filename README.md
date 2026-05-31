@@ -98,5 +98,46 @@ Manage external endpoints, CDN paths, and performance limits.
 
 Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
 
+### 7. Custom Layouts & Variant Persistence
+* **Drag and Drop Positioning:** Entities can now be freely dragged and positioned anywhere on the canvas.
+* **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved to local storage as View Variants.
+* **Undo/Redo Stack:** Integrated `Ctrl+Z` support utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
+* **Grid Snapping:** Toggleable alignment guides and strict snap-to-grid constraints for precise architectural mapping.
+
+### 8. Visual Annotations (Sticky Notes)
+* **Interactive Sticky Notes:** Add, edit, and delete draggable sticky notes directly over the CDS diagram. Supports typography switching and semantic color-coding.
+* **Entity Linking:** Visually anchor sticky notes to specific CDS views. Linked notes automatically travel with the entity when dragged.
+
+### 9. Contextual Actions & Visibility
+* **Right-Click Fiori Context Menu:** Pin/Unlock specific nodes in place while allowing the physics engine to route other entities around them.
+* **Hidden Node Manager:** Hide irrelevant CDS views via the context menu, and use the dedicated manager Dialog to review and selectively restore hidden entities.
+
+### 10. Search & Export
+* **Graph Search:** A dedicated search bar allows you to quickly locate, zoom, and highlight specific entities within massive, complex architectures.
+* **High-Res Export:** Native support for exporting the current viewport or the entire graph as a high-resolution PNG or a scalable SVG (with built-in zoom/pan browser support).
+
+### 11. Multi-Algorithm Layouts
+Beyond `dagre` and `cose`, the Cytoscape engine supports switching between distinct mathematical layout algorithms in real-time:
+* **ELK (Eclipse Layout Kernel):** Advanced orthogonal and layered routing.
+* **Grid & Circular:** Structured topology generation for strict alignment.
+* **Breadthfirst:** Interactive tree expansion representations.
+
+### 12. How Variants Work (State Persistence)
+The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session directly into local storage. 
+
+> **Note:** Variants are currently saved to your browser's **local storage** for now. They are specific to your machine/browser and are not yet synced globally to the SAP backend.
+
+When you save a Variant, it captures:
+* **Context & Filters:** The root CDS view, expansion level, and any include/exclude search tokens.
+* **UI Settings:** All active toggles (Keys, Fields, Associations, Relational Modes) and the currently selected rendering engine.
+* **Visual Formatting:** Real-time layout configurations (e.g., node spacing, algorithms, theme, line styles).
+* **Physical Canvas State (Cytoscape):** If "Save exact node positions" is checked, the system records the precise X/Y coordinates of every entity, the camera's zoom/pan level, pinned/hidden node states, and any custom Sticky Notes linked to the diagram.
+
+**Usage:**
+1. Adjust your diagram (filter properties, move nodes, hide entities, add sticky notes).
+2. Click the **Save (Disk Icon)** in the Variants toolbar.
+3. Provide a name. If you have manually dragged nodes, you will be given the option to save the exact "Custom Layout" positions.
+4. Restore this exact architectural state at any time by selecting the variant from the dropdown. You can also instantly wipe away any accidental or unsaved canvas changes by clicking the **Revert (Undo Icon)** next to the variant selector.
+
 ---
 © 2026 Silicon Street Limited.
