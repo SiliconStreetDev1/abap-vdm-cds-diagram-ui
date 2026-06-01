@@ -265,7 +265,8 @@ export default class Diagram extends Controller {
                         width: "260px",
                         value: "{ui>/formatCytoscape/node_spacing}", 
                         min: 50, max: 250, step: 25, enableTickmarks: true, 
-                        change: this.onSpacingChange.bind(this) 
+                        change: this.onSpacingChange.bind(this),
+                        enabled: "{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }"
                     }).addStyleClass("sapUiSmallMargin")
                 ]
             });

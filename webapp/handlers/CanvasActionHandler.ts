@@ -112,10 +112,7 @@ export default class CanvasActionHandler {
         const aIds = aSelectedContexts.map((oCtx: any) => oCtx.getProperty("id"));
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
         
-        // Enforce strict separation of concerns via the Facade pattern
-        if (typeof (Renderer as any).showSpecificNodes === "function") {
-            (Renderer as any).showSpecificNodes(sEngine, aIds);
-        }
+        Renderer.showSpecificNodes(sEngine, aIds);
         
         oList.removeSelections(true);
         

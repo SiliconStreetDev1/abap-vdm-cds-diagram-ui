@@ -217,6 +217,20 @@ export default class Renderer {
     /**
      * @public
      * @static
+     * @description Selectively restores specifically identified nodes to the canvas.
+     * @param {string} sEngine - Target Engine
+     * @param {string[]} aNodeIds - Array of internal node IDs to restore.
+     */
+    public static showSpecificNodes(sEngine: string, aNodeIds: string[]): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.showSpecificNodes) {
+            engine.showSpecificNodes(aNodeIds);
+        }
+    }
+
+    /**
+     * @public
+     * @static
      * @description Alters the canvas interaction mode (e.g., standard panning vs marquee box selection).
      * @param {string} sEngine - Target Engine
      * @param {"pan" | "select"} sMode - The desired interaction mode.

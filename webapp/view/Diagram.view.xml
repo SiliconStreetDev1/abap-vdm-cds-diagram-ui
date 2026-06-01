@@ -56,7 +56,7 @@
             
             <Button id="btnInfo" icon="sap-icon://information" press="onShowInfo" customData:infoType="InteractionMode" tooltip="{i18n>ttClickInfo}" visible="{ui>/showHelp}" class="btnIconInfo" />
             
-            <Button id="btnSpacing" icon="sap-icon://resize-horizontal" press="onShowSpacing" tooltip="Adjust Node Spacing" class="btnIconBlue" />
+            <Button id="btnSpacing" icon="sap-icon://resize-horizontal" press="onShowSpacing" tooltip="Adjust Node Spacing" class="btnIconBlue" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
             
             <Button id="btnShowHidden" icon="sap-icon://show" press=".onOpenHiddenNodes" tooltip="Manage Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />

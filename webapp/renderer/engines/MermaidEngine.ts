@@ -35,7 +35,7 @@ export default class MermaidEngine {
                     mermaid.mermaidAPI.initialize({ 
                         startOnLoad: false, 
                         theme: 'default',
-                        securityLevel: 'loose',
+                        securityLevel: 'strict',
                         htmlLabels: false, 
                         maxTextSize: 500000, 
                         maxEdges: 10000, 
@@ -98,7 +98,7 @@ export default class MermaidEngine {
         return new Promise((resolve, reject) => {
             if (!this._bMermaidInit) {
                 mermaid.mermaidAPI.initialize({ 
-                    startOnLoad: false, theme: 'default', securityLevel: 'loose',
+                    startOnLoad: false, theme: 'default', securityLevel: 'strict',
                     htmlLabels: false, maxTextSize: 500000, maxEdges: 10000, 
                     flowchart: { useMaxWidth: false, htmlLabels: false }
                 });

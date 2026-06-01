@@ -80,6 +80,9 @@ export default class CytoscapeEngine {
                         return;
                     }
 
+                // Ensure container has an explicit background to prevent black screen in native fullscreen mode
+                oContainer.style.backgroundColor = parsedConfig.theme === 'fiori_dark' ? '#29313a' : 'var(--sapBackgroundColor, #ffffff)';
+
                     // Destroy existing instance to prevent memory leaks and duplicate canvases
                     this.destroy();
 
@@ -154,6 +157,11 @@ export default class CytoscapeEngine {
             const bIsLayoutChange = parsedConfig.layout !== this._sLastLayout;
             this._sLastLayout = parsedConfig.layout;
             this._bSnapGuides = parsedConfig.snapGuides;
+            
+            const oContainer = this._cyInstance.container();
+            if (oContainer) {
+                oContainer.style.backgroundColor = parsedConfig.theme === 'fiori_dark' ? '#29313a' : 'var(--sapBackgroundColor, #ffffff)';
+            }
             
             if (bIsLayoutChange) {
                 this._cyInstance.nodes().unlock();

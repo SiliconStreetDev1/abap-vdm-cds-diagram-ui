@@ -28,6 +28,19 @@ export default class CytoscapeStyleBuilder {
 
         const styles = [
             {
+                // Overrides the native loud blue selection box with a clean Fiori-styled glass pane
+                selector: 'core',
+                style: {
+                    'selection-box-color': '#0854a0',
+                    'selection-box-border-color': '#0854a0',
+                    'selection-box-border-width': '1px',
+                    'selection-box-opacity': 0.1,
+                    'active-bg-color': '#0854a0',
+                    'active-bg-opacity': 0.15,
+                    'active-bg-size': '15px'
+                }
+            },
+            {
                 selector: 'node',
                 style: {
                     'label': 'data(displayLabel)',
