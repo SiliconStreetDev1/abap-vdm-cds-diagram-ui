@@ -92,7 +92,7 @@ export default class GraphvizEngine {
      * @param {string} sPayload - The raw DOT syntax.
      * @returns {Promise<string>} A promise resolving to the raw SVG string.
      */
-    public static async exportSvg(sPayload: string): Promise<string> {
+    public static async exportSvg(sPayload: string, sViewId?: string): Promise<string> {
         const config = ConfigManager.get();
         await NetworkManager.loadScript(config.localPaths?.d3, config.cdnPaths?.d3);
         await NetworkManager.loadScript(config.localPaths?.graphvizWasm, config.cdnPaths?.graphvizWasm);

@@ -27,7 +27,7 @@ export interface IEngineFacade {
     getMaxPayloadSize(): number;
 
     render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void | Promise<void>;
-    exportSvg?(sPayload: string): string | Promise<string>;
+    exportSvg?(sPayload: string, sViewId?: string): string | Promise<string>;
     exportPng?(sViewId: string): string;
     toggleMinimap?(sViewId: string, bShow: boolean): void;
     search?(sViewId: string, sQuery: string): void;

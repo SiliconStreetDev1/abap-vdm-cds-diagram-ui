@@ -279,8 +279,8 @@ export default class CytoscapeEngine {
      * Applies internal CSS for centering while retaining physical dimensions to enable browser scroll-to-zoom.
      * @returns {string} Formatted SVG XML string.
      */
-    public static exportSvg(sViewId: string): string {
-        return CytoscapeExporter.exportSvg(this._cyInstances.get(sViewId));
+    public static exportSvg(sPayload: string, sViewId?: string): string {
+        return CytoscapeExporter.exportSvg(this._cyInstances.get(sViewId as string));
     }
 
     /**

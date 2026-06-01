@@ -71,7 +71,7 @@ export default class ExportHandler {
                 
             } else {
                 // Request a brand new, clean SVG string from the isolated headless engine
-                const sCleanSvgData = await Renderer.generateExportSvg(oData.engine, oData.payload);
+                const sCleanSvgData = await Renderer.generateExportSvg(this._getInstanceId(), oData.engine, oData.payload);
                 if (!sCleanSvgData) throw new Error("Headless SVG generation failed.");
 
                 // Rasterize the pure string into a PNG Blob via the ExportUtility
@@ -112,7 +112,7 @@ export default class ExportHandler {
 
         try {
             // Request a brand new, clean SVG string from the isolated headless engine
-            const sSvgData = await Renderer.generateExportSvg(oData.engine, oData.payload);
+            const sSvgData = await Renderer.generateExportSvg(this._getInstanceId(), oData.engine, oData.payload);
             if (!sSvgData) throw new Error("Headless SVG generation failed.");
 
             // Convert the standard XML string into a downloadable File Blob

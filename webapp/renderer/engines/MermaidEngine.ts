@@ -91,7 +91,7 @@ export default class MermaidEngine {
      * @param {string} sPayload - The raw Mermaid syntax.
      * @returns {Promise<string>} A promise resolving to the raw SVG string.
      */
-    public static async exportSvg(sPayload: string): Promise<string> {
+    public static async exportSvg(sPayload: string, sViewId?: string): Promise<string> {
         const config = ConfigManager.get();
         await NetworkManager.loadScript(config.localPaths?.mermaid, config.cdnPaths?.mermaid);
 

@@ -82,7 +82,7 @@ export default class Renderer {
      * @param {string} sPayload - The source syntax or JSON payload.
      * @returns {Promise<string>} A promise resolving to the finalized, standard XML/SVG string.
      */
-    public static async generateExportSvg(sEngine: EngineType | string, sPayload: string): Promise<string> {
+    public static async generateExportSvg(sViewId: string, sEngine: EngineType | string, sPayload: string): Promise<string> {
         await ConfigManager.initialize();
         
         const engine = this._getEngine(sEngine);
@@ -90,7 +90,7 @@ export default class Renderer {
             throw new Error(`Unsupported export engine or SVG export not supported: ${sEngine}`);
         }
 
-        const sRawSvg = await engine.exportSvg(sPayload);
+        const sRawSvg = await engine.exportSvg(sPayload, sViewId);
 
         // Pipe the raw engine output through the enterprise XML standardizer
         return SvgProcessor.standardize(sRawSvg);

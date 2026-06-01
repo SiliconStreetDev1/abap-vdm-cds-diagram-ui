@@ -96,7 +96,7 @@ export default class PlantUmlEngine {
      * @param {string} sPayload - The PlantUML syntax string.
      * @returns {Promise<string>} A promise resolving to the raw SVG network response text.
      */
-    public static async exportSvg(sPayload: string): Promise<string> {
+    public static async exportSvg(sPayload: string, sViewId?: string): Promise<string> {
         const config = ConfigManager.get();
         await NetworkManager.loadScript(config.localPaths?.pako, config.cdnPaths?.pako);
 
