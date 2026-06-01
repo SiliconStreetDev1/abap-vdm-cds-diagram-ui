@@ -37,6 +37,15 @@ export default class SelectionUIHandler {
     }
 
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    /**
      * @public
      * @description Syncs format configurations when switching rendering engines.
      * @param {Event} oEvent - The combo box change event.
@@ -86,9 +95,11 @@ export default class SelectionUIHandler {
      * @param {any} oEvent - UI Custom Slider Event.
      * @returns {void}
      */
-    public onSliderUpdate(oEvent: CustomEvent): void {
-        if (oEvent.detail?.node_spacing) {
-            (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oEvent.detail.node_spacing);
+    public onSliderUpdate(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as unknown as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
+        if (oCustomEvent.detail?.node_spacing) {
+            (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oCustomEvent.detail.node_spacing);
             this._oStateHandler.markDirtyState(false);
         }
     }

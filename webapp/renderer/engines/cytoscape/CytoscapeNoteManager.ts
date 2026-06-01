@@ -7,10 +7,8 @@
 import { DomEvents } from "../../../constants/EventConstants";
 
 export default class CytoscapeNoteManager {
-    private static _cyInstance: any = null;
-    private static _fnAddNoteBind: EventListener | null = null;
-    private static _fnEditNoteBind: EventListener | null = null;
-    private static _fnChangeNoteColorBind: EventListener | null = null;
+    private static _cyInstances: Map<string, any> = new Map();
+    private static _bIsBound = false;
 
     /**
      * @public
@@ -19,19 +17,15 @@ export default class CytoscapeNoteManager {
      * @param {any} cyInstance - The active Cytoscape.js instance.
      * @returns {void}
      */
-    public static attachEvents(cyInstance: any): void {
-        this.detachEvents(); // Ensure previous listeners are cleanly wiped
+    public static attachEvents(sViewId: string, cyInstance: any): void {
 
-        this._cyInstance = cyInstance;
+        this._cyInstances.set(sViewId, cyInstance);
 
-        this._fnAddNoteBind = this._onAddNoteRequest.bind(this) as EventListener;
-        this._fnEditNoteBind = this._onEditNoteRequest.bind(this) as EventListener;
-        this._fnChangeNoteColorBind = this._onChangeNoteColorRequest.bind(this) as EventListener;
-
-        if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNoteBind);
-            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNoteBind);
-            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeNoteColorBind);
+        if (!this._bIsBound && typeof document !== "undefined") {
+            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._onAddNoteRequest.bind(this) as EventListener);
+            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._onEditNoteRequest.bind(this) as EventListener);
+            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._onChangeNoteColorRequest.bind(this) as EventListener);
+            this._bIsBound = true;
         }
     }
 
@@ -41,17 +35,8 @@ export default class CytoscapeNoteManager {
      * @description Unbinds DOM event listeners to prevent memory leaks.
      * @returns {void}
      */
-    public static detachEvents(): void {
-        if (typeof document !== "undefined") {
-            if (this._fnAddNoteBind) document.removeEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNoteBind);
-            if (this._fnEditNoteBind) document.removeEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNoteBind);
-            if (this._fnChangeNoteColorBind) document.removeEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeNoteColorBind);
-        }
-        
-        this._fnAddNoteBind = null;
-        this._fnEditNoteBind = null;
-        this._fnChangeNoteColorBind = null;
-        this._cyInstance = null;
+    public static detachEvents(sViewId: string): void {
+        this._cyInstances.delete(sViewId);
     }
 
     /**
@@ -61,9 +46,11 @@ export default class CytoscapeNoteManager {
      * @param {Event} oEvent - Custom DOM Event containing the note text.
      */
     private static _onAddNoteRequest(oEvent: Event): void {
-        if (!this._cyInstance) return;
-
         const oCustomEvent = oEvent as CustomEvent;
+        const sViewId = oCustomEvent.detail?.viewId;
+        const cyInstance = this._cyInstances.get(sViewId);
+        if (!cyInstance) return;
+        
         const sText = oCustomEvent.detail?.text;
         const sFontFamily = oCustomEvent.detail?.fontFamily || "Marker";
         if (!sText) return;
@@ -71,7 +58,7 @@ export default class CytoscapeNoteManager {
         const sId = "note_" + Date.now();
         
         let iX = 0, iY = 0;
-        const aSelectedEntities = this._cyInstance.nodes(':selected').difference('.annotation-note');
+        const aSelectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');
 
         if (aSelectedEntities.length > 0) {
             // 1. Contextual Spawning: Offset from the first selected entity
@@ -80,12 +67,12 @@ export default class CytoscapeNoteManager {
             iY = oTargetPos.y - 100;
         } else {
             // 2. Spiral Out Collision Detection Algorithm
-            const oExtent = this._cyInstance.extent();
+            const oExtent = cyInstance.extent();
             const iCenterX = oExtent.x1 + (oExtent.w / 2);
             const iCenterY = oExtent.y1 + (oExtent.h / 2);
             
             // PERFORMANCE FIX: Pre-map bounding boxes to avoid querying Cytoscape graph inside the spiral loop
-            const aExistingBoxes = this._cyInstance.nodes().map((n: any) => n.boundingBox());
+            const aExistingBoxes = cyInstance.nodes().map((n: any) => n.boundingBox());
 
             let iRadius = 0;
             let iAngle = 0;
@@ -107,7 +94,7 @@ export default class CytoscapeNoteManager {
             }
         }
 
-        this._cyInstance.add({
+        cyInstance.add({
             group: 'nodes',
             data: { id: sId, label: sText, fontFamily: sFontFamily, bgColor: '#fff9c4', borderColor: '#fbc02d', isNote: true },
             classes: 'annotation-note',
@@ -117,7 +104,7 @@ export default class CytoscapeNoteManager {
         // Auto-link to currently selected entities
         if (aSelectedEntities.length > 0) {
             aSelectedEntities.forEach((oEntity: any) => {
-                this._cyInstance.add({
+                cyInstance.add({
                     group: 'edges',
                     data: { id: 'edge_' + sId + '_' + oEntity.id(), source: sId, target: oEntity.id() },
                     classes: 'annotation-edge'
@@ -125,7 +112,7 @@ export default class CytoscapeNoteManager {
             });
         }
 
-        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
     }
 
     /**
@@ -135,19 +122,21 @@ export default class CytoscapeNoteManager {
      * @param {Event} oEvent - Custom DOM Event containing the note ID and new text.
      */
     private static _onEditNoteRequest(oEvent: Event): void {
-        if (!this._cyInstance) return;
-
         const oCustomEvent = oEvent as CustomEvent;
+        const sViewId = oCustomEvent.detail?.viewId;
+        const cyInstance = this._cyInstances.get(sViewId);
+        if (!cyInstance) return;
+        
         const sId = oCustomEvent.detail?.id;
         const sText = oCustomEvent.detail?.text;
         const sFontFamily = oCustomEvent.detail?.fontFamily;
         
         if (sId && sText) {
-            const oNode = this._cyInstance.getElementById(sId);
+            const oNode = cyInstance.getElementById(sId);
             if (oNode.length > 0) {
                 oNode.data('label', sText);
                 if (sFontFamily) oNode.data('fontFamily', sFontFamily);
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
             }
         }
     }
@@ -159,19 +148,21 @@ export default class CytoscapeNoteManager {
      * @param {Event} oEvent - Custom DOM Event containing the note ID, bgColor, and borderColor.
      */
     private static _onChangeNoteColorRequest(oEvent: Event): void {
-        if (!this._cyInstance) return;
-
         const oCustomEvent = oEvent as CustomEvent;
+        const sViewId = oCustomEvent.detail?.viewId;
+        const cyInstance = this._cyInstances.get(sViewId);
+        if (!cyInstance) return;
+        
         const sId = oCustomEvent.detail?.id;
         const sBgColor = oCustomEvent.detail?.bgColor;
         const sBorderColor = oCustomEvent.detail?.borderColor;
 
         if (sId && sBgColor && sBorderColor) {
-            const oNode = this._cyInstance.getElementById(sId);
+            const oNode = cyInstance.getElementById(sId);
             if (oNode.length > 0) {
                 oNode.data('bgColor', sBgColor);
                 oNode.data('borderColor', sBorderColor);
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
             }
         }
     }

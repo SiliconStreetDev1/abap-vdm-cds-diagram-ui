@@ -18,7 +18,7 @@ export default class MinimapManager {
      * @param {any} cy - The active Cytoscape.js instance.
      * @returns {() => void} A teardown closure to safely destroy the event listeners.
      */
-    public static enhancePanel(navElem: any, cy: any): () => void {
+    public static enhancePanel(sViewId: string, navElem: any, cy: any): () => void {
         this._ensureDefaultStyles();
 
         // cytoscape-navigator often returns a jQuery object. Extract the raw HTMLElement.
@@ -53,7 +53,7 @@ export default class MinimapManager {
         // Hook into the central Event Bus / DOM Event system to actually close it
         closeHandle.addEventListener("click", (e: MouseEvent) => { 
             e.stopPropagation(); 
-            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP));
+            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, { detail: { viewId: sViewId } }));
         });
 
         const dragCleanup = this._attachDragLogic(dragHandle, domElem);

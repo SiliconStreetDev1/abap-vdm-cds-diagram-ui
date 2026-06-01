@@ -13,7 +13,7 @@ export interface IParsedCytoscapeConfig {
     nodeSpacing: number;
     snapGuides: boolean;
     isDrillDown: boolean;
-    presetPositions: Record<string, {x?: number, y?: number, isPinned?: boolean, isHidden?: boolean, isNote?: boolean, label?: string, fontFamily?: string, bgColor?: string, borderColor?: string, isEdge?: boolean, source?: string, target?: string}> | null;
+    presetPositions: Record<string, any> | null;
     camera?: { zoom: number, pan: { x: number, y: number } } | null;
 }
 

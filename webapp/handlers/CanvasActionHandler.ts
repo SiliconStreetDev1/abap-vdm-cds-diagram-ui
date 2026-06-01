@@ -36,6 +36,15 @@ export default class CanvasActionHandler {
     }
 
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    /**
      * @public
      * @description Attaches custom DOM event listeners.
      * @returns {void}
@@ -80,7 +89,7 @@ export default class CanvasActionHandler {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
         (this._oView.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.toggleMinimap(sEngine, bPressed);
+        Renderer.toggleMinimap(this._getInstanceId(), sEngine, bPressed);
     }
 
     /**
@@ -90,7 +99,7 @@ export default class CanvasActionHandler {
      */
     public showHiddenNodes(): void {
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.showHiddenNodes(sEngine);
+        Renderer.showHiddenNodes(this._getInstanceId(), sEngine);
         (this._oView.getModel("view") as JSONModel).setProperty("/hasHiddenNodes", false);
         MessageToast.show("All hidden nodes restored");
     }
@@ -112,7 +121,7 @@ export default class CanvasActionHandler {
         const aIds = aSelectedContexts.map((oCtx: any) => oCtx.getProperty("id"));
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
         
-        Renderer.showSpecificNodes(sEngine, aIds);
+        Renderer.showSpecificNodes(this._getInstanceId(), sEngine, aIds);
         
         oList.removeSelections(true);
         
@@ -136,7 +145,7 @@ export default class CanvasActionHandler {
         oViewModel.setProperty("/isSelectMode", bSelectMode);
         
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-        Renderer.setInteractionMode(sEngine, bSelectMode ? "select" : "pan");
+        Renderer.setInteractionMode(this._getInstanceId(), sEngine, bSelectMode ? "select" : "pan");
     }
 
     /**
@@ -151,7 +160,7 @@ export default class CanvasActionHandler {
             this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
             
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { node_spacing: oFormatConfig.node_spacing } }));
+                document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { viewId: this._getInstanceId(), node_spacing: oFormatConfig.node_spacing } }));
             }
         }
     }
@@ -162,7 +171,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public clearSelection(): void {
-        Renderer.clearSelection((this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
+        Renderer.clearSelection(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
     }
 
     /**
@@ -170,9 +179,11 @@ export default class CanvasActionHandler {
      * @description Intercepts events requesting a teardown of the minimap control.
      * @returns {void}
      */
-    private _onCloseMinimapRequest(): void {
+    private _onCloseMinimapRequest(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as unknown as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         (this._oView.getModel("view") as JSONModel)?.setProperty("/showMinimap", false);
-        Renderer.toggleMinimap((this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine"), false);
+        Renderer.toggleMinimap(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine"), false);
     }
 
     /**
@@ -181,9 +192,11 @@ export default class CanvasActionHandler {
      * @param {any} oEvent - Standard Custom DOM Event.
      * @returns {void}
      */
-    private _onVisibilityChanged(oEvent: CustomEvent): void {
-        const bHasHidden = oEvent.detail?.hasHidden || false;
-        const aHiddenNodes = oEvent.detail?.hiddenNodes || [];
+    private _onVisibilityChanged(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as unknown as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
+        const bHasHidden = oCustomEvent.detail?.hasHidden || false;
+        const aHiddenNodes = oCustomEvent.detail?.hiddenNodes || [];
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
             oViewModel.setProperty("/hasHiddenNodes", bHasHidden);
@@ -196,11 +209,13 @@ export default class CanvasActionHandler {
      * @description Maps the Focus Mode state to the UI Model.
      * @param {CustomEvent} oEvent - Custom DOM Event.
      */
-    private _onFocusModeChanged(oEvent: CustomEvent): void {
+    private _onFocusModeChanged(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as unknown as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/isFocusMode", oEvent.detail?.isFocused || false);
-            oViewModel.setProperty("/focusNodeName", oEvent.detail?.nodeName || "");
+            oViewModel.setProperty("/isFocusMode", oCustomEvent.detail?.isFocused || false);
+            oViewModel.setProperty("/focusNodeName", oCustomEvent.detail?.nodeName || "");
         }
     }
 
@@ -229,7 +244,7 @@ export default class CanvasActionHandler {
         // Enterprise UX: Undo Stack
         if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.code === "KeyZ")) {
             e.preventDefault();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, {}));
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, { detail: { viewId: this._getInstanceId() } }));
             return;
         }
 
@@ -249,14 +264,14 @@ export default class CanvasActionHandler {
             if (this._bWasSelectMode) {
                 oViewModel.setProperty("/isSelectMode", false);
                 const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(sEngine, "pan");
+                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "pan");
             }
         }
 
         // Enterprise UX: Allow deletion of visual sticky notes
         if ((e.code === "Delete" || e.code === "Backspace") && !this._isInputActive(e.target)) {
             e.preventDefault();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.DELETE_SELECTION_REQUEST, {}));
+            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.DELETE_SELECTION_REQUEST, { detail: { viewId: this._getInstanceId() } }));
         }
     }
 
@@ -277,7 +292,7 @@ export default class CanvasActionHandler {
                 const oViewModel = this._oView.getModel("view") as JSONModel;
                 oViewModel.setProperty("/isSelectMode", true);
                 const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(sEngine, "select");
+                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "select");
             }
         }
     }
@@ -295,7 +310,7 @@ export default class CanvasActionHandler {
                 const oViewModel = this._oView.getModel("view") as JSONModel;
                 if (oViewModel) oViewModel.setProperty("/isSelectMode", true);
                 const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(sEngine, "select");
+                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "select");
             }
         }
     }

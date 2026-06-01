@@ -17,6 +17,15 @@ export default class SelectionStateHandler {
     }
 
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    /**
      * @public
      * @description Triggered when the CDS name changes, requiring a full layout reset.
      * @returns {void}
@@ -41,16 +50,20 @@ export default class SelectionStateHandler {
      * @description Triggered when nodes are interactively manipulated on the canvas.
      * @returns {void}
      */
-    public onCanvasStateChanged(): void {
+    public onCanvasStateChanged(oEvent?: globalThis.Event): void {
+        if (oEvent && (oEvent as unknown as CustomEvent).detail?.viewId && (oEvent as unknown as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty("/nodesDragged", true);
             this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
             const sEngine = oUiModel.getProperty("/activeEngine");
-            if (sEngine === "CYTOSCAPE") {
+            const bIsDrillDown = oUiModel.getProperty("/isDrillDown");
+            
+            // Do NOT forcefully convert to Custom Layout (preset) if we are in Drill-Down mode
+            if (sEngine === "CYTOSCAPE" && !bIsDrillDown) {
                 oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
-                const oCanvasState = Renderer.getCanvasState(sEngine);
+                const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine as string);
                 oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
             }
         }
@@ -61,14 +74,15 @@ export default class SelectionStateHandler {
      * @description Triggered when the user pans or zooms the canvas.
      * @returns {void}
      */
-    public onViewportChanged(): void {
+    public onViewportChanged(oEvent?: globalThis.Event): void {
+        if (oEvent && (oEvent as unknown as CustomEvent).detail?.viewId && (oEvent as unknown as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
             this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
             const sEngine = oUiModel.getProperty("/activeEngine");
             if (sEngine === "CYTOSCAPE") {
-                const oCanvasState = Renderer.getCanvasState(sEngine);
+                const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine as string);
                 if (oCanvasState && oCanvasState.__camera) {
                     oUiModel.setProperty("/formatCytoscape/camera", oCanvasState.__camera);
                 }

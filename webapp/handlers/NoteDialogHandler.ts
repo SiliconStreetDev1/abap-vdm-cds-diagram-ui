@@ -21,13 +21,29 @@ export default class NoteDialogHandler {
     }
 
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    /**
      * @public
      * @description Attaches custom DOM event listeners for note dialog requests.
      * @returns {void}
      */
     public attachEvents(): void {
-        this._fnPromptAddNoteBind = this.promptAddNote.bind(this) as EventListener;
-        this._fnPromptEditNoteBind = this.promptEditNote.bind(this) as EventListener;
+        this._fnPromptAddNoteBind = ((oEvent: Event) => {
+            if ((oEvent as CustomEvent).detail?.viewId && (oEvent as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
+            this.promptAddNote();
+        }) as EventListener;
+        
+        this._fnPromptEditNoteBind = ((oEvent: Event) => {
+            if ((oEvent as CustomEvent).detail?.viewId && (oEvent as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
+            this.promptEditNote(oEvent);
+        }) as EventListener;
 
         if (typeof document !== "undefined") {
             document.addEventListener(DomEvents.PROMPT_ADD_NOTE_REQUEST, this._fnPromptAddNoteBind);
@@ -55,7 +71,7 @@ export default class NoteDialogHandler {
     public promptAddNote(): void {
         this._openNoteDialog("Add Sticky Note", "", "Marker", (sText, sFont) => {
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.ADD_NOTE_REQUEST, { detail: { text: sText, fontFamily: sFont } }));
+                document.dispatchEvent(new CustomEvent(DomEvents.ADD_NOTE_REQUEST, { detail: { viewId: this._getInstanceId(), text: sText, fontFamily: sFont } }));
             }
         });
     }
@@ -74,7 +90,7 @@ export default class NoteDialogHandler {
         
         this._openNoteDialog("Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.EDIT_NOTE_REQUEST, { detail: { id: sId, text: sText, fontFamily: sFont } }));
+                document.dispatchEvent(new CustomEvent(DomEvents.EDIT_NOTE_REQUEST, { detail: { viewId: this._getInstanceId(), id: sId, text: sText, fontFamily: sFont } }));
             }
         });
     }

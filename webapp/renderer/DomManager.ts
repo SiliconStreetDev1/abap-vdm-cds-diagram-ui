@@ -21,7 +21,7 @@ export default class DomManager {
      */
     public static setupCanvas(oHtml: HTML, fnOnError: (msg: string) => void, fnCallback: (sRenderId: string) => void): void {
         
-        const sParentId = "vdmCanvasContainer";
+        const sParentId = oHtml.getId() + "-vdmCanvasContainer";
         const config = ConfigManager.get();
 
         const bNeedsContent = !oHtml.getContent();

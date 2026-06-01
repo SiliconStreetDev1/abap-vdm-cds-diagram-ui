@@ -64,7 +64,12 @@ export default class Selection extends Controller {
 
         this._oVariantHandler.loadHistoryAndVariants();
 
-        this._fnNodeDrillDownRequestBind = ((e: CustomEvent) => this._processDrillDown(e.detail?.viewName as string)) as EventListener;
+        const sInstanceId = this.getOwnerComponent()?.getId() || oView.getId();
+        this._fnNodeDrillDownRequestBind = ((e: globalThis.Event) => {
+            const oCustomEvent = e as unknown as CustomEvent;
+            if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== sInstanceId) return;
+            this._processDrillDown(oCustomEvent.detail?.viewName as string);
+        }) as EventListener;
         document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
 
         this._fnEventBusDrillDownBind = (c: string, e: string, d: any) => this._processDrillDown(d?.viewName as string);

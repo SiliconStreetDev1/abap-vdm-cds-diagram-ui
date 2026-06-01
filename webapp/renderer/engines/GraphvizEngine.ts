@@ -28,7 +28,7 @@ export default class GraphvizEngine {
      * @public
      * @description Handled by the UI5 Fiori DomManager clearing the innerHTML.
      */
-    public static destroy(): void {
+    public static destroy(sViewId: string): void {
         // No explicit persistent memory instances required for D3 selections.
     }
 
@@ -41,7 +41,7 @@ export default class GraphvizEngine {
      * @param {Function} fnOnError - Error handler
      * @returns {Promise<void>}
      */
-    public static async render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): Promise<void> {
+    public static async render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): Promise<void> {
         const config = ConfigManager.get();
 
         try {

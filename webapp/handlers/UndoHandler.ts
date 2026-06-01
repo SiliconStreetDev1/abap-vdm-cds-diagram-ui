@@ -14,7 +14,7 @@ export default class UndoHandler {
     private _oView: View;
     private _oEventBus?: EventBus;
     private _aStack: string[] = [];
-    private _iMaxLimit = 50;
+    private _iMaxLimit = 15;
     private _fnUndoRequestBind!: EventListener;
     private _fnStateChangeBind!: EventListener;
     private _bIsRestoring = false;
@@ -29,6 +29,15 @@ export default class UndoHandler {
     constructor(oView: View, oEventBus?: EventBus) {
         this._oView = oView;
         this._oEventBus = oEventBus;
+    }
+
+    /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
     }
 
     /**
@@ -100,9 +109,11 @@ export default class UndoHandler {
      * to ensure we only capture the final placement snapshot to conserve history steps.
      */
     private _onStateChange(oEvent: Event): void {
+        const oCustomEvent = oEvent as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         if (this._bIsRestoring) {
             // Defensive UX: Release the lock immediately when the canvas finishes rendering the restored state
-            if ((oEvent as CustomEvent).type === DomEvents.CANVAS_READY) {
+            if (oCustomEvent.type === DomEvents.CANVAS_READY) {
                 this._bIsRestoring = false;
                 clearTimeout(this._iFailsafeTimer);
             }
@@ -125,7 +136,7 @@ export default class UndoHandler {
         
         const sEngine = oDataModel.getProperty("/engine");
         if (sEngine === "CYTOSCAPE") {
-            const state = Renderer.getCanvasState(sEngine);
+            const state = Renderer.getCanvasState(this._getInstanceId(), sEngine);
             if (state) {
                 const sSerializedState = JSON.stringify(state);
                 
@@ -146,7 +157,9 @@ export default class UndoHandler {
      * @private
      * @description Pops the latest state off the stack and physically restores the previous layout.
      */
-    private _onUndoRequest(): void {
+    private _onUndoRequest(oEvent: Event): void {
+        const oCustomEvent = oEvent as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         if (this._aStack.length <= 1) return;
         
         this._bIsRestoring = true;
@@ -166,7 +179,7 @@ export default class UndoHandler {
                 oFormatCy.layout_algorithm = "preset";
                 
                 oUiModel.setProperty("/formatCytoscape", oFormatCy);
-                Renderer.updateLiveFormat(sEngine, oFormatCy);
+                Renderer.updateLiveFormat(this._getInstanceId(), sEngine, oFormatCy);
             }
         }
         

@@ -12,7 +12,7 @@ export interface ICytoscapeConfig {
     animate?: boolean;
     snapGuides?: boolean;
     isDrillDown?: boolean;
-    presetPositions?: Record<string, {x?: number, y?: number, isPinned?: boolean, isHidden?: boolean, isNote?: boolean, label?: string, fontFamily?: string, bgColor?: string, borderColor?: string, isEdge?: boolean, source?: string, target?: string}>;
+    presetPositions?: Record<string, any> | null;
     camera?: { zoom: number, pan: { x: number, y: number } };
 }
 
@@ -26,23 +26,23 @@ export interface IEngineFacade {
      */
     getMaxPayloadSize(): number;
 
-    render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void | Promise<void>;
+    render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void | Promise<void>;
     exportSvg?(sPayload: string): string | Promise<string>;
-    exportPng?(): string;
-    toggleMinimap?(bShow: boolean): void;
-    search?(sQuery: string): void;
-    updateFormat?(oFormat: ICytoscapeConfig): void;
-    getCanvasState?(): any;
-    setNodesLocked?(bLocked: boolean): void;
-    runLayout?(): void;
-    showHiddenNodes?(): void;
-    showSpecificNodes?(aNodeIds: string[]): void;
-    setInteractionMode?(sMode: "pan" | "select"): void;
-    clearSelection?(): void;
+    exportPng?(sViewId: string): string;
+    toggleMinimap?(sViewId: string, bShow: boolean): void;
+    search?(sViewId: string, sQuery: string): void;
+    updateFormat?(sViewId: string, oFormat: ICytoscapeConfig): void;
+    getCanvasState?(sViewId: string): any;
+    setNodesLocked?(sViewId: string, bLocked: boolean): void;
+    runLayout?(sViewId: string): void;
+    showHiddenNodes?(sViewId: string): void;
+    showSpecificNodes?(sViewId: string, aNodeIds: string[]): void;
+    setInteractionMode?(sViewId: string, sMode: "pan" | "select"): void;
+    clearSelection?(sViewId: string): void;
 
     /**
      * @public
      * @description Safely destroys the engine instance and cleans up memory.
      */
-    destroy?(): void;
+    destroy?(sViewId: string): void;
 }

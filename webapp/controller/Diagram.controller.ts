@@ -42,6 +42,15 @@ export default class Diagram extends Controller {
     private _oSpacingPopover?: ResponsivePopover;
     
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this.getOwnerComponent()?.getId() || this.getView()?.getId() || "";
+    }
+
+    /**
      * @public
      * @description Bootstraps local models, EventBus subscriptions, and DOM event listeners.
      * @returns {void}
@@ -118,7 +127,7 @@ export default class Diagram extends Controller {
         }
 
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
-        Renderer.destroyActiveEngine();
+        Renderer.destroyActiveEngine(this._getInstanceId());
     }
 
     /**
@@ -133,7 +142,7 @@ export default class Diagram extends Controller {
         const oViewModel = this.getView()?.getModel("view") as JSONModel;
         if (oViewModel && oViewModel.getProperty("/hasDiagram")) {
             try {
-                Renderer.updateLiveFormat(oData.engine, oData.format);
+                Renderer.updateLiveFormat(this._getInstanceId(), oData.engine, oData.format);
             } catch (oError: any) {
                 this._showError(oError.message);
             }
@@ -158,7 +167,7 @@ export default class Diagram extends Controller {
         const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
         if (!bSupportsMinimap) {
             oViewModel.setProperty("/showMinimap", false);
-            Renderer.toggleMinimap(oData.engine, false);
+            Renderer.toggleMinimap(this._getInstanceId(), oData.engine, false);
         }
         oViewModel.setProperty("/canShowMinimap", bSupportsMinimap);
         oViewModel.setProperty("/canSearch", Renderer.supportsSearch(oData.engine));
@@ -194,7 +203,13 @@ export default class Diagram extends Controller {
         const oUiModel = this.getView()?.getModel("ui") as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty("/isDrillDown", bIsDrillDown);
-            if (oData.engineConfig?.presetPositions) oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
+            
+            if (oData.engineConfig?.presetPositions && !bIsDrillDown) {
+                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
+            } else if (bIsDrillDown && oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
+                // Force a structured layout for drill-down views so they aren't tied to the parent's custom variant layout
+                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
+            }
         }
         
         oViewModel.setProperty("/isSelectMode", false); // Re-enforce default tool on new renders
@@ -206,7 +221,7 @@ export default class Diagram extends Controller {
         // 4. Trigger the WASM/JS rendering engine
         try {
             const oHtml = this.byId("htmlRenderer") as HTML;
-            Renderer.renderDiagram(oData.engine, oData.payload, oHtml, (sMsg: string) => this._showError(sMsg), oData.engineConfig);
+            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, oHtml, (sMsg: string) => this._showError(sMsg), oData.engineConfig);
         } catch (oError: any) {
             this._showError(oError.message);
         }
@@ -322,7 +337,7 @@ export default class Diagram extends Controller {
         const sQuery = oEvent.getParameter("query") || "";
         const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
         
-        Renderer.searchCanvas(sEngine, sQuery);
+        Renderer.searchCanvas(this._getInstanceId(), sEngine, sQuery);
     }
 
     /**

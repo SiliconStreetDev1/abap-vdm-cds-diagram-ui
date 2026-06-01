@@ -32,6 +32,15 @@ export default class ExportHandler {
     }
 
     /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    /**
      * @public
      * @description Orchestrates the PNG download. Triggers a headless re-render, 
      * pipes the standardized XML result through the PNG Canvas serializer, 
@@ -50,7 +59,7 @@ export default class ExportHandler {
 
         try {
             if (Renderer.supportsNativePngExport(oData.engine)) {
-                const b64Image = Renderer.exportPng(oData.engine);
+                const b64Image = Renderer.exportPng(this._getInstanceId(), oData.engine);
                 if (!b64Image) throw new Error("Canvas is empty or not initialized.");
                 
                 const link = document.createElement("a");

@@ -18,7 +18,7 @@ export default class CytoscapeLayoutManager {
      * @param {number} iNodeCount - The total number of nodes in the graph.
      * @returns {void}
      */
-    public static applyHybridLayout(cyInstance: any, parsedConfig: IParsedCytoscapeConfig, iNodeCount: number): void {
+    public static applyHybridLayout(sViewId: string, cyInstance: any, parsedConfig: IParsedCytoscapeConfig, iNodeCount: number): void {
         let bIsHybrid = false;
         const bUsePresetsForPositions = parsedConfig.layout === 'preset';
 
@@ -94,7 +94,7 @@ export default class CytoscapeLayoutManager {
         const hiddenNodes = cyInstance.nodes('.hidden');
         if (typeof document !== "undefined") {
             const hiddenList = hiddenNodes.map((n: any) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList } }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList } }));
         }
 
         let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);

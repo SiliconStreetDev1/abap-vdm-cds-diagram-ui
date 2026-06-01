@@ -49,7 +49,7 @@ By default, the engine uses the **Dagre** layout algorithm to present a strict, 
 To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
 
 ### 5. Deep Drill-Down & Breadcrumbs
-* **Double-Click to Drill:** Double-clicking any entity (Node) will instantly execute a new backend fetch, pivoting the entire diagram around that selected entity as the new root. This allows you to fluidly navigate through the VDM hierarchy.
+* **Double-Click to Drill:** Double-clicking any entity (Node) will instantly execute a new backend fetch, pivoting the entire diagram around that selected entity as the new root. This allows you to fluidly navigate through the VDM hierarchy. *(Note: Drill-down automatically enforces a hierarchical layout to ensure newly discovered child entities route cleanly without overlapping).*
 * **Breadcrumb Trail:** As you navigate deeper into the VDM hierarchy using the drill-down feature, a breadcrumb navigation trail dynamically builds at the top of the canvas. You can click any previous node in the trail to instantly jump back up the architecture.
 
 ### 6. Bird's-Eye Minimap
@@ -106,11 +106,11 @@ Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./
 
 ### 8. Visual Annotations (Sticky Notes)
 * **Interactive Sticky Notes:** Add, edit, and delete draggable sticky notes directly over the CDS diagram. Supports typography switching and semantic color-coding.
-* **Entity Linking:** Visually anchor sticky notes to specific CDS views. Linked notes automatically travel with the entity when dragged.
+* **Entity Linking:** Visually anchor sticky notes to specific CDS views. Linked notes automatically travel with the entity when dragged, and will intelligently hide/restore if the parent entity's visibility is toggled.
 
 ### 9. Contextual Actions & Visibility
 * **Right-Click Fiori Context Menu:** Pin/Unlock specific nodes in place while allowing the physics engine to route other entities around them.
-* **Hidden Node Manager:** Hide irrelevant CDS views via the context menu, and use the dedicated manager Dialog to review and selectively restore hidden entities.
+* **Hidden Node Manager:** Hide irrelevant CDS views via the context menu, and use the dedicated manager Dialog to review and selectively restore hidden entities. Hiding a node will automatically cascade and hide any sticky notes specifically linked to it.
 
 ### 10. Search & Export
 * **Graph Search:** A dedicated search bar allows you to quickly locate, zoom, and highlight specific entities within massive, complex architectures.
@@ -136,7 +136,7 @@ When you save a Variant, it captures:
 **Usage:**
 1. Adjust your diagram (filter properties, move nodes, hide entities, add sticky notes).
 2. Click the **Save (Disk Icon)** in the Variants toolbar.
-3. Provide a name. If you have manually dragged nodes, you will be given the option to save the exact "Custom Layout" positions.
+3. Provide a name. If you have manually dragged nodes, you will be given the option to save the exact "Custom Layout" positions. *(Note: Variant saving is strictly disabled during Drill-Down mode to protect your root architectural layouts).*
 4. Restore this exact architectural state at any time by selecting the variant from the dropdown. You can also instantly wipe away any accidental or unsaved canvas changes by clicking the **Revert (Undo Icon)** next to the variant selector.
 
 ---

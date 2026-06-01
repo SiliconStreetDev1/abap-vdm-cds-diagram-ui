@@ -179,4 +179,61 @@ export default class CytoscapeStyleBuilder {
 
         return styles;
     }
+
+    /**
+     * @public
+     * @static
+     * @description Re-injects visual styling for Sticky Notes so they survive format updates and have proper content mappings.
+     * @param {any} cyInstance - The active Cytoscape graph instance.
+     * @returns {void}
+     */
+    public static injectAnnotationStyles(cyInstance: any): void {
+        if (!cyInstance) return;
+        cyInstance.style()
+            .selector('edge').style({
+                'control-point-step-size': 46
+            })
+            .selector('.annotation-note').style({
+                'content': 'data(label)',
+                'shape': 'round-rectangle',
+                'background-color': (ele: any) => ele.data('bgColor') || '#fff9c4',
+                'background-opacity': 0.95,
+                'border-color': (ele: any) => ele.data('borderColor') || '#fbc02d',
+                'border-width': 1,
+                'color': '#333333',
+                'text-wrap': 'wrap',
+                'text-max-width': '200px',
+                'width': 'label',
+                'height': 'label',
+                'padding': '16px',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'font-family': (ele: any) => {
+                    switch(ele.data('fontFamily')) {
+                        case 'Standard': return '"72", Arial, Helvetica, sans-serif';
+                        case 'Monospace': return 'monospace';
+                        case 'Serif': return '"Times New Roman", Times, serif';
+                        default: return '"Comic Sans MS", "Marker Felt", "Segoe Print", monospace'; // Marker
+                    }
+                },
+                'font-size': '15px',
+                'shadow-blur': 12,
+                'shadow-color': '#000000',
+                'shadow-opacity': 0.25,
+                'shadow-offset-x': 4,
+                'shadow-offset-y': 4,
+                'z-index': 100
+            })
+            .selector('.annotation-edge').style({
+                'line-style': 'dashed',
+                'line-color': '#fbc02d',
+                'width': 2,
+                'line-opacity': 0.6,
+                'target-arrow-shape': 'none',
+                'curve-style': 'unbundled-bezier',
+                'control-point-distances': 35,
+                'control-point-weights': 0.5,
+                'z-index': 1
+            }).update();
+    }
 }

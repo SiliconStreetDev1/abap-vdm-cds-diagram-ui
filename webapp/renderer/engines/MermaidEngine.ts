@@ -26,7 +26,7 @@ export default class MermaidEngine {
      * @param {Function} fnOnError - Error callback.
      * @returns {void}
      */
-    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
+    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
         const config = ConfigManager.get();
 
         NetworkManager.loadScript(config.localPaths?.mermaid, config.cdnPaths?.mermaid).then(() => {
@@ -79,7 +79,7 @@ export default class MermaidEngine {
      * @public
      * @description Destroys the Mermaid active context.
      */
-    public static destroy(): void {
+    public static destroy(sViewId: string): void {
         this._bMermaidInit = false;
     }
 

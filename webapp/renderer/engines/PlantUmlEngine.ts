@@ -28,7 +28,7 @@ export default class PlantUmlEngine {
      * @public
      * @description Clean up method for PlantUML.
      */
-    public static destroy(): void {
+    public static destroy(sViewId: string): void {
         // Headless engine relying on standard DOM injections. Handled by DomManager.
     }
 
@@ -41,7 +41,7 @@ export default class PlantUmlEngine {
      * @param {Function} fnOnError - Error handler.
      * @returns {void}
      */
-    public static render(sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
+    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
         const config = ConfigManager.get();
 
         NetworkManager.loadScript(config.localPaths?.pako, config.cdnPaths?.pako).then(() => {

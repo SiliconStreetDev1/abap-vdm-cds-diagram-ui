@@ -15,11 +15,11 @@ export default class CytoscapeEventHandler {
      * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      * @returns {void}
      */
-    public static attachEvents(cyInstance: any, bIsDrillDown: boolean): void {
-        this._attachLayoutEvents(cyInstance);
-        this._attachSelectionEvents(cyInstance);
-        this._attachInteractionEvents(cyInstance, bIsDrillDown);
-        this._attachDragEvents(cyInstance);
+    public static attachEvents(sViewId: string, cyInstance: any, bIsDrillDown: boolean): void {
+        this._attachLayoutEvents(sViewId, cyInstance);
+        this._attachSelectionEvents(sViewId, cyInstance);
+        this._attachInteractionEvents(sViewId, cyInstance, bIsDrillDown);
+        this._attachDragEvents(sViewId, cyInstance);
     }
 
     /**
@@ -28,7 +28,7 @@ export default class CytoscapeEventHandler {
      * @description Attaches graph selection and focus mode events.
      * @param {any} cyInstance - The active Cytoscape.js instance.
      */
-    private static _attachSelectionEvents(cyInstance: any): void {
+    private static _attachSelectionEvents(sViewId: string, cyInstance: any): void {
         // Track Box Selection state to prevent Focus Mode from triggering during Marquee lassoing
         cyInstance.on('boxstart', () => cyInstance.scratch('_isBoxSelecting', true));
         cyInstance.on('boxend', () => requestAnimationFrame(() => {
@@ -76,7 +76,7 @@ export default class CytoscapeEventHandler {
             
             if (typeof document !== "undefined") {
                 document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { 
-                    detail: { isFocused: bFocus, nodeName: sFocusName } 
+                    detail: { viewId: sViewId, isFocused: bFocus, nodeName: sFocusName } 
                 }));
             }
         });
@@ -89,7 +89,7 @@ export default class CytoscapeEventHandler {
      * @param {any} cyInstance - The active Cytoscape.js instance.
      * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      */
-    private static _attachInteractionEvents(cyInstance: any, bIsDrillDown: boolean): void {
+    private static _attachInteractionEvents(sViewId: string, cyInstance: any, bIsDrillDown: boolean): void {
 
         // Enterprise UX: Clicking the background canvas instantly drops any active selections
         cyInstance.on('tap', (evt: any) => {
@@ -104,29 +104,33 @@ export default class CytoscapeEventHandler {
 
         cyInstance.on('tap', 'node', (evt: any) => {
             const node = evt.target;
+            const now = Date.now();
+            const lastTap = node.data('_lastTapTime') || 0;
+            const timeDiff = now - lastTap;
+            node.data('_lastTapTime', now);
+
+            if (timeDiff > 0 && timeDiff < 400) {
+                if (node.hasClass('annotation-note')) {
+                    if (!bIsDrillDown) {
+                        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { viewId: sViewId, id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
+                    }
+                    return;
+                }
+                document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewId: sViewId, viewName: node.data('id') } }));
+                return;
+            }
             
             // Enterprise UX Toggle-Click: If the node is already selected and wasn't just selected 
             // in this exact click cycle (300ms buffer), unselect it.
-            if (node.selected() && Date.now() - (node.data('_lastSelectTime') || 0) > 300) {
+            if (node.selected() && now - (node.data('_lastSelectTime') || 0) > 300) {
                 node.unselect();
             }
             
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_CLICKED, { detail: { viewName: node.data('id') } }));
-        });
-
-        cyInstance.on('dbltap', 'node', (evt: any) => {
-            const node = evt.target;
-            if (node.hasClass('annotation-note')) {
-                if (!bIsDrillDown) {
-                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
-                }
-                return;
-            }
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewName: node.data('id') } }));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_CLICKED, { detail: { viewId: sViewId, viewName: node.data('id') } }));
         });
 
         cyInstance.on('closeMinimap', () => {
-            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, {}));
+            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, { detail: { viewId: sViewId } }));
         });
     }
 
@@ -136,7 +140,7 @@ export default class CytoscapeEventHandler {
      * @description Attaches node drag and drop events, including linked sticky note physics.
      * @param {any} cyInstance - The active Cytoscape.js instance.
      */
-    private static _attachDragEvents(cyInstance: any): void {
+    private static _attachDragEvents(sViewId: string, cyInstance: any): void {
 
         cyInstance.on('grab', 'node:not(.annotation-note)', (evt: any) => {
             const node = evt.target;
@@ -167,7 +171,7 @@ export default class CytoscapeEventHandler {
                 }
             }
 
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, {}));
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
         });
     }
 
@@ -177,14 +181,14 @@ export default class CytoscapeEventHandler {
      * @description Attaches layout and viewport transformation events.
      * @param {any} cyInstance - The active Cytoscape.js instance.
      */
-    private static _attachLayoutEvents(cyInstance: any): void {
+    private static _attachLayoutEvents(sViewId: string, cyInstance: any): void {
         cyInstance.on('layoutstart', () => cyInstance.scratch('_isLayoutActive', true));
         
         cyInstance.on('layoutstop', () => requestAnimationFrame(() => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isLayoutActive', false);
                 if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_READY, {}));
+                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_READY, { detail: { viewId: sViewId } }));
                 }
             }
         }));
@@ -195,7 +199,7 @@ export default class CytoscapeEventHandler {
             clearTimeout(viewportTimeout);
             viewportTimeout = setTimeout(() => {
                 if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_VIEWPORT_CHANGED, {}));
+                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_VIEWPORT_CHANGED, { detail: { viewId: sViewId } }));
                 }
             }, 300);
         });

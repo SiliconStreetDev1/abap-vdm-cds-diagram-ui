@@ -28,7 +28,8 @@ export default class VariantStateMapper {
         const oUiModel = oView.getModel("ui") as JSONModel;
         const sEngine = (oView.byId("selEngine") as Select).getSelectedKey();
         
-        const oCanvasState = sEngine === "CYTOSCAPE" ? Renderer.getCanvasState(sEngine) : null;
+        const sInstanceId = oView.getController()?.getOwnerComponent()?.getId() || oView.getId();
+        const oCanvasState = sEngine === "CYTOSCAPE" ? Renderer.getCanvasState(sInstanceId, sEngine as string) : null;
         
         const oFormatCy = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
         if (sEngine === "CYTOSCAPE") {

@@ -19,8 +19,6 @@ import { IEngineFacade, ICytoscapeConfig } from "./engines/IEngineFacade";
 
 export default class Renderer {
 
-    private static _activeEngine: IEngineFacade | null = null;
-
     private static _getEngine(sEngine: string): IEngineFacade | null {
         const sNormalizedEngine = String(sEngine).toUpperCase();
         switch (sNormalizedEngine) {
@@ -43,7 +41,7 @@ export default class Renderer {
      * @param {any} [oConfig] - Engine-specific configuration
      * @returns {Promise<void>}
      */
-    public static async renderDiagram(sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): Promise<void> {
+    public static async renderDiagram(sViewId: string, sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): Promise<void> {
         await ConfigManager.initialize();
 
         const engine = this._getEngine(sEngine);
@@ -53,10 +51,12 @@ export default class Renderer {
         }
 
         // Clean up previous engine instances to prevent memory leaks and duplicate UI artifacts
-        if (this._activeEngine && this._activeEngine !== engine && this._activeEngine.destroy) {
-            this._activeEngine.destroy();
+        if (sViewId) {
+            if (engine !== MermaidEngine) MermaidEngine.destroy(sViewId);
+            if (engine !== GraphvizEngine) GraphvizEngine.destroy(sViewId);
+            if (engine !== PlantUmlEngine) PlantUmlEngine.destroy(sViewId);
+            if (engine !== CytoscapeEngine) CytoscapeEngine.destroy(sViewId);
         }
-        this._activeEngine = engine;
 
         // Enforce engine-specific rendering limits to prevent browser thread crashes.
         const iMaxSizeKb = engine.getMaxPayloadSize();
@@ -69,7 +69,7 @@ export default class Renderer {
         }
 
         DomManager.setupCanvas(oHtmlControl, fnOnError, (sRenderId: string) => {
-            engine.render(sPayload, sRenderId, fnOnError, oConfig);
+            engine.render(sViewId, sPayload, sRenderId, fnOnError, oConfig);
         });
     }
 
@@ -112,10 +112,10 @@ export default class Renderer {
      * @static
      * @description Toggles the minimap display
      */
-    public static toggleMinimap(sEngine: string, bShow: boolean): void {
+    public static toggleMinimap(sViewId: string, sEngine: string, bShow: boolean): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.toggleMinimap) {
-            engine.toggleMinimap(bShow);
+            engine.toggleMinimap(sViewId, bShow);
         }
     }
 
@@ -126,10 +126,10 @@ export default class Renderer {
      * @param {string} sEngine - Target Engine
      * @param {string} sQuery - Search string
      */
-    public static searchCanvas(sEngine: string, sQuery: string): void {
+    public static searchCanvas(sViewId: string, sEngine: string, sQuery: string): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.search) {
-            engine.search(sQuery);
+            engine.search(sViewId, sQuery);
         }
     }
 
@@ -141,10 +141,10 @@ export default class Renderer {
      * @param {any} oFormat - Config Payload
      * @returns {void}
      */
-    public static updateLiveFormat(sEngine: EngineType | string, oFormat: ICytoscapeConfig): void {
+    public static updateLiveFormat(sViewId: string, sEngine: EngineType | string, oFormat: ICytoscapeConfig): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.updateFormat) {
-            engine.updateFormat(oFormat);
+            engine.updateFormat(sViewId, oFormat);
         }
     }
 
@@ -163,9 +163,9 @@ export default class Renderer {
         return engine ? !!engine.exportPng : false;
     }
 
-    public static exportPng(sEngine: string): string {
+    public static exportPng(sViewId: string, sEngine: string): string {
         const engine = this._getEngine(sEngine);
-        return engine && engine.exportPng ? engine.exportPng() : "";
+        return engine && engine.exportPng ? engine.exportPng(sViewId) : "";
     }
 
     /**
@@ -173,9 +173,9 @@ export default class Renderer {
      * @static
      * @description Extracts the live X/Y canvas coordinates for layout persistence.
      */
-    public static getCanvasState(sEngine: string): Record<string, {x: number, y: number, isPinned?: boolean, isHidden?: boolean}> | null {
+    public static getCanvasState(sViewId: string, sEngine: string): Record<string, any> | null {
         const engine = this._getEngine(sEngine);
-        return engine && engine.getCanvasState ? engine.getCanvasState() : null;
+        return engine && engine.getCanvasState ? engine.getCanvasState(sViewId) : null;
     }
 
     /**
@@ -183,10 +183,10 @@ export default class Renderer {
      * @static
      * @description Instructs the engine to lock or unlock the physical positions of all nodes.
      */
-    public static setNodesLocked(sEngine: string, bLocked: boolean): void {
+    public static setNodesLocked(sViewId: string, sEngine: string, bLocked: boolean): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.setNodesLocked) {
-            engine.setNodesLocked(bLocked);
+            engine.setNodesLocked(sViewId, bLocked);
         }
     }
 
@@ -195,10 +195,10 @@ export default class Renderer {
      * @static
      * @description Forces the engine to rerun its layout algorithm.
      */
-    public static runLayout(sEngine: string): void {
+    public static runLayout(sViewId: string, sEngine: string): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.runLayout) {
-            engine.runLayout();
+            engine.runLayout(sViewId);
         }
     }
 
@@ -207,10 +207,10 @@ export default class Renderer {
      * @static
      * @description Instructs the engine to restore visibility to all hidden nodes.
      */
-    public static showHiddenNodes(sEngine: string): void {
+    public static showHiddenNodes(sViewId: string, sEngine: string): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.showHiddenNodes) {
-            engine.showHiddenNodes();
+            engine.showHiddenNodes(sViewId);
         }
     }
 
@@ -221,10 +221,10 @@ export default class Renderer {
      * @param {string} sEngine - Target Engine
      * @param {string[]} aNodeIds - Array of internal node IDs to restore.
      */
-    public static showSpecificNodes(sEngine: string, aNodeIds: string[]): void {
+    public static showSpecificNodes(sViewId: string, sEngine: string, aNodeIds: string[]): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.showSpecificNodes) {
-            engine.showSpecificNodes(aNodeIds);
+            engine.showSpecificNodes(sViewId, aNodeIds);
         }
     }
 
@@ -235,10 +235,10 @@ export default class Renderer {
      * @param {string} sEngine - Target Engine
      * @param {"pan" | "select"} sMode - The desired interaction mode.
      */
-    public static setInteractionMode(sEngine: string, sMode: "pan" | "select"): void {
+    public static setInteractionMode(sViewId: string, sEngine: string, sMode: "pan" | "select"): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.setInteractionMode) {
-            engine.setInteractionMode(sMode);
+            engine.setInteractionMode(sViewId, sMode);
         }
     }
 
@@ -247,10 +247,10 @@ export default class Renderer {
      * @static
      * @description Clears all active selections from the canvas.
      */
-    public static clearSelection(sEngine: string): void {
+    public static clearSelection(sViewId: string, sEngine: string): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.clearSelection) {
-            engine.clearSelection();
+            engine.clearSelection(sViewId);
         }
     }
 
@@ -259,10 +259,12 @@ export default class Renderer {
      * @static
      * @description Safely destroys the active engine to prevent memory and event listener leaks on app exit.
      */
-    public static destroyActiveEngine(): void {
-        if (this._activeEngine && this._activeEngine.destroy) {
-            this._activeEngine.destroy();
+    public static destroyActiveEngine(sViewId: string): void {
+        if (sViewId) {
+            MermaidEngine.destroy(sViewId);
+            GraphvizEngine.destroy(sViewId);
+            PlantUmlEngine.destroy(sViewId);
+            CytoscapeEngine.destroy(sViewId);
         }
-        this._activeEngine = null;
     }
 }
