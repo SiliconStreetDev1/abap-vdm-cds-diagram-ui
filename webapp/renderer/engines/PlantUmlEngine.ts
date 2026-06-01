@@ -12,6 +12,7 @@ declare const pako: any;
 
 export default class PlantUmlEngine {
     
+    public static configPath = "/formatPlantUML";
     public static supportsMinimap = false;
     public static supportsSearch = false;
 
@@ -22,6 +23,28 @@ export default class PlantUmlEngine {
      */
     public static getMaxPayloadSize(): number {
         return 50;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Provides the baseline default configuration for the UI Model.
+     */
+    public static getDefaultConfig(): Record<string, any> {
+        return { lineStyle: "default", spaced_out: false, staggered: false, modern: true };
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Formats the raw UI configuration for the backend payload.
+     */
+    public static formatBackendConfig(oRawConfig: Record<string, any>): Record<string, any> {
+        const oFormatConfig = Object.assign({}, oRawConfig);
+        oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
+        oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
+        delete oFormatConfig.lineStyle;
+        return oFormatConfig;
     }
 
     /**

@@ -3,6 +3,7 @@
  * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines
  * @description Handles the raw DOM manipulation, dragging, and resizing mathematics for the Fiori minimap overlay.
  */
+import type { Core } from "cytoscape";
 import { DomEvents } from "../../constants/EventConstants";
 
 export default class MinimapManager {
@@ -15,10 +16,10 @@ export default class MinimapManager {
      * @static
      * @description Injects interactive drag, resize, and close handles into the Cytoscape minimap panel.
      * @param {HTMLElement} navElem - The DOM element of the navigator panel.
-     * @param {any} cy - The active Cytoscape.js instance.
+     * @param {Core} cy - The active Cytoscape.js instance.
      * @returns {() => void} A teardown closure to safely destroy the event listeners.
      */
-    public static enhancePanel(sViewId: string, navElem: any, cy: any): () => void {
+    public static enhancePanel(sViewId: string, navElem: any, cy: Core): () => void {
         this._ensureDefaultStyles();
 
         // cytoscape-navigator often returns a jQuery object. Extract the raw HTMLElement.
@@ -147,10 +148,10 @@ export default class MinimapManager {
      * @description Binds resize logic to the minimap panel, enforcing minimum dimensions and triggering engine updates.
      * @param {HTMLDivElement} resizeHandle - The DOM element serving as the resize grabber.
      * @param {HTMLElement} navElem - The minimap panel DOM element.
-     * @param {any} cy - The active Cytoscape.js instance to notify of dimension changes.
+     * @param {Core} cy - The active Cytoscape.js instance to notify of dimension changes.
      * @returns {any} Cleanup object containing the ResizeObserver and DOM unbinders.
      */
-    private static _attachResizeLogic(resizeHandle: HTMLDivElement, domElem: HTMLElement, cy: any): any {
+    private static _attachResizeLogic(resizeHandle: HTMLDivElement, domElem: HTMLElement, cy: Core): any {
         let bIsResizing = false;
         let iStartX = 0, iStartY = 0, iStartW = 0, iStartH = 0;
 

@@ -4,20 +4,21 @@
  * @description Encapsulates addition, modification, and formatting of annotation notes,
  * isolating it from standard event binding or global engine operations.
  */
+import type { Core, NodeSingular, BoundingBox12, BoundingBoxWH } from "cytoscape";
 import { DomEvents } from "../../../constants/EventConstants";
 
 export default class CytoscapeNoteManager {
-    private static _cyInstances: Map<string, any> = new Map();
+    private static _cyInstances: Map<string, Core> = new Map();
     private static _bIsBound = false;
 
     /**
      * @public
      * @static
      * @description Binds DOM event listeners and stores the active Cytoscape instance.
-     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @returns {void}
      */
-    public static attachEvents(sViewId: string, cyInstance: any): void {
+    public static attachEvents(sViewId: string, cyInstance: Core): void {
 
         this._cyInstances.set(sViewId, cyInstance);
 
@@ -72,7 +73,7 @@ export default class CytoscapeNoteManager {
             const iCenterY = oExtent.y1 + (oExtent.h / 2);
             
             // PERFORMANCE FIX: Pre-map bounding boxes to avoid querying Cytoscape graph inside the spiral loop
-            const aExistingBoxes = cyInstance.nodes().map((n: any) => n.boundingBox());
+            const aExistingBoxes = cyInstance.nodes().map((n: NodeSingular) => n.boundingBox());
 
             let iRadius = 0;
             let iAngle = 0;
@@ -82,7 +83,7 @@ export default class CytoscapeNoteManager {
                 iX = iCenterX + iRadius * Math.cos(iAngle);
                 iY = iCenterY + iRadius * Math.sin(iAngle);
                 
-                const bOverlaps = aExistingBoxes.some((oBox: any) => {
+                const bOverlaps = aExistingBoxes.some((oBox: BoundingBox12 & BoundingBoxWH) => {
                     return !(iX + 90 < oBox.x1 || iX - 90 > oBox.x2 || iY + 50 < oBox.y1 || iY - 50 > oBox.y2);
                 });
                 
@@ -103,7 +104,7 @@ export default class CytoscapeNoteManager {
 
         // Auto-link to currently selected entities
         if (aSelectedEntities.length > 0) {
-            aSelectedEntities.forEach((oEntity: any) => {
+            aSelectedEntities.forEach((oEntity: NodeSingular) => {
                 cyInstance.add({
                     group: 'edges',
                     data: { id: 'edge_' + sId + '_' + oEntity.id(), source: sId, target: oEntity.id() },

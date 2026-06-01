@@ -7,6 +7,7 @@
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
 import Filter from "sap/ui/model/Filter";
+import FilterOperator from "sap/ui/model/FilterOperator";
 
 export interface IDiagramResult {
     DiagramPayload: string;
@@ -14,17 +15,59 @@ export interface IDiagramResult {
     CdsName: string;
 }
 
+export interface IDiagramRequest {
+    cdsName: string;
+    engine: string;
+    maxLevel: number;
+    showKeys: boolean;
+    showFields: boolean;
+    showAssocFields: boolean;
+    showBase: boolean;
+    customOnly: boolean;
+    lineAssoc: boolean;
+    lineComp: boolean;
+    lineInherit: boolean;
+    discAssoc: boolean;
+    discComp: boolean;
+    discInherit: boolean;
+    includeCds: string;
+    excludeCds: string;
+    formatConfigJson: string;
+}
+
 export default class DiagramService {
 
     /**
      * @public
      * @description Executes the OData V4 list binding request and parses the backend response.
+     * Encapsulates all OData filter logic internally to decouple the UI from the protocol.
      * @param {ODataModel} oModel - The active OData V4 model instance.
-     * @param {Filter[]} aFilters - The dynamically generated array of UI filters.
+     * @param {IDiagramRequest} oRequest - The standardized DTO containing request parameters.
      * @returns {Promise<IDiagramResult>} A promise resolving to the validated backend payload.
      * @throws {Error} Throws normalized error strings suitable for UI display.
      */
-    public static async fetchDiagram(oModel: ODataModel, aFilters: Filter[]): Promise<IDiagramResult> {
+    public static async fetchDiagram(oModel: ODataModel, oRequest: IDiagramRequest): Promise<IDiagramResult> {
+        const aFilters = [
+            new Filter("CdsName", FilterOperator.EQ, oRequest.cdsName),
+            new Filter("RendererEngine", FilterOperator.EQ, oRequest.engine),
+            new Filter("MaxLevel", FilterOperator.EQ, oRequest.maxLevel),
+            new Filter("ShowKeys", FilterOperator.EQ, oRequest.showKeys),
+            new Filter("ShowFields", FilterOperator.EQ, oRequest.showFields),
+            new Filter("ShowAssocFields", FilterOperator.EQ, oRequest.showAssocFields),
+            new Filter("ShowBase", FilterOperator.EQ, oRequest.showBase),
+            new Filter("CustomDevOnly", FilterOperator.EQ, oRequest.customOnly),
+            new Filter("LineAssoc", FilterOperator.EQ, oRequest.lineAssoc),
+            new Filter("LineComp", FilterOperator.EQ, oRequest.lineComp),
+            new Filter("LineInherit", FilterOperator.EQ, oRequest.lineInherit),
+            new Filter("DiscAssoc", FilterOperator.EQ, oRequest.discAssoc),
+            new Filter("DiscComp", FilterOperator.EQ, oRequest.discComp),
+            new Filter("DiscInherit", FilterOperator.EQ, oRequest.discInherit),
+            new Filter("FormatConfig", FilterOperator.EQ, oRequest.formatConfigJson)
+        ];
+
+        if (oRequest.includeCds) aFilters.push(new Filter("IncludeCds", FilterOperator.EQ, oRequest.includeCds));
+        if (oRequest.excludeCds) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, oRequest.excludeCds));
+
         const oListBinding = oModel.bindList("/Diagram") as ODataListBinding;
         oListBinding.filter(aFilters);
 

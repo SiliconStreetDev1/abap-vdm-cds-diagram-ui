@@ -3,6 +3,7 @@
  * @fileoverview Style builder for Cytoscape.js rendering.
  * @description Generates the Cytoscape stylesheet array tailored to Fiori design guidelines.
  */
+import type { Core, NodeSingular, Stylesheet } from "cytoscape";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 
 export default class CytoscapeStyleBuilder {
@@ -12,9 +13,9 @@ export default class CytoscapeStyleBuilder {
      * @static
      * @description Builds the array of CSS-like selector styles for the Cytoscape graph elements.
      * @param {IParsedCytoscapeConfig} config - The sanitized configuration containing theme and layout settings.
-     * @returns {Array<any>} An array of Cytoscape style definitions.
+     * @returns {Stylesheet[]} An array of Cytoscape style definitions.
      */
-    public static build(config: IParsedCytoscapeConfig): Array<Record<string, any>> {
+    public static build(config: IParsedCytoscapeConfig): Stylesheet[] {
         const isDark = config.theme === 'fiori_dark';
         const colors = {
             bg: isDark ? '#29313a' : '#ffffff',
@@ -175,7 +176,7 @@ export default class CytoscapeStyleBuilder {
                 'display': 'none'
             }
             }
-        ];
+        ] as Stylesheet[];
 
         return styles;
     }
@@ -184,21 +185,21 @@ export default class CytoscapeStyleBuilder {
      * @public
      * @static
      * @description Re-injects visual styling for Sticky Notes so they survive format updates and have proper content mappings.
-     * @param {any} cyInstance - The active Cytoscape graph instance.
+     * @param {Core} cyInstance - The active Cytoscape graph instance.
      * @returns {void}
      */
-    public static injectAnnotationStyles(cyInstance: any): void {
+    public static injectAnnotationStyles(cyInstance: Core): void {
         if (!cyInstance) return;
         cyInstance.style()
             .selector('edge').style({
                 'control-point-step-size': 46
-            })
+            } as any)
             .selector('.annotation-note').style({
                 'content': 'data(label)',
                 'shape': 'round-rectangle',
-                'background-color': (ele: any) => ele.data('bgColor') || '#fff9c4',
+                'background-color': (ele: NodeSingular) => ele.data('bgColor') || '#fff9c4',
                 'background-opacity': 0.95,
-                'border-color': (ele: any) => ele.data('borderColor') || '#fbc02d',
+                'border-color': (ele: NodeSingular) => ele.data('borderColor') || '#fbc02d',
                 'border-width': 1,
                 'color': '#333333',
                 'text-wrap': 'wrap',
@@ -208,7 +209,7 @@ export default class CytoscapeStyleBuilder {
                 'padding': '16px',
                 'text-valign': 'center',
                 'text-halign': 'center',
-                'font-family': (ele: any) => {
+                'font-family': (ele: NodeSingular) => {
                     switch(ele.data('fontFamily')) {
                         case 'Standard': return '"72", Arial, Helvetica, sans-serif';
                         case 'Monospace': return 'monospace';
@@ -223,7 +224,7 @@ export default class CytoscapeStyleBuilder {
                 'shadow-offset-x': 4,
                 'shadow-offset-y': 4,
                 'z-index': 100
-            })
+            } as any)
             .selector('.annotation-edge').style({
                 'line-style': 'dashed',
                 'line-color': '#fbc02d',
@@ -234,6 +235,6 @@ export default class CytoscapeStyleBuilder {
                 'control-point-distances': 35,
                 'control-point-weights': 0.5,
                 'z-index': 1
-            }).update();
+            } as any).update();
     }
 }

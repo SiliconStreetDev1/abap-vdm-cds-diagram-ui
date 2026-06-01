@@ -28,6 +28,7 @@ import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import CheckBox from "sap/m/CheckBox";
 import VariantStateMapper from "../helpers/VariantStateMapper";
+import { IVariantState } from "../types/IVariantState";
 
 export default class VariantHandler {
     private view: View;
@@ -149,8 +150,8 @@ export default class VariantHandler {
         const variantsModel = this.view.getModel("variants") as JSONModel;
         
         // Retrieve the full variant configuration object
-        const variants: any[] = variantsModel.getProperty("/items");
-        const variant = variants.find(v => v.name === selectedName);
+        const variants: IVariantState[] = variantsModel.getProperty("/items") || [];
+        const variant = variants.find((v: IVariantState) => v.name === selectedName);
 
         if (variant) {
             VariantStateMapper.applyState(this.view, variant);
@@ -190,7 +191,7 @@ export default class VariantHandler {
         }
 
         const variantsModel = this.view.getModel("variants") as JSONModel;
-        const exists = variantsModel.getProperty("/items").some((v: any) => v.name === name);
+        const exists = (variantsModel.getProperty("/items") || []).some((v: IVariantState) => v.name === name);
 
         if (exists) {
             MessageBox.confirm(

@@ -13,6 +13,11 @@ import SegmentedButton from "sap/m/SegmentedButton";
 import EventBus from "sap/ui/core/EventBus";
 import List from "sap/m/List";
 import Dialog from "sap/m/Dialog";
+import ResponsivePopover from "sap/m/ResponsivePopover";
+import Slider from "sap/m/Slider";
+import Control from "sap/ui/core/Control";
+import { SearchField$SearchEvent } from "sap/m/SearchField";
+import Context from "sap/ui/model/Context";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
@@ -29,6 +34,7 @@ export default class CanvasActionHandler {
     private _fnFocusModeChangedBind!: EventListener;
     private _bSpaceLock: boolean = false;
     private _bWasSelectMode: boolean = false;
+    private _oSpacingPopover?: ResponsivePopover;
 
     constructor(oView: View, oEventBus?: EventBus) {
         this._oView = oView;
@@ -77,6 +83,10 @@ export default class CanvasActionHandler {
         document.removeEventListener("keyup", this._fnKeyUpBind);
         window.removeEventListener("blur", this._fnWindowBlurBind);
         document.removeEventListener(DomEvents.FOCUS_MODE_CHANGED, this._fnFocusModeChangedBind);
+        if (this._oSpacingPopover) {
+            this._oSpacingPopover.destroy();
+            this._oSpacingPopover = undefined;
+        }
     }
 
     /**
@@ -94,6 +104,26 @@ export default class CanvasActionHandler {
 
     /**
      * @public
+     * @description Opens the hidden nodes dialog.
+     * @returns {void}
+     */
+    public openHiddenNodesDialog(): void {
+        const oDialog = this._oView.byId("popHiddenNodes") as Dialog;
+        if (oDialog) oDialog.open();
+    }
+
+    /**
+     * @public
+     * @description Closes the hidden nodes dialog.
+     * @returns {void}
+     */
+    public closeHiddenNodesDialog(): void {
+        const oDialog = this._oView.byId("popHiddenNodes") as Dialog;
+        if (oDialog) oDialog.close();
+    }
+
+    /**
+     * @public
      * @description Restores previously excluded/hidden visual nodes back to the canvas.
      * @returns {void}
      */
@@ -102,6 +132,8 @@ export default class CanvasActionHandler {
         Renderer.showHiddenNodes(this._getInstanceId(), sEngine);
         (this._oView.getModel("view") as JSONModel).setProperty("/hasHiddenNodes", false);
         MessageToast.show("All hidden nodes restored");
+        this.closeHiddenNodesDialog();
+        (this._oView.byId("listHiddenNodes") as List)?.removeSelections(true);
     }
 
     /**
@@ -118,7 +150,7 @@ export default class CanvasActionHandler {
             return;
         }
         
-        const aIds = aSelectedContexts.map((oCtx: any) => oCtx.getProperty("id"));
+        const aIds = aSelectedContexts.map((oCtx: Context) => oCtx.getProperty("id"));
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
         
         Renderer.showSpecificNodes(this._getInstanceId(), sEngine, aIds);
@@ -128,7 +160,7 @@ export default class CanvasActionHandler {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         const aRemaining = oViewModel.getProperty("/hiddenNodesList") || [];
         if (aRemaining.length <= aIds.length) {
-            (this._oView.byId("popHiddenNodes") as Dialog).close();
+            this.closeHiddenNodesDialog();
         }
     }
 
@@ -155,14 +187,59 @@ export default class CanvasActionHandler {
      */
     public changeSpacing(): void {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel && this._oEventBus) {
-            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-            this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
-            
-            if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { viewId: this._getInstanceId(), node_spacing: oFormatConfig.node_spacing } }));
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        
+        if (oUiModel && this._oEventBus && Renderer.supportsLiveUpdate(sEngine)) {
+            const oModelData = oUiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            if (sFormatKey) {
+                const oFormatConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
+                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: sEngine, format: oFormatConfig });
+                
+                if (typeof document !== "undefined") {
+                    document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { viewId: this._getInstanceId(), node_spacing: oFormatConfig.node_spacing } }));
+                }
             }
         }
+    }
+
+    /**
+     * @public
+     * @description Displays the Node Spacing slider in a localized Fiori Popover.
+     * @param {Event} oEvent - Button press event.
+     * @returns {void}
+     */
+    public showSpacingPopover(oEvent: Event): void {
+        if (!this._oSpacingPopover) {
+            this._oSpacingPopover = new ResponsivePopover({
+                showHeader: false,
+                placement: "Top",
+                contentWidth: "300px",
+                verticalScrolling: false,
+                horizontalScrolling: false,
+                content: [
+                    new Slider({ 
+                        width: "260px",
+                        value: "{ui>/formatCytoscape/node_spacing}", 
+                        min: 50, max: 250, step: 25, enableTickmarks: true, 
+                        change: this.changeSpacing.bind(this),
+                        enabled: "{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }"
+                    }).addStyleClass("sapUiSmallMargin")
+                ]
+            });
+            this._oView.addDependent(this._oSpacingPopover);
+        }
+        this._oSpacingPopover.openBy(oEvent.getSource() as Control);
+    }
+
+    /**
+     * @public
+     * @description Search handler for locating specific nodes in the active canvas.
+     */
+    public searchCanvas(oEvent: SearchField$SearchEvent): void {
+        const sQuery = oEvent.getParameter("query") || "";
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.searchCanvas(this._getInstanceId(), sEngine, sQuery);
     }
 
     /**
@@ -222,14 +299,15 @@ export default class CanvasActionHandler {
     /**
      * @private
      * @description Checks if the user is currently typing in an input field.
-     * @param {any} target - The DOM event target.
+     * @param {EventTarget | null} target - The DOM event target.
      * @returns {boolean}
      */
-    private _isInputActive(target: any): boolean {
+    private _isInputActive(target: EventTarget | null): boolean {
         if (!target) return false;
-        const tagName = target.tagName?.toUpperCase();
+        const element = target as HTMLElement;
+        const tagName = element.tagName?.toUpperCase();
         // Prevents hijacking the spacebar when navigating standard dropdowns or UI5 inputs
-        return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable;
+        return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || element.isContentEditable;
     }
 
     /**

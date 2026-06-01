@@ -3,19 +3,20 @@
  * @fileoverview Data processor for Cytoscape.js payloads.
  * @description Iterates through nodes and edges to build formatted visual labels and process entity structures.
  */
+import type { ElementDefinition } from "cytoscape";
 export default class CytoscapeDataProcessor {
 
     /**
      * @public
      * @static
      * @description Unpacks raw node and edge arrays and formats their display labels.
-     * @param {any[]} nodes - Array of node objects to mutate.
-     * @param {any[]} edges - Array of edge objects to mutate.
+     * @param {ElementDefinition[]} nodes - Array of node objects to mutate.
+     * @param {ElementDefinition[]} edges - Array of edge objects to mutate.
      * @returns {void}
      */
-    public static process(nodes: any[], edges: any[]): void {
+    public static process(nodes: ElementDefinition[], edges: ElementDefinition[]): void {
         nodes.forEach(node => {
-            const data = node.data;
+            const data = node.data as Record<string, any>; // Cast arbitrary JSON properties
             let fieldLines: string[] = [];
 
             if (data.baseSources && data.baseSources.length > 0) {
@@ -51,7 +52,7 @@ export default class CytoscapeDataProcessor {
         });
 
         edges.forEach(edge => {
-            const data = edge.data;
+            const data = edge.data as Record<string, any>;
             const label = data.label || "";
             const card = data.cardinality || "";
 

@@ -60,11 +60,14 @@ export default class SelectionStateHandler {
             const sEngine = oUiModel.getProperty("/activeEngine");
             const bIsDrillDown = oUiModel.getProperty("/isDrillDown");
             
-            // Do NOT forcefully convert to Custom Layout (preset) if we are in Drill-Down mode
-            if (sEngine === "CYTOSCAPE" && !bIsDrillDown) {
-                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
-                const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine as string);
-                oUiModel.setProperty("/formatCytoscape/presetPositions", oCanvasState);
+            if (sEngine && Renderer.supportsStateCapture(sEngine) && !bIsDrillDown) {
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                if (sFormatKey) {
+                    oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
+                    const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine);
+                    oUiModel.setProperty(`/${sFormatKey}/presetPositions`, oCanvasState);
+                }
             }
         }
     }
@@ -81,10 +84,14 @@ export default class SelectionStateHandler {
             this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
             const sEngine = oUiModel.getProperty("/activeEngine");
-            if (sEngine === "CYTOSCAPE") {
-                const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine as string);
+            if (sEngine && Renderer.supportsStateCapture(sEngine)) {
+                const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine);
                 if (oCanvasState && oCanvasState.__camera) {
-                    oUiModel.setProperty("/formatCytoscape/camera", oCanvasState.__camera);
+                    const oModelData = oUiModel.getData();
+                    const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                    if (sFormatKey) {
+                        oUiModel.setProperty(`/${sFormatKey}/camera`, oCanvasState.__camera);
+                    }
                 }
             }
         }
@@ -106,9 +113,14 @@ export default class SelectionStateHandler {
             oVariantSelect.setValueStateText(this._fnGetText("msgUnsavedChanges") || "Unsaved changes");
         }
 
-        if (bResetLayout && oUiModel && oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
-            oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
-            oUiModel.setProperty("/formatCytoscape/presetPositions", null);
+        const sEngine = oUiModel?.getProperty("/activeEngine");
+        if (bResetLayout && oUiModel && sEngine && Renderer.supportsStateCapture(sEngine)) {
+            const oModelData = oUiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            if (sFormatKey && oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
+                oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
+                oUiModel.setProperty(`/${sFormatKey}/presetPositions`, null);
+            }
         }
     }
 

@@ -3,16 +3,17 @@
  * @fileoverview Exporter utility for Cytoscape.js canvas.
  * @description Provides methods to export the active Cytoscape graph into PNG or standard SVG formats.
  */
+import type { Core } from "cytoscape";
 export default class CytoscapeExporter {
 
     /**
      * @public
      * @static
      * @description Exports the current canvas view as a base64 encoded PNG string.
-     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @returns {string} Base64 PNG data URI.
      */
-    public static exportPng(cyInstance: any): string {
+    public static exportPng(cyInstance: Core): string {
         if (!cyInstance) return "";
         
         // Temporarily hide pin indicators from the export image
@@ -29,16 +30,16 @@ export default class CytoscapeExporter {
      * @static
      * @description Exports the current canvas view as a zoomable, centered SVG string.
      * Applies internal CSS for centering while retaining physical dimensions to enable browser scroll-to-zoom.
-     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @returns {string} Formatted SVG XML string.
      */
-    public static exportSvg(cyInstance: any): string {
-        if (!cyInstance || typeof cyInstance.svg !== "function") return "";
+    public static exportSvg(cyInstance: Core): string {
+        if (!cyInstance || typeof (cyInstance as any).svg !== "function") return "";
         
         // Temporarily hide pin indicators from the export vector
         const pinnedNodes = cyInstance.nodes('[?isPinned]');
         pinnedNodes.data('isPinned', false);
-        let sRawSvg = cyInstance.svg({ scale: 1, full: true, bg: '#ffffff' });
+        let sRawSvg = (cyInstance as any).svg({ scale: 1, full: true, bg: '#ffffff' });
         pinnedNodes.data('isPinned', true); // Restore immediately
 
         try {

@@ -3,6 +3,7 @@
  * @fileoverview Interaction Manager for Cytoscape.js.
  * @description Modifies mouse behavior modes and selection states.
  */
+import type { Core } from "cytoscape";
 export default class CytoscapeInteractionManager {
     
     /**
@@ -10,7 +11,7 @@ export default class CytoscapeInteractionManager {
      * @static
      * @description Modifies internal event listeners to switch between standard canvas panning and node selection mode.
      */
-    public static setInteractionMode(cyInstance: any, sMode: "pan" | "select"): void {
+    public static setInteractionMode(cyInstance: Core, sMode: "pan" | "select"): void {
         if (!cyInstance) return;
         if (sMode === "select") {
             cyInstance.userPanningEnabled(false);
@@ -22,7 +23,7 @@ export default class CytoscapeInteractionManager {
         }
     }
 
-    public static clearSelection(cyInstance: any): void {
+    public static clearSelection(cyInstance: Core): void {
         if (cyInstance) {
             cyInstance.elements().unselect();
         }

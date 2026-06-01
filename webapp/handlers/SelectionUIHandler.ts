@@ -18,6 +18,7 @@ import ViewStateHelper from "../helpers/ViewStateHelper";
 import SelectionStateHandler from "./SelectionStateHandler";
 import CdsValueHelpHandler from "./CdsValueHelpHandler";
 import ContextHelpManager from "../helpers/ContextHelpManager";
+import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
 
@@ -66,11 +67,13 @@ export default class SelectionUIHandler {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         const sEngine = oUiModel.getProperty("/activeEngine") || "";
 
-        if (sEngine === EngineType.CYTOSCAPE || String(sEngine).toUpperCase() === "CYTOSCAPE") {
-            const oFormatConfig = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
+        if (Renderer.supportsLiveUpdate(sEngine)) {
+            const oModelData = oUiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            const oFormatConfig = sFormatKey ? Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`)) : {};
             
             if (this._oEventBus) {
-                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: EngineType.CYTOSCAPE, format: oFormatConfig });
+                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: sEngine, format: oFormatConfig });
             }
         } else {
             // Other engines require a full rendering cycle for format changes

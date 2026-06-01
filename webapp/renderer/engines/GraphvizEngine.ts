@@ -12,6 +12,7 @@ declare const d3: any;
 
 export default class GraphvizEngine {
     
+    public static configPath = "/formatGraphviz";
     public static supportsMinimap = false;
     public static supportsSearch = false;
 
@@ -22,6 +23,28 @@ export default class GraphvizEngine {
      */
     public static getMaxPayloadSize(): number {
         return 100;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Provides the baseline default configuration for the UI Model.
+     */
+    public static getDefaultConfig(): Record<string, any> {
+        return { lineStyle: "default", spaced_out: false, modern: true, left_to_right: false, concentrate_edges: false, monochrome: false };
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Formats the raw UI configuration for the backend payload.
+     */
+    public static formatBackendConfig(oRawConfig: Record<string, any>): Record<string, any> {
+        const oFormatConfig = Object.assign({}, oRawConfig);
+        oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
+        oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
+        delete oFormatConfig.lineStyle;
+        return oFormatConfig;
     }
 
     /**

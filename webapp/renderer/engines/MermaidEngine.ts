@@ -13,6 +13,7 @@ declare const mermaid: any;
 export default class MermaidEngine {
     private static _bMermaidInit: boolean = false;
 
+    public static configPath = "/formatMermaid";
     public static supportsMinimap = false;
     public static supportsSearch = false;
 
@@ -73,6 +74,15 @@ export default class MermaidEngine {
      */
     public static getMaxPayloadSize(): number {
         return 100;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Provides the baseline default configuration for the UI Model.
+     */
+    public static getDefaultConfig(): Record<string, any> {
+        return { direction: "TB", theme: "default" };
     }
 
     /**

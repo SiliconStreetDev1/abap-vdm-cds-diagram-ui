@@ -18,6 +18,7 @@ import { EngineType } from "../types";
 import { IEngineFacade, ICytoscapeConfig } from "./engines/IEngineFacade";
 
 export default class Renderer {
+    private static _aEngines: IEngineFacade[] = [MermaidEngine, GraphvizEngine, PlantUmlEngine, CytoscapeEngine];
 
     private static _getEngine(sEngine: string): IEngineFacade | null {
         const sNormalizedEngine = String(sEngine).toUpperCase();
@@ -52,10 +53,9 @@ export default class Renderer {
 
         // Clean up previous engine instances to prevent memory leaks and duplicate UI artifacts
         if (sViewId) {
-            if (engine !== MermaidEngine) MermaidEngine.destroy(sViewId);
-            if (engine !== GraphvizEngine) GraphvizEngine.destroy(sViewId);
-            if (engine !== PlantUmlEngine) PlantUmlEngine.destroy(sViewId);
-            if (engine !== CytoscapeEngine) CytoscapeEngine.destroy(sViewId);
+            this._aEngines.forEach(eng => {
+                if (eng !== engine && eng.destroy) eng.destroy(sViewId);
+            });
         }
 
         // Enforce engine-specific rendering limits to prevent browser thread crashes.
@@ -146,6 +146,58 @@ export default class Renderer {
         if (engine && engine.updateFormat) {
             engine.updateFormat(sViewId, oFormat);
         }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Delegates configuration formatting to the specific engine to uphold the Open-Closed Principle.
+     */
+    public static formatBackendConfig(sEngine: EngineType | string, oRawConfig: Record<string, any>): Record<string, any> {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.formatBackendConfig) {
+            return engine.formatBackendConfig(oRawConfig);
+        }
+        return Object.assign({}, oRawConfig); // Default fallback: clone and return raw
+    }
+
+    public static getEngineDefaults(): Record<string, any> {
+        const oDefaults: Record<string, any> = {};
+        this._aEngines.forEach(engine => {
+            if (engine.configPath && engine.getDefaultConfig) {
+                const sKey = engine.configPath.replace("/", "");
+                oDefaults[sKey] = engine.getDefaultConfig();
+            }
+        });
+        return oDefaults;
+    }
+
+    public static resetFormatConfigs(oUiModel: any): void {
+        this._aEngines.forEach(engine => {
+            if (engine.configPath && engine.getDefaultConfig) {
+                oUiModel.setProperty(engine.configPath, engine.getDefaultConfig());
+            }
+        });
+    }
+
+    public static supportsLiveUpdate(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsLiveUpdate : false;
+    }
+
+    public static supportsStateCapture(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsStateCapture : false;
+    }
+
+    public static applyStateToConfig(sEngine: string, oConfig: Record<string, any>, oState: any): Record<string, any> {
+        const engine = this._getEngine(sEngine);
+        return engine && engine.applyStateToConfig ? engine.applyStateToConfig(oConfig, oState) : oConfig;
+    }
+
+    public static extractStateForVariant(sEngine: string, oConfig: Record<string, any>, oCanvasState: any, bSavePositions: boolean): Record<string, any> {
+        const engine = this._getEngine(sEngine);
+        return engine && engine.extractStateForVariant ? engine.extractStateForVariant(oConfig, oCanvasState, bSavePositions) : oConfig;
     }
 
     public static supportsMinimap(sEngine: string): boolean {
@@ -261,10 +313,9 @@ export default class Renderer {
      */
     public static destroyActiveEngine(sViewId: string): void {
         if (sViewId) {
-            MermaidEngine.destroy(sViewId);
-            GraphvizEngine.destroy(sViewId);
-            PlantUmlEngine.destroy(sViewId);
-            CytoscapeEngine.destroy(sViewId);
+            this._aEngines.forEach(engine => {
+                if (engine.destroy) engine.destroy(sViewId);
+            });
         }
     }
 }

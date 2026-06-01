@@ -10,6 +10,7 @@ import ConfigManager from "../ConfigManager";
 import NetworkManager from "../../helpers/NetworkManager";
 import MinimapManager from "./MinimapManager";
 import CytoscapeConfigParser from "./cytoscape/CytoscapeConfigParser";
+import { IParsedCytoscapeConfig } from "./cytoscape/CytoscapeConfigParser";
 import CytoscapeStyleBuilder from "./cytoscape/CytoscapeStyleBuilder";
 import CytoscapeLayoutBuilder from "./cytoscape/CytoscapeLayoutBuilder";
 import CytoscapeDataProcessor from "./cytoscape/CytoscapeDataProcessor";
@@ -25,6 +26,7 @@ import CytoscapeStateManager from "./cytoscape/CytoscapeStateManager";
 import CytoscapeVisibilityManager from "./cytoscape/CytoscapeVisibilityManager";
 import CytoscapeInteractionManager from "./cytoscape/CytoscapeInteractionManager";
 import { DomEvents } from "../../constants/EventConstants";
+import type { Core } from "cytoscape";
 
 declare const cytoscape: any;
 
@@ -34,14 +36,17 @@ export default class CytoscapeEngine {
      * @private
      * @description Holds the singleton instance of the Cytoscape canvas.
      */
-    private static _cyInstances: Map<string, any> = new Map();
+    private static _cyInstances: Map<string, Core> = new Map();
     private static _navInstances: Map<string, any> = new Map();
     private static _bShowMinimaps: Map<string, boolean> = new Map();
     private static _sLastLayouts: Map<string, string> = new Map();
-    private static _oLastParsedConfigs: Map<string, any> = new Map();
+    private static _oLastParsedConfigs: Map<string, IParsedCytoscapeConfig> = new Map();
     private static _bSnapGuides: Map<string, boolean> = new Map();
     private static _fnMinimapCleanups: Map<string, (() => void)> = new Map();
 
+    public static configPath = "/formatCytoscape";
+    public static supportsLiveUpdate = true;
+    public static supportsStateCapture = true;
     public static supportsMinimap = true;
     public static supportsSearch = true;
 
@@ -52,6 +57,49 @@ export default class CytoscapeEngine {
      */
     public static getMaxPayloadSize(): number {
         return 200;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Provides the baseline default configuration for the UI Model.
+     */
+    public static getDefaultConfig(): Record<string, any> {
+        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false };
+    }
+
+    public static applyStateToConfig(oConfig: Record<string, any>, oState: any): Record<string, any> {
+        const oFormatCy = Object.assign({}, oConfig);
+        oFormatCy.presetPositions = oState || null;
+        oFormatCy.layout_algorithm = "preset";
+        return oFormatCy;
+    }
+
+    public static extractStateForVariant(oConfig: Record<string, any>, oCanvasState: any, bSavePositions: boolean): Record<string, any> {
+        const oFormatCy = Object.assign({}, oConfig);
+        if (bSavePositions) {
+            oFormatCy.presetPositions = oCanvasState;
+        } else {
+            oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
+        }
+        if (oCanvasState && oCanvasState.__camera) {
+            oFormatCy.camera = oCanvasState.__camera;
+        }
+        return oFormatCy;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Formats the raw UI configuration for the backend payload.
+     */
+    public static formatBackendConfig(oRawConfig: Record<string, any>): Record<string, any> {
+        const oFormatConfig = Object.assign({}, oRawConfig);
+        // ARCHITECTURE FIX: Strip heavy frontend-only data (like massive X/Y coordinate dictionaries)
+        // to ensure the OData GET URL string remains tiny and never hits the 2048-character limit.
+        delete oFormatConfig.presetPositions;
+        delete oFormatConfig.camera;
+        return oFormatConfig;
     }
 
     /**
@@ -196,7 +244,8 @@ export default class CytoscapeEngine {
      * @param {"pan" | "select"} sMode - The desired mouse behavior mode.
      */
     public static setInteractionMode(sViewId: string, sMode: "pan" | "select"): void {
-        CytoscapeInteractionManager.setInteractionMode(this._cyInstances.get(sViewId), sMode);
+        const cy = this._cyInstances.get(sViewId);
+        if (cy) CytoscapeInteractionManager.setInteractionMode(cy, sMode);
     }
 
     /**
@@ -204,7 +253,8 @@ export default class CytoscapeEngine {
      * @description Drops all active selections from the graph.
      */
     public static clearSelection(sViewId: string): void {
-        CytoscapeInteractionManager.clearSelection(this._cyInstances.get(sViewId));
+        const cy = this._cyInstances.get(sViewId);
+        if (cy) CytoscapeInteractionManager.clearSelection(cy);
     }
 
     /**
@@ -218,14 +268,17 @@ export default class CytoscapeEngine {
         if (cyInstance) {
             let navInstance = this._navInstances.get(sViewId);
             if (bShow) {
-                if (!navInstance && typeof cyInstance.navigator === "function") {
-                    navInstance = cyInstance.navigator({ container: false });
+                if (!navInstance && typeof (cyInstance as any).navigator === "function") {
+                    navInstance = (cyInstance as any).navigator({ container: false });
                     this._navInstances.set(sViewId, navInstance);
                     const navElem = navInstance.$panel;
                     if (navElem) {
                         this._fnMinimapCleanups.set(sViewId, MinimapManager.enhancePanel(sViewId, navElem, cyInstance));
                     }
-                    cyInstance.one("render", () => { if (this._cyInstances.get(sViewId)) this._cyInstances.get(sViewId).resize(); });
+                    cyInstance.one("render", () => { 
+                        const cy = this._cyInstances.get(sViewId);
+                        if (cy) cy.resize(); 
+                    });
                 }
             } else if (navInstance) {
                 const fnCleanup = this._fnMinimapCleanups.get(sViewId);
@@ -270,7 +323,8 @@ export default class CytoscapeEngine {
      * @returns {string} Base64 PNG data URI.
      */
     public static exportPng(sViewId: string): string {
-        return CytoscapeExporter.exportPng(this._cyInstances.get(sViewId));
+        const cy = this._cyInstances.get(sViewId);
+        return cy ? CytoscapeExporter.exportPng(cy) : "";
     }
 
     /**
@@ -280,7 +334,8 @@ export default class CytoscapeEngine {
      * @returns {string} Formatted SVG XML string.
      */
     public static exportSvg(sPayload: string, sViewId?: string): string {
-        return CytoscapeExporter.exportSvg(this._cyInstances.get(sViewId as string));
+        const cy = sViewId ? this._cyInstances.get(sViewId) : undefined;
+        return cy ? CytoscapeExporter.exportSvg(cy) : "";
     }
 
     /**
@@ -289,7 +344,8 @@ export default class CytoscapeEngine {
      * @param {string} sQuery - The text to search for
      */
     public static search(sViewId: string, sQuery: string): void {
-        CytoscapeSearchManager.search(this._cyInstances.get(sViewId), sQuery);
+        const cy = this._cyInstances.get(sViewId);
+        if (cy) CytoscapeSearchManager.search(cy, sQuery);
     }
 
     /**
@@ -297,7 +353,8 @@ export default class CytoscapeEngine {
      * @description Restores all hidden nodes to the canvas and notifies the UI.
      */
     public static showHiddenNodes(sViewId: string): void {
-        CytoscapeVisibilityManager.showHiddenNodes(sViewId, this._cyInstances.get(sViewId));
+        const cy = this._cyInstances.get(sViewId);
+        if (cy) CytoscapeVisibilityManager.showHiddenNodes(sViewId, cy);
     }
 
     /**
@@ -306,7 +363,8 @@ export default class CytoscapeEngine {
      * @param {string[]} aNodeIds - Array of internal node IDs to restore.
      */
     public static showSpecificNodes(sViewId: string, aNodeIds: string[]): void {
-        CytoscapeVisibilityManager.showSpecificNodes(sViewId, this._cyInstances.get(sViewId), aNodeIds);
+        const cy = this._cyInstances.get(sViewId);
+        if (cy) CytoscapeVisibilityManager.showSpecificNodes(sViewId, cy, aNodeIds);
     }
 
     /**
@@ -314,6 +372,7 @@ export default class CytoscapeEngine {
      * @description Returns the X/Y coordinates of all current nodes for variant persistence.
      */
     public static getCanvasState(sViewId: string): Record<string, any> {
-        return CytoscapeStateManager.getCanvasState(this._cyInstances.get(sViewId));
+        const cy = this._cyInstances.get(sViewId);
+        return cy ? CytoscapeStateManager.getCanvasState(cy) : {};
     }
 }

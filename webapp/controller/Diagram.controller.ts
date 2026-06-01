@@ -16,17 +16,13 @@ import ResourceBundle from "sap/base/i18n/ResourceBundle";
 import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
-import ResponsivePopover from "sap/m/ResponsivePopover";
-import Dialog from "sap/m/Dialog";
-import Slider from "sap/m/Slider";
-import ToggleButton from "sap/m/ToggleButton";
-import List from "sap/m/List";
 
 import ExportHandler from "../handlers/ExportHandler";
 import FullScreenHandler from "../handlers/FullScreenHandler";
 import CanvasActionHandler from "../handlers/CanvasActionHandler";
 import NoteDialogHandler from "../handlers/NoteDialogHandler";
 import UndoHandler from "../handlers/UndoHandler";
+import DiagramRenderHandler from "../handlers/DiagramRenderHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType, IRenderRequestPayload } from "../types";
@@ -39,7 +35,7 @@ export default class Diagram extends Controller {
     private _oCanvasActionHandler!: CanvasActionHandler;
     private _oNoteDialogHandler!: NoteDialogHandler;
     private _oUndoHandler!: UndoHandler;
-    private _oSpacingPopover?: ResponsivePopover;
+    private _oRenderHandler!: DiagramRenderHandler;
     
     /**
      * @private
@@ -87,7 +83,8 @@ export default class Diagram extends Controller {
         }), "diagramData");
 
         // Initialize the export service
-        this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._showError.bind(this));
+        this._oRenderHandler = new DiagramRenderHandler(oView, this._getText.bind(this));
+        this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._oRenderHandler.showError.bind(this._oRenderHandler));
         this._oFullScreenHandler = new FullScreenHandler(oView);
         this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
@@ -121,11 +118,6 @@ export default class Diagram extends Controller {
         this._oNoteDialogHandler.detachEvents();
         this._oUndoHandler.detachEvents();
         
-        if (this._oSpacingPopover) {
-            this._oSpacingPopover.destroy();
-            this._oSpacingPopover = undefined;
-        }
-
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
         Renderer.destroyActiveEngine(this._getInstanceId());
     }
@@ -139,14 +131,7 @@ export default class Diagram extends Controller {
      * @returns {void}
      */
     private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (oViewModel && oViewModel.getProperty("/hasDiagram")) {
-            try {
-                Renderer.updateLiveFormat(this._getInstanceId(), oData.engine, oData.format);
-            } catch (oError: any) {
-                this._showError(oError.message);
-            }
-        }
+        this._oRenderHandler.handleLiveFormatUpdate(oData);
     }
 
     /**
@@ -158,73 +143,8 @@ export default class Diagram extends Controller {
      * @returns {void}
      */
     private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
-        const oData = oEventData as IRenderRequestPayload;
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
-
-        if (!oViewModel || !oDataModel) return;
-
-        const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
-        if (!bSupportsMinimap) {
-            oViewModel.setProperty("/showMinimap", false);
-            Renderer.toggleMinimap(this._getInstanceId(), oData.engine, false);
-        }
-        oViewModel.setProperty("/canShowMinimap", bSupportsMinimap);
-        oViewModel.setProperty("/canSearch", Renderer.supportsSearch(oData.engine));
-
-        this._resetState();
-
-        // 1. Persist the payload for export operations
-        oDataModel.setData({
-            payload: oData.payload,
-            extension: oData.extension,
-            cdsName: oData.cdsName,
-            engine: oData.engine,
-            rootCdsName: oData.rootCdsName,
-            breadcrumbLinks: (oData.breadcrumbs || []).slice(0, -1).map((name: string) => ({ name })),
-            currentBreadcrumb: (oData.breadcrumbs || [])[(oData.breadcrumbs || []).length - 1] || "",
-            engineConfig: oData.engineConfig
-        });
-
-        // 2. Engine-specific UI validation
-        if (oData.engine === EngineType.D2) {
-            oViewModel.setProperty("/hasDiagram", true);
-            oViewModel.setProperty("/canExportImg", false);
-            this._showError("msgD2Warning");
-            return;
-        }
-
-        // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
-        oViewModel.setProperty("/canExportImg", true);
-        oViewModel.setProperty("/hasDiagram", true);
-        
-        const bIsDrillDown = !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName);
-        oViewModel.setProperty("/isDrillDown", bIsDrillDown);
-        const oUiModel = this.getView()?.getModel("ui") as JSONModel;
-        if (oUiModel) {
-            oUiModel.setProperty("/isDrillDown", bIsDrillDown);
-            
-            if (oData.engineConfig?.presetPositions && !bIsDrillDown) {
-                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "preset");
-            } else if (bIsDrillDown && oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
-                // Force a structured layout for drill-down views so they aren't tied to the parent's custom variant layout
-                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
-            }
-        }
-        
-        oViewModel.setProperty("/isSelectMode", false); // Re-enforce default tool on new renders
-
-        if (oData.engineConfig) {
-            oData.engineConfig.isDrillDown = bIsDrillDown;
-        }
-
-        // 4. Trigger the WASM/JS rendering engine
-        try {
-            const oHtml = this.byId("htmlRenderer") as HTML;
-            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, oHtml, (sMsg: string) => this._showError(sMsg), oData.engineConfig);
-        } catch (oError: any) {
-            this._showError(oError.message);
-        }
+        const oHtml = this.byId("htmlRenderer") as HTML;
+        this._oRenderHandler.handleRenderRequest(oEventData as IRenderRequestPayload, oHtml);
     }
 
     // ========================================================================
@@ -238,57 +158,11 @@ export default class Diagram extends Controller {
     public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
     public onAddNote(): void { this._oNoteDialogHandler.promptAddNote(); }
 
-    public onOpenHiddenNodes(oEvent: Event): void {
-        const oDialog = this.byId("popHiddenNodes") as Dialog;
-        if (oDialog) oDialog.open();
-    }
-
-    public onCloseHiddenNodes(): void {
-        const oDialog = this.byId("popHiddenNodes") as Dialog;
-        if (oDialog) oDialog.close();
-    }
-
-    public onRestoreSelectedNodes(): void {
-        this._oCanvasActionHandler.restoreSelectedNodes();
-    }
-
-    public onShowHiddenNodes(): void { 
-        this._oCanvasActionHandler.showHiddenNodes(); 
-        const oDialog = this.byId("popHiddenNodes") as Dialog;
-        if (oDialog) {
-            oDialog.close();
-            (this.byId("listHiddenNodes") as List)?.removeSelections(true);
-        }
-    }
-
-    /**
-     * @public
-     * @description Displays the Node Spacing slider in a localized Fiori Popover.
-     * @param {Event} oEvent - Button press event.
-     * @returns {void}
-     */
-    public onShowSpacing(oEvent: Event): void {
-        if (!this._oSpacingPopover) {
-            this._oSpacingPopover = new ResponsivePopover({
-                showHeader: false,
-                placement: "Top",
-                contentWidth: "300px",
-                verticalScrolling: false,
-                horizontalScrolling: false,
-                content: [
-                    new Slider({ 
-                        width: "260px",
-                        value: "{ui>/formatCytoscape/node_spacing}", 
-                        min: 50, max: 250, step: 25, enableTickmarks: true, 
-                        change: this.onSpacingChange.bind(this),
-                        enabled: "{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }"
-                    }).addStyleClass("sapUiSmallMargin")
-                ]
-            });
-            this.getView()?.addDependent(this._oSpacingPopover);
-        }
-        this._oSpacingPopover.openBy(oEvent.getSource() as Control);
-    }
+    public onOpenHiddenNodes(): void { this._oCanvasActionHandler.openHiddenNodesDialog(); }
+    public onCloseHiddenNodes(): void { this._oCanvasActionHandler.closeHiddenNodesDialog(); }
+    public onRestoreSelectedNodes(): void { this._oCanvasActionHandler.restoreSelectedNodes(); }
+    public onShowHiddenNodes(): void { this._oCanvasActionHandler.showHiddenNodes(); }
+    public onShowSpacing(oEvent: Event): void { this._oCanvasActionHandler.showSpacingPopover(oEvent); }
 
     /**
      * @public
@@ -333,39 +207,7 @@ export default class Diagram extends Controller {
      * @public
      * @description Search handler for locating specific nodes in the active canvas.
      */
-    public onSearchCanvas(oEvent: SearchField$SearchEvent): void {
-        const sQuery = oEvent.getParameter("query") || "";
-        const sEngine = (this.getView()?.getModel("diagramData") as JSONModel).getProperty("/engine");
-        
-        Renderer.searchCanvas(this._getInstanceId(), sEngine, sQuery);
-    }
-
-    /**
-     * @private
-     * @description Displays error feedback on the canvas.
-     * @param {string} sMessage - i18n key or raw error message.
-     */
-    private _showError(sMessage: string): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (oViewModel) {
-            oViewModel.setProperty("/hasError", true);
-            oViewModel.setProperty("/errorText", this._getText(sMessage) || sMessage);
-        }
-    }
-
-    /**
-     * @private
-     * @description Resets the canvas UI state before a fresh render.
-     */
-    private _resetState(): void {
-        const oViewModel = this.getView()?.getModel("view") as JSONModel;
-        if (oViewModel) {
-            oViewModel.setProperty("/hasError", false);
-            oViewModel.setProperty("/hasDiagram", false);
-            oViewModel.setProperty("/isFocusMode", false);
-            oViewModel.setProperty("/focusNodeName", "");
-        }
-    }
+    public onSearchCanvas(oEvent: SearchField$SearchEvent): void { this._oCanvasActionHandler.searchCanvas(oEvent); }
 
     /**
      * @private

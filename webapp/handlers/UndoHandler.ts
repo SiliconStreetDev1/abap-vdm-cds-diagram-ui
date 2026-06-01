@@ -135,7 +135,7 @@ export default class UndoHandler {
         if (!oDataModel) return;
         
         const sEngine = oDataModel.getProperty("/engine");
-        if (sEngine === "CYTOSCAPE") {
+        if (Renderer.supportsStateCapture(sEngine)) {
             const state = Renderer.getCanvasState(this._getInstanceId(), sEngine);
             if (state) {
                 const sSerializedState = JSON.stringify(state);
@@ -173,13 +173,15 @@ export default class UndoHandler {
         
         if (oUiModel && oDataModel) {
             const sEngine = oDataModel.getProperty("/engine");
-            if (sEngine === "CYTOSCAPE") {
-                const oFormatCy = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-                oFormatCy.presetPositions = oPrevState;
-                oFormatCy.layout_algorithm = "preset";
-                
-                oUiModel.setProperty("/formatCytoscape", oFormatCy);
-                Renderer.updateLiveFormat(this._getInstanceId(), sEngine, oFormatCy);
+            if (Renderer.supportsStateCapture(sEngine)) {
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                if (sFormatKey) {
+                    let oFormat = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
+                    oFormat = Renderer.applyStateToConfig(sEngine, oFormat, oPrevState);
+                    oUiModel.setProperty(`/${sFormatKey}`, oFormat);
+                    Renderer.updateLiveFormat(this._getInstanceId(), sEngine, oFormat);
+                }
             }
         }
         

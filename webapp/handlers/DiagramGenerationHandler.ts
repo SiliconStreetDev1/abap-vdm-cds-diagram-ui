@@ -12,12 +12,13 @@ import BusyIndicator from "sap/ui/core/BusyIndicator";
 import ComboBox from "sap/m/ComboBox";
 import Select from "sap/m/Select";
 
-import FilterBuilder from "../helpers/FilterBuilder";
+import DiagramRequestMapper from "../helpers/DiagramRequestMapper";
 import DiagramService from "../services/DiagramService";
 import VariantManager from "../helpers/VariantManager";
 import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
 import { IVariantState } from "../types/IVariantState";
+import Renderer from "../renderer/Renderer";
 
 export default class DiagramGenerationHandler {
     private _oView: View;
@@ -76,13 +77,20 @@ export default class DiagramGenerationHandler {
 
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         const sLastCdsName = oUiModel.getProperty("/lastGeneratedCdsName");
+        const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey() as EngineType;
         
         // Only wipe layout presets if we are navigating to a new view WITHOUT a cached restore state
         if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore) {
-            oUiModel.setProperty("/formatCytoscape/presetPositions", null);
-            oUiModel.setProperty("/formatCytoscape/camera", null);
-            if (oUiModel.getProperty("/formatCytoscape/layout_algorithm") === "preset") {
-                oUiModel.setProperty("/formatCytoscape/layout_algorithm", "dagre");
+            if (sEngine && Renderer.supportsStateCapture(sEngine)) {
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                if (sFormatKey) {
+                    oUiModel.setProperty(`/${sFormatKey}/presetPositions`, null);
+                    oUiModel.setProperty(`/${sFormatKey}/camera`, null);
+                    if (oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
+                        oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
+                    }
+                }
             }
         }
         oUiModel.setProperty("/lastGeneratedCdsName", sCdsName);
@@ -100,7 +108,6 @@ export default class DiagramGenerationHandler {
             }
         }
 
-        const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey() as EngineType;
         const oModel = this._oView.getModel() as ODataModel;
 
         // Eagerly drop the stale state so the UI doesn't flash yellow behind the BusyIndicator
@@ -109,8 +116,8 @@ export default class DiagramGenerationHandler {
         BusyIndicator.show(0);
 
         try {
-            const aFilters = FilterBuilder.buildFiltersFromView(this._oView, sCdsName, sEngine);
-            const oResult = await DiagramService.fetchDiagram(oModel, aFilters);
+            const oRequest = DiagramRequestMapper.buildRequest(this._oView, sCdsName, sEngine);
+            const oResult = await DiagramService.fetchDiagram(oModel, oRequest);
 
             VariantManager.updateHistory(oResult.CdsName);
             (this._oView.getModel("history") as JSONModel).setProperty("/items", VariantManager.getHistory());
@@ -121,8 +128,10 @@ export default class DiagramGenerationHandler {
                     engine: sEngine, rootCdsName: this._sRootCdsName, breadcrumbs: this._aBreadcrumbs
                 };
                 
-                if (sEngine === EngineType.CYTOSCAPE) {
-                    oPayload.engineConfig = oUiModel.getProperty("/formatCytoscape");
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                if (sFormatKey) {
+                    oPayload.engineConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
                 }
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
             }

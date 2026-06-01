@@ -5,6 +5,7 @@
 import CytoscapeLayoutBuilder from "./CytoscapeLayoutBuilder";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 import { DomEvents } from "../../../constants/EventConstants";
+import type { Core, NodeSingular } from "cytoscape";
 
 export default class CytoscapeLayoutManager {
 
@@ -13,12 +14,12 @@ export default class CytoscapeLayoutManager {
      * @static
      * @description Applies a hybrid layout to the Cytoscape instance, locking nodes with presets
      * and allowing orphan nodes to flow naturally using physics-based routing.
-     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @param {IParsedCytoscapeConfig} parsedConfig - The strongly-typed format configuration.
      * @param {number} iNodeCount - The total number of nodes in the graph.
      * @returns {void}
      */
-    public static applyHybridLayout(sViewId: string, cyInstance: any, parsedConfig: IParsedCytoscapeConfig, iNodeCount: number): void {
+    public static applyHybridLayout(sViewId: string, cyInstance: Core, parsedConfig: IParsedCytoscapeConfig, iNodeCount: number): void {
         let bIsHybrid = false;
         const bUsePresetsForPositions = parsedConfig.layout === 'preset';
 
@@ -55,10 +56,10 @@ export default class CytoscapeLayoutManager {
 
             if (bUsePresetsForPositions) {
                 // First pass: identify if there are new nodes without preset positions
-                const unmappedNodes = cyInstance.nodes().filter((n: any) => !presets[n.data('id')] && !n.hasClass('annotation-note'));
+                const unmappedNodes = cyInstance.nodes().filter((n: NodeSingular) => !presets[n.data('id')] && !n.hasClass('annotation-note'));
                 bIsHybrid = unmappedNodes.length > 0;
 
-                cyInstance.nodes().forEach((n: any) => {
+                cyInstance.nodes().forEach((n: NodeSingular) => {
                     const pos = presets[n.data('id')];
                     if (pos && !pos.isEdge) {
                         n.position({ x: pos.x ?? 0, y: pos.y ?? 0 });
@@ -89,11 +90,11 @@ export default class CytoscapeLayoutManager {
         }
 
         // Always lock explicitly pinned nodes regardless of layout type
-        cyInstance.nodes().filter((n: any) => n.data('isPinned')).lock();
+        cyInstance.nodes().filter((n: NodeSingular) => n.data('isPinned')).lock();
 
         const hiddenNodes = cyInstance.nodes('.hidden');
         if (typeof document !== "undefined") {
-            const hiddenList = hiddenNodes.map((n: any) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
+            const hiddenList = hiddenNodes.map((n: NodeSingular) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
             document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList } }));
         }
 
@@ -109,7 +110,7 @@ export default class CytoscapeLayoutManager {
 
         const fnUnlock = () => {
             if (cyInstance && !cyInstance.destroyed()) {
-                cyInstance.nodes().filter((n: any) => !n.data('isPinned')).unlock();
+                cyInstance.nodes().filter((n: NodeSingular) => !n.data('isPinned')).unlock();
             }
         };
 
@@ -128,13 +129,13 @@ export default class CytoscapeLayoutManager {
      * @public
      * @static
      * @description Configures and applies the grid alignment and snap-to-grid guidelines.
-     * @param {any} cyInstance - The active Cytoscape.js instance.
+     * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @param {IParsedCytoscapeConfig} config - The strongly-typed format configuration.
      * @returns {void}
      */
-    public static applyGridGuide(cyInstance: any, config: IParsedCytoscapeConfig): void {
-        if (cyInstance && typeof cyInstance.gridGuide === 'function') {
-            cyInstance.gridGuide({
+    public static applyGridGuide(cyInstance: Core, config: IParsedCytoscapeConfig): void {
+        if (cyInstance && typeof (cyInstance as any).gridGuide === 'function') {
+            (cyInstance as any).gridGuide({
                 drawGrid: config.snapGuides,
                 snapToGridOnRelease: false, 
                 snapToGridDuringDrag: false, 

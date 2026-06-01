@@ -29,21 +29,8 @@ export default class VariantStateMapper {
         const sEngine = (oView.byId("selEngine") as Select).getSelectedKey();
         
         const sInstanceId = oView.getController()?.getOwnerComponent()?.getId() || oView.getId();
-        const oCanvasState = sEngine === "CYTOSCAPE" ? Renderer.getCanvasState(sInstanceId, sEngine as string) : null;
-        
-        const oFormatCy = Object.assign({}, oUiModel.getProperty("/formatCytoscape"));
-        if (sEngine === "CYTOSCAPE") {
-            if (bSavePositions) {
-                oFormatCy.presetPositions = oCanvasState;
-            } else {
-                oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
-            }
-            if (oCanvasState && oCanvasState.__camera) {
-                oFormatCy.camera = oCanvasState.__camera;
-            }
-        }
 
-        return {
+        const oState: any = {
             name: sName,
             cdsName: (oView.byId("cmbCdsName") as ComboBox).getValue().trim().toUpperCase(), // Normalizes to prevent the Uppercase Bug
             engine: sEngine,
@@ -64,13 +51,24 @@ export default class VariantStateMapper {
             
             includeCds: aIncTokens.map(t => t.getText()).join(","),
             excludeCds: aExcTokens.map(t => t.getText()).join(","),
-            
-            formatPlantUML: oUiModel.getProperty("/formatPlantUML"),
-            formatGraphviz: oUiModel.getProperty("/formatGraphviz"),
-            formatMermaid: oUiModel.getProperty("/formatMermaid"),
-            formatCytoscape: oFormatCy,
-            canvasState: bSavePositions ? oCanvasState : null
         };
+
+        const oModelData = oUiModel.getData();
+        Object.keys(oModelData).forEach(sKey => {
+            if (sKey.toUpperCase().startsWith("FORMAT")) {
+                oState[sKey] = Object.assign({}, oUiModel.getProperty(`/${sKey}`));
+            }
+        });
+
+        if (sEngine && Renderer.supportsStateCapture(sEngine)) {
+            const oCanvasState = Renderer.getCanvasState(sInstanceId, sEngine);
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            if (sFormatKey && oState[sFormatKey]) {
+                oState[sFormatKey] = Renderer.extractStateForVariant(sEngine, oState[sFormatKey], oCanvasState, bSavePositions);
+            }
+            oState.canvasState = bSavePositions ? oCanvasState : null;
+        }
+        return oState as IVariantState;
     }
 
     /**
@@ -95,15 +93,20 @@ export default class VariantStateMapper {
         (oView.byId("swCustomOnly") as Switch).setState(!!oVariant.customOnly);
         
         oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
-        if (oVariant.formatPlantUML) oUiModel.setProperty("/formatPlantUML", oVariant.formatPlantUML);
-        if (oVariant.formatGraphviz) oUiModel.setProperty("/formatGraphviz", oVariant.formatGraphviz);
-        if (oVariant.formatMermaid) oUiModel.setProperty("/formatMermaid", oVariant.formatMermaid);
         
-        if (oVariant.formatCytoscape) {
-            const oFormatCy = Object.assign({}, oVariant.formatCytoscape);
-            oFormatCy.presetPositions = oVariant.canvasState || null;
-            
-            oUiModel.setProperty("/formatCytoscape", oFormatCy);
+        Object.keys(oVariant).forEach(sKey => {
+            if (sKey.toUpperCase().startsWith("FORMAT") && (oVariant as any)[sKey]) {
+                oUiModel.setProperty(`/${sKey}`, (oVariant as any)[sKey]);
+            }
+        });
+
+        if (oVariant.engine && Renderer.supportsStateCapture(oVariant.engine)) {
+            const sFormatKey = Object.keys(oVariant).find(sKey => sKey.toUpperCase() === `FORMAT${oVariant.engine}`);
+            if (sFormatKey) {
+                let oFormat = Object.assign({}, (oVariant as any)[sFormatKey]);
+                oFormat = Renderer.applyStateToConfig(oVariant.engine, oFormat, oVariant.canvasState || null);
+                oUiModel.setProperty(`/${sFormatKey}`, oFormat);
+            }
         }
 
         const sMode = oVariant.relMode || "LINES";

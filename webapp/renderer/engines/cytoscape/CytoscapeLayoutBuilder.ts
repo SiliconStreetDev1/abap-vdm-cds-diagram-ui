@@ -3,6 +3,7 @@
  * @fileoverview Layout builder for Cytoscape.js rendering.
  * @description Translates standardized configuration into native Cytoscape layout parameters (e.g., dagre, cose).
  */
+import type { EdgeSingular, NodeSingular } from "cytoscape";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
 
 export interface ICytoscapeLayoutConfig {
@@ -31,13 +32,13 @@ export default class CytoscapeLayoutBuilder {
 
         switch (config.layout) {
             case 'cose':
-                oBaseConfig.idealEdgeLength = (edge: any) => {
+                oBaseConfig.idealEdgeLength = (edge: EdgeSingular) => {
                     return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 3 : config.nodeSpacing * 1.5;
                 };
-                oBaseConfig.edgeElasticity = (edge: any) => {
+                oBaseConfig.edgeElasticity = (edge: EdgeSingular) => {
                     return edge.data('label')?.toLowerCase().includes('composition') ? 500 : 50;
                 };
-                oBaseConfig.nodeRepulsion = (node: any) => {
+                oBaseConfig.nodeRepulsion = (node: NodeSingular) => {
                     return config.nodeSpacing * 8000;
                 };
                 oBaseConfig.gravity = 0.15;
