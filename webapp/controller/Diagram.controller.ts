@@ -23,10 +23,11 @@ import CanvasActionHandler from "../handlers/CanvasActionHandler";
 import NoteDialogHandler from "../handlers/NoteDialogHandler";
 import UndoHandler from "../handlers/UndoHandler";
 import DiagramRenderHandler from "../handlers/DiagramRenderHandler";
+import VideoRecordHandler from "../handlers/VideoRecordHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EngineType, IRenderRequestPayload } from "../types";
-import { EventChannels, EventIds } from "../constants/EventConstants";
+import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 
 export default class Diagram extends Controller {
     
@@ -36,6 +37,8 @@ export default class Diagram extends Controller {
     private _oNoteDialogHandler!: NoteDialogHandler;
     private _oUndoHandler!: UndoHandler;
     private _oRenderHandler!: DiagramRenderHandler;
+    private _oVideoRecordHandler!: VideoRecordHandler;
+    private _fnCanvasReadyBind!: EventListener;
     
     /**
      * @private
@@ -68,7 +71,13 @@ export default class Diagram extends Controller {
             hasHiddenNodes: false,
             isSelectMode: true,
             isFocusMode: false,
-            focusNodeName: ""
+            focusNodeName: "",
+            isRecording: false,
+            isVideoPaused: false,
+            _autoPaused: false,
+            recordingMode: "SCREEN",
+            recordingTime: "00:00",
+            videoResolution: "SCREEN" // Default setting
         }), "view");
         
         // Data model storage required for ExportHandler operations
@@ -89,6 +98,7 @@ export default class Diagram extends Controller {
         this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
         this._oUndoHandler = new UndoHandler(oView, this.getOwnerComponent()?.getEventBus());
+        this._oVideoRecordHandler = new VideoRecordHandler(oView, this._getText.bind(this));
 
         // Subscribe to global EventBus for incoming diagram payloads
         const oEventBus = this.getOwnerComponent()?.getEventBus();
@@ -96,6 +106,9 @@ export default class Diagram extends Controller {
             oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
             oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
         }
+
+        this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as EventListener;
+        document.addEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
 
         this._oFullScreenHandler.attachEvents();
         this._oCanvasActionHandler.attachEvents();
@@ -113,11 +126,18 @@ export default class Diagram extends Controller {
             oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
             oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
         }
+        document.removeEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
         this._oFullScreenHandler.detachEvents();
         this._oCanvasActionHandler.detachEvents();
         this._oNoteDialogHandler.detachEvents();
         this._oUndoHandler.detachEvents();
         
+        // ENTERPRISE FIX: Ensure background video recording streams are terminated 
+        // and downloaded safely if the user navigates away from the application.
+        if (this._oVideoRecordHandler) {
+            this._oVideoRecordHandler.stopRecording();
+        }
+
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
         Renderer.destroyActiveEngine(this._getInstanceId());
     }
@@ -143,8 +163,38 @@ export default class Diagram extends Controller {
      * @returns {void}
      */
     private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
+        // ENTERPRISE UX: Auto-pause the video loop during a Drill-Down network request
+        // This prevents CPU collision during Cytoscape physics layout calculations
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        // We only auto-pause the CANVAS compositor. SCREEN recordings use the native OS encoder 
+        // and should not be paused, as we want to capture the UI loading spinners during the drill-down!
+        if (oViewModel && oViewModel.getProperty("/isRecording") && !oViewModel.getProperty("/isVideoPaused")) {
+            if (oViewModel.getProperty("/recordingMode") === "CANVAS") {
+                this._oVideoRecordHandler.pauseRecording();
+                oViewModel.setProperty("/_autoPaused", true);
+            }
+        }
+
         const oHtml = this.byId("htmlRenderer") as HTML;
         this._oRenderHandler.handleRenderRequest(oEventData as IRenderRequestPayload, oHtml);
+    }
+
+    /**
+     * @private
+     * @description Fires instantly when Cytoscape settles its new layout.
+     * @param {globalThis.Event} oEvent - The custom DOM event.
+     * @returns {void}
+     */
+    private _onCanvasReady(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as CustomEvent;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
+        
+        // Seamlessly auto-resume the video feed directly on the new diagram!
+        const oViewModel = this.getView()?.getModel("view") as JSONModel;
+        if (oViewModel && oViewModel.getProperty("/isRecording") && oViewModel.getProperty("/_autoPaused")) {
+            oViewModel.setProperty("/_autoPaused", false);
+            this._oVideoRecordHandler.resumeRecording();
+        }
     }
 
     // ========================================================================
@@ -230,4 +280,16 @@ export default class Diagram extends Controller {
     public onDownloadImage(): void { this._oExportHandler.downloadSvg(); }
     public onDownloadSource(): void{ this._oExportHandler.downloadSource(); }
     public onCopySyntax(): void    { this._oExportHandler.copySyntax(); }
+
+    // ========================================================================
+    // VIDEO RECORDING
+    // ========================================================================
+    public onStartRecording(oEvent: Event): void { 
+        const oItem = (oEvent as any).getParameter("item");
+        const sMode = oItem ? oItem.getKey() : "SCREEN";
+        this._oVideoRecordHandler.startRecording(sMode); 
+    }
+    public onStopRecording(): void  { this._oVideoRecordHandler.stopRecording(); }
+    public onPauseRecording(): void { this._oVideoRecordHandler.pauseRecording(); }
+    public onResumeRecording(): void { this._oVideoRecordHandler.resumeRecording(); }
 }

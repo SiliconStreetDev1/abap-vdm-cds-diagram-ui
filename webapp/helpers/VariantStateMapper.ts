@@ -1,6 +1,8 @@
 /**
- * @fileoverview Maps variant data between the UI state and the persistence layer.
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.helpers
+ * @fileoverview Variant Data Mapper.
  * @description Extracts the complex deep-mapping logic away from the VariantHandler.
+ * Handles deep state hydration from JSON and canvas coordinate synchronization.
  */
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
@@ -30,7 +32,8 @@ export default class VariantStateMapper {
         
         const sInstanceId = oView.getController()?.getOwnerComponent()?.getId() || oView.getId();
 
-        const oState: any = {
+        // ENTERPRISE FIX: Use a strictly typed Dictionary to ensure safe dynamic format appending
+        const oState: Record<string, any> = {
             name: sName,
             cdsName: (oView.byId("cmbCdsName") as ComboBox).getValue().trim().toUpperCase(), // Normalizes to prevent the Uppercase Bug
             engine: sEngine,
@@ -94,16 +97,18 @@ export default class VariantStateMapper {
         
         oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
         
+        const oVariantMap = oVariant as Record<string, any>;
+
         Object.keys(oVariant).forEach(sKey => {
-            if (sKey.toUpperCase().startsWith("FORMAT") && (oVariant as any)[sKey]) {
-                oUiModel.setProperty(`/${sKey}`, (oVariant as any)[sKey]);
+            if (sKey.toUpperCase().startsWith("FORMAT") && oVariantMap[sKey]) {
+                oUiModel.setProperty(`/${sKey}`, oVariantMap[sKey]);
             }
         });
 
         if (oVariant.engine && Renderer.supportsStateCapture(oVariant.engine)) {
             const sFormatKey = Object.keys(oVariant).find(sKey => sKey.toUpperCase() === `FORMAT${oVariant.engine}`);
             if (sFormatKey) {
-                let oFormat = Object.assign({}, (oVariant as any)[sFormatKey]);
+                let oFormat = Object.assign({}, oVariantMap[sFormatKey]);
                 oFormat = Renderer.applyStateToConfig(oVariant.engine, oFormat, oVariant.canvasState || null);
                 oUiModel.setProperty(`/${sFormatKey}`, oFormat);
             }

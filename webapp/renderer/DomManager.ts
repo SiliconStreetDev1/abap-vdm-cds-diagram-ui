@@ -69,39 +69,42 @@ export default class DomManager {
         const config = ConfigManager.get();
         
         NetworkManager.loadScript(config.localPaths?.d3, config.cdnPaths?.d3).then(() => {
-            setTimeout(() => {
-                const svg = d3.select(`#${sRenderId} svg`);
-                if (svg.empty()) return;
+            // Use the browser's paint lifecycle instead of an arbitrary 100ms timeout
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const svg = d3.select(`#${sRenderId} svg`);
+                    if (svg.empty()) return;
 
-                svg.style("width", null).style("height", null);
-                svg.style("max-width", "none").style("max-height", "none");
+                    svg.style("width", null).style("height", null);
+                    svg.style("max-width", "none").style("max-height", "none");
 
-                const sWidth = svg.attr("width");
-                const sHeight = svg.attr("height");
-                
-                if (!svg.attr("viewBox") && sWidth && sHeight && !sWidth.includes("%")) {
-                    const w = parseFloat(sWidth.replace(/px|pt|em/g, ""));
-                    const h = parseFloat(sHeight.replace(/px|pt|em/g, ""));
-                    if (!isNaN(w) && !isNaN(h)) {
-                        svg.attr("viewBox", `0 0 ${w} ${h}`);
+                    const sWidth = svg.attr("width");
+                    const sHeight = svg.attr("height");
+                    
+                    if (!svg.attr("viewBox") && sWidth && sHeight && !sWidth.includes("%")) {
+                        const w = parseFloat(sWidth.replace(/px|pt|em/g, ""));
+                        const h = parseFloat(sHeight.replace(/px|pt|em/g, ""));
+                        if (!isNaN(w) && !isNaN(h)) {
+                            svg.attr("viewBox", `0 0 ${w} ${h}`);
+                        }
                     }
-                }
 
-                svg.attr("width", "100%").attr("height", "100%");
-                svg.attr("preserveAspectRatio", "xMidYMid meet");
+                    svg.attr("width", "100%").attr("height", "100%");
+                    svg.attr("preserveAspectRatio", "xMidYMid meet");
 
-                const zoom = d3.zoom()
-                    .scaleExtent([0.05, 50])
-                    .on("zoom", (event: any) => {
-                        svg.select("g").attr("transform", event.transform);
+                    const zoom = d3.zoom()
+                        .scaleExtent([0.05, 50])
+                        .on("zoom", (event: any) => {
+                            svg.select("g").attr("transform", event.transform);
+                        });
+
+                    svg.call(zoom);
+
+                    svg.on("dblclick.zoom", () => {
+                        svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
                     });
-
-                svg.call(zoom);
-
-                svg.on("dblclick.zoom", () => {
-                    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
                 });
-            }, 100);
+            });
         });
     }
 }

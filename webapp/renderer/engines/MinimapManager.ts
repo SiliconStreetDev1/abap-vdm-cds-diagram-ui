@@ -186,9 +186,9 @@ export default class MinimapManager {
         });
         resizeHandle.addEventListener("mouseleave", () => { if (!bIsResizing) resizeHandle.style.opacity = "0.4"; });
 
-        let ro = null;
-        if (typeof (window as any).ResizeObserver !== "undefined") {
-            ro = new (window as any).ResizeObserver(() => { if (cy) cy.emit("resize"); });
+        let ro: ResizeObserver | null = null;
+        if (typeof window.ResizeObserver !== "undefined") {
+            ro = new window.ResizeObserver(() => { if (cy) cy.emit("resize"); });
             ro.observe(domElem);
         }
         return {

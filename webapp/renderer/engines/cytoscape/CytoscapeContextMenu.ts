@@ -41,7 +41,7 @@ export default class CytoscapeContextMenu {
             // SMART SELECTION EVALUATION
             // If the right-clicked node is part of a bulk selection, target the entire block.
             // Otherwise, Cytoscape treats the single 'node' as a collection of length 1.
-            let targetNodes: NodeCollection = node as any as NodeCollection;
+            let targetNodes: NodeCollection = cyInstance.collection().merge(node);
             if (node.selected()) {
                 const selectedNodes = cyInstance.nodes(':selected');
                 if (selectedNodes.length > 1) {

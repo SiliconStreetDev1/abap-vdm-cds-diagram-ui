@@ -10,6 +10,9 @@ import { DomEvents } from "../../../constants/EventConstants";
 export default class CytoscapeNoteManager {
     private static _cyInstances: Map<string, Core> = new Map();
     private static _bIsBound = false;
+    private static _fnAddNote?: EventListener;
+    private static _fnEditNote?: EventListener;
+    private static _fnChangeColor?: EventListener;
 
     /**
      * @public
@@ -23,9 +26,13 @@ export default class CytoscapeNoteManager {
         this._cyInstances.set(sViewId, cyInstance);
 
         if (!this._bIsBound && typeof document !== "undefined") {
-            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._onAddNoteRequest.bind(this) as EventListener);
-            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._onEditNoteRequest.bind(this) as EventListener);
-            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._onChangeNoteColorRequest.bind(this) as EventListener);
+            this._fnAddNote = this._onAddNoteRequest.bind(this) as EventListener;
+            this._fnEditNote = this._onEditNoteRequest.bind(this) as EventListener;
+            this._fnChangeColor = this._onChangeNoteColorRequest.bind(this) as EventListener;
+            
+            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNote);
+            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNote);
+            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeColor);
             this._bIsBound = true;
         }
     }
@@ -38,6 +45,15 @@ export default class CytoscapeNoteManager {
      */
     public static detachEvents(sViewId: string): void {
         this._cyInstances.delete(sViewId);
+        
+        // ENTERPRISE FIX: If no active instances remain, completely detach global listeners 
+        // to prevent ghost events in the SAP Fiori Launchpad when navigating between apps.
+        if (this._cyInstances.size === 0 && this._bIsBound && typeof document !== "undefined") {
+            if (this._fnAddNote) document.removeEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNote);
+            if (this._fnEditNote) document.removeEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNote);
+            if (this._fnChangeColor) document.removeEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeColor);
+            this._bIsBound = false;
+        }
     }
 
     /**

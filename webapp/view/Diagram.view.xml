@@ -21,6 +21,25 @@
             <Button id="btnDownloadSrc" icon="sap-icon://download" text="{i18n>btnDownloadSrc}" press="onDownloadSource" visible="{= ${diagramData>/engine} !== 'CYTOSCAPE' }" />
             <Button id="btnDownloadImg" icon="sap-icon://camera" text="{i18n>btnDownloadImg}" press="onDownloadImage" type="Emphasized" visible="{view>/canExportImg}" />
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{view>/canExportImg}" />
+            
+            <ToolbarSeparator visible="{= ${view>/canExportImg} &amp;&amp; ${ui>/enableVideoRecording} === true }" />
+            <ComboBox selectedKey="{view>/videoResolution}" width="150px" visible="{= ${view>/canExportImg} &amp;&amp; ${ui>/enableVideoRecording} === true }">
+                <core:Item key="SCREEN" text="{i18n>optResScreen}" />
+                <core:Item key="1080P" text="{i18n>optRes1080p}" />
+                <core:Item key="720P" text="{i18n>optRes720p}" />
+            </ComboBox>
+            
+            <MenuButton id="btnRecordMenu" icon="sap-icon://record" text="{i18n>btnRecord}" type="Reject" visible="{= ${view>/canExportImg} &amp;&amp; !${view>/isRecording} &amp;&amp; ${ui>/enableVideoRecording} === true }">
+                <menu>
+                    <Menu itemSelected=".onStartRecording">
+                        <MenuItem key="CANVAS" text="{i18n>optRecordCanvas}" icon="sap-icon://video" />
+                        <MenuItem key="SCREEN" text="{i18n>optRecordScreen}" icon="sap-icon://sys-monitor" />
+                    </Menu>
+                </menu>
+            </MenuButton>
+            <Button icon="sap-icon://media-pause" type="Critical" text="Pause" press="onPauseRecording" visible="{= ${view>/isRecording} &amp;&amp; !${view>/isVideoPaused} }" />
+            <Button icon="sap-icon://media-play" type="Accept" text="Resume" press="onResumeRecording" visible="{= ${view>/isRecording} &amp;&amp; ${view>/isVideoPaused} }" />
+            <Button icon="sap-icon://stop" type="Accept" text="Stop ({view>/recordingTime})" press="onStopRecording" visible="{view>/isRecording}" />
         </Toolbar>   
     
      <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="diagramWrapper {= ${view>/isSelectMode} ? 'selectModeActive' : '' }">

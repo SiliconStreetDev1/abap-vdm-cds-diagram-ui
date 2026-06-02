@@ -136,14 +136,20 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     private _processValueHelpSelection(sSelectedCds: string): void {
-        const oActiveField = this._oActiveSearchField as any;
+        // ENTERPRISE FIX: Drop the 'any' cast and rely on the native UI5 Control class mapping
+        const oActiveField = this._oActiveSearchField;
         if (!oActiveField) return;
-        if (oActiveField.isA("sap.m.MultiInput")) {
+        
+        const bIsMultiInput = oActiveField.isA("sap.m.MultiInput");
+        const bIsInput = oActiveField.isA("sap.m.Input");
+        const bIsComboBox = oActiveField.isA("sap.m.ComboBox");
+        
+        if (bIsMultiInput) {
             const oMI = oActiveField as MultiInput;
             if (!oMI.getTokens().some((t: Token) => t.getKey() === sSelectedCds)) oMI.addToken(new Token({ key: sSelectedCds, text: sSelectedCds }));
             oMI.focus();
             this._oStateHandler.onFormChange();
-        } else if (oActiveField.isA("sap.m.Input") || oActiveField.isA("sap.m.ComboBox")) {
+        } else if (bIsInput || bIsComboBox) {
             const oInputField = oActiveField as Input | ComboBox;
             oInputField.setValue(sSelectedCds);
             (this._oView.byId("btnGenerate") as Button)?.focus();

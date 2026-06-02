@@ -5,6 +5,13 @@
  * to strictly enforce the Single Responsibility Principle.
  */
 import View from "sap/ui/core/mvc/View";
+import Dialog from "sap/m/Dialog";
+import TextArea from "sap/m/TextArea";
+import Button from "sap/m/Button";
+import Select from "sap/m/Select";
+import Item from "sap/ui/core/Item";
+import VBox from "sap/m/VBox";
+import Label from "sap/m/Label";
 import { DomEvents } from "../constants/EventConstants";
 
 export default class NoteDialogHandler {
@@ -100,44 +107,41 @@ export default class NoteDialogHandler {
      * @description Reusable factory for creating note dialogs to eliminate code duplication.
      */
     private _openNoteDialog(sTitle: string, sInitialText: string, sInitialFont: string, fnOnSave: (sText: string, sFont: string) => void): void {
-        sap.ui.require(["sap/m/Dialog", "sap/m/TextArea", "sap/m/Button", "sap/m/Select", "sap/ui/core/Item", "sap/m/VBox", "sap/m/Label"], 
-        (Dialog: any, TextArea: any, Button: any, Select: any, Item: any, VBox: any, Label: any) => {
-            
-            const oTextArea = new TextArea({ width: "100%", rows: 5, value: sInitialText, placeholder: "Type your sticky note here..." });
-            
-            const oFontSelect = new Select({
-                width: "100%",
-                selectedKey: sInitialFont || "Marker",
-                items: [
-                    new Item({ key: "Marker", text: "Marker (Handwritten)" }),
-                    new Item({ key: "Standard", text: "Standard (Sans-Serif)" }),
-                    new Item({ key: "Monospace", text: "Monospace (Code)" }),
-                    new Item({ key: "Serif", text: "Serif (Formal)" })
-                ]
-            });
-
-            const oContent = new VBox({
-                items: [ new Label({ text: "Note Text" }), oTextArea, new Label({ text: "Typography" }).addStyleClass("sapUiSmallMarginTop"), oFontSelect ]
-            }).addStyleClass("sapUiTinyMargin");
-
-            const oDialog = new Dialog({
-                title: sTitle,
-                contentWidth: "300px",
-                content: [oContent],
-                beginButton: new Button({
-                    text: "Save",
-                    type: "Emphasized",
-                    press: () => {
-                        const sText = oTextArea.getValue().trim();
-                        if (sText) fnOnSave(sText, oFontSelect.getSelectedKey());
-                        oDialog.close();
-                    }
-                }),
-                endButton: new Button({ text: "Cancel", press: () => oDialog.close() }),
-                afterClose: () => oDialog.destroy()
-            });
-            this._oView.addDependent(oDialog);
-            oDialog.open();
+        const oTextArea = new TextArea({ width: "100%", rows: 5, value: sInitialText, placeholder: "Type your sticky note here..." });
+        
+        const oFontSelect = new Select({
+            width: "100%",
+            selectedKey: sInitialFont || "Marker",
+            items: [
+                new Item({ key: "Marker", text: "Marker (Handwritten)" }),
+                new Item({ key: "Standard", text: "Standard (Sans-Serif)" }),
+                new Item({ key: "Monospace", text: "Monospace (Code)" }),
+                new Item({ key: "Serif", text: "Serif (Formal)" })
+            ]
         });
+
+        const oContent = new VBox({
+            items: [ new Label({ text: "Note Text" }), oTextArea, new Label({ text: "Typography" }).addStyleClass("sapUiSmallMarginTop"), oFontSelect ]
+        }).addStyleClass("sapUiTinyMargin");
+
+        const oDialog = new Dialog({
+            title: sTitle,
+            contentWidth: "300px",
+            content: [oContent],
+            beginButton: new Button({
+                text: "Save",
+                type: "Emphasized",
+                press: () => {
+                    const sText = oTextArea.getValue().trim();
+                    if (sText) fnOnSave(sText, oFontSelect.getSelectedKey());
+                    oDialog.close();
+                }
+            }),
+            endButton: new Button({ text: "Cancel", press: () => oDialog.close() }),
+            afterClose: () => oDialog.destroy()
+        });
+        
+        this._oView.addDependent(oDialog);
+        oDialog.open();
     }
 }

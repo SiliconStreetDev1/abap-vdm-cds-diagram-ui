@@ -112,6 +112,16 @@
             </HBox>
             <MultiInput id="inpExclude" placeholder="{i18n>phExclude}" width="100%" 
                         showValueHelp="true" valueHelpRequest="onCdsValueHelpRequest" tokenUpdate="onFormChange" />
+
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiMediumMarginTop sapUiTinyMarginBottom">
+            <Label text="{i18n>lblVideoRecording}" design="Bold" />
+            <core:Icon src="sap-icon://information" color="#0070f2" visible="{ui>/showHelp}"
+                       press="onShowInfo" customData:infoType="VideoRecording" tooltip="{i18n>ttClickInfo}" />
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
+            <Label text="{i18n>lblEnableRecording}" />
+            <Switch id="swEnableRecording" state="{ui>/enableVideoRecording}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />
+        </HBox>
         </VBox>
     </VBox>
 </core:FragmentDefinition>
