@@ -28,7 +28,7 @@
                 <core:Icon src="sap-icon://circle-task-2" color="#d32f2f" class="sapUiTinyMarginEnd" />
                 <Text text="{ui>/recordingTime}" design="Bold" class="sapUiSmallMarginEnd" />
                 <Button icon="sap-icon://media-pause" type="Critical" press="onPauseRecording" visible="{= !${ui>/isVideoPaused} }" class="sapUiTinyMarginEnd" />
-                <Button icon="sap-icon://media-play" type="Accept" press="onResumeRecording" visible="{= ${ui>/isVideoPaused} }" class="sapUiTinyMarginEnd" />
+                <Button icon="sap-icon://record" type="Accept" press="onResumeRecording" visible="{= ${ui>/isVideoPaused} }" class="sapUiTinyMarginEnd" />
                 <Button icon="sap-icon://stop" type="Reject" text="Stop" press="onStopRecording" />
             </HBox>
             

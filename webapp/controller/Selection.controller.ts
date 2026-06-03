@@ -209,7 +209,8 @@ export default class Selection extends Controller {
         const oUiModel = this.getView()?.getModel("ui") as JSONModel;
         if (oUiModel) oUiModel.setProperty("/variantDirty", false);
 
-        this._oVariantHandler.applyVariant(e, () => this._oGenerationHandler.generate(false)); 
+        const sSelectedName = oVariantSelect ? oVariantSelect.getSelectedKey() : "";
+        this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false)); 
     }
 
     /**
@@ -224,7 +225,8 @@ export default class Selection extends Controller {
             const oUiModel = this.getView()?.getModel("ui") as JSONModel;
             if (oUiModel) oUiModel.setProperty("/variantDirty", false);
 
-            this._oVariantHandler.applyVariant(new Event("dummy", oVariantSelect, {}), () => this._oGenerationHandler.generate(false));
+            const sSelectedName = oVariantSelect.getSelectedKey();
+            this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false));
         }
     }
     

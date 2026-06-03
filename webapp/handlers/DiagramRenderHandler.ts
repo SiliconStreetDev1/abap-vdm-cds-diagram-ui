@@ -78,9 +78,9 @@ export default class DiagramRenderHandler {
                 const oModelData = oUiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${oData.engine}`);
                 if (sFormatKey) {
-                    if (oData.engineConfig?.presetPositions && !bIsDrillDown) {
+                    if (oData.engineConfig?.presetPositions && (!bIsDrillDown || oData.engineConfig.isRestore)) {
                         oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
-                    } else if (bIsDrillDown && oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
+                    } else if (bIsDrillDown && !oData.engineConfig?.isRestore && oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
                         oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
                     }
                 }

@@ -11,7 +11,6 @@ import EventBus from "sap/ui/core/EventBus";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import FileDownloadUtility from "../helpers/FileDownloadUtility";
 import NetworkManager from "../helpers/NetworkManager";
-import BusyIndicator from "sap/ui/core/BusyIndicator";
 import ConfigManager from "../renderer/ConfigManager";
 import VideoRecorder, { IRecordingConfig } from "../video/VideoRecorder";
 import ScreenRecorder from "../video/ScreenRecorder";
@@ -30,6 +29,7 @@ export default class VideoRecordHandler {
     private resumeBind: () => void;
     private startBind: () => void;
     private hotkeyBind: EventListener;
+    private _bIsAttached: boolean = false;
 
     /**
      * Initializes the Video Record Handler.
@@ -56,6 +56,8 @@ export default class VideoRecordHandler {
      * @description Subscribes the handler to global application events.
      */
     public attachEvents(): void {
+        if (this._bIsAttached) return;
+
         if (this.eventBus) {
             this.eventBus.subscribe("VideoRecording", "AutoPause", this.autoPauseBind, this);
             this.eventBus.subscribe("VideoRecording", "AutoResume", this.autoResumeBind, this);
@@ -68,6 +70,7 @@ export default class VideoRecordHandler {
         if (typeof document !== "undefined") {
             document.addEventListener("keydown", this.hotkeyBind);
         }
+        this._bIsAttached = true;
     }
 
     /**
@@ -75,6 +78,8 @@ export default class VideoRecordHandler {
      * @description Unsubscribes global events to prevent memory leaks during view destruction.
      */
     public detachEvents(): void {
+        if (!this._bIsAttached) return;
+
         if (this.eventBus) {
             this.eventBus.unsubscribe("VideoRecording", "AutoPause", this.autoPauseBind, this);
             this.eventBus.unsubscribe("VideoRecording", "AutoResume", this.autoResumeBind, this);
@@ -87,6 +92,7 @@ export default class VideoRecordHandler {
         if (typeof document !== "undefined") {
             document.removeEventListener("keydown", this.hotkeyBind);
         }
+        this._bIsAttached = false;
     }
 
     /**
@@ -112,14 +118,6 @@ export default class VideoRecordHandler {
         const maxLengthSeconds = uiModel.getProperty("/videoMaxLength") || 150;
         const videoTitle = uiModel.getProperty("/videoTitle") || "";
         const videoSubtitle = uiModel.getProperty("/videoSubtitle") || "";
-
-        // Enterprise Fix: Pre-load the ts-ebml binary parser. 
-        // Chromium's MediaRecorder completely omits the 'Cues' index from WebM files, 
-        // causing desktop media players (VLC, QuickTime) to crash or jump back when fast-forwarding.
-        const appConfig = await ConfigManager.initialize();
-        NetworkManager.loadScript(appConfig.localPaths?.tsEbml, appConfig.cdnPaths?.tsEbml || "https://unpkg.com/ts-ebml@2.0.2/dist/tsEBML.js").catch(() => {
-            console.warn("Could not load ts-ebml. Video may crash desktop media players when seeking.");
-        });
 
         // 1. Polymorphic Factory Instantiation
         if (mode === "CANVAS") {
@@ -172,13 +170,6 @@ export default class VideoRecordHandler {
      */
     public stopRecording(): void {
         const uiModel = this.view.getModel("ui") as JSONModel;
-        const bWasRecording = uiModel && uiModel.getProperty("/isRecording");
-        const bIsEngineActive = this.recorder ? this.recorder.isRecording() : false;
-
-        // ENTERPRISE UX: Show a BusyIndicator while the video engine compiles the binary Cues index
-        if (bWasRecording && bIsEngineActive) {
-            BusyIndicator.show(0);
-        }
 
         if (this.recorder) this.recorder.stopRecording();
         
@@ -189,11 +180,6 @@ export default class VideoRecordHandler {
                 isWaitingForPermission: false, 
                 recordingTime: "00:00"
             });
-        }
-
-        // Failsafe: Hide indicator immediately if the engine wasn't actively streaming
-        if (bWasRecording && !bIsEngineActive) {
-            BusyIndicator.hide();
         }
     }
 
@@ -222,7 +208,7 @@ export default class VideoRecordHandler {
     private handleAutoPause(): void {
         const uiModel = this.view.getModel("ui") as JSONModel;
         if (uiModel && uiModel.getProperty("/isRecording") && !uiModel.getProperty("/isVideoPaused")) {
-            this.pauseRecording();
+            if (this.recorder) this.recorder.systemPause();
             this.updateUIState({ _autoPaused: true });
         }
     }
@@ -235,7 +221,7 @@ export default class VideoRecordHandler {
         const uiModel = this.view.getModel("ui") as JSONModel;
         if (uiModel && uiModel.getProperty("/isRecording") && uiModel.getProperty("/_autoPaused")) {
             this.updateUIState({ _autoPaused: false });
-            this.resumeRecording();
+            if (this.recorder) this.recorder.systemResume();
         }
     }
 
@@ -244,8 +230,6 @@ export default class VideoRecordHandler {
      * @description Dispatches the compiled Blob to the user's OS file system.
      */
     private handleRecordingStop(blob: Blob): void {
-        BusyIndicator.hide();
-
         this.updateUIState({ 
             isRecording: false, 
             isCountingDown: false, 
@@ -265,16 +249,15 @@ export default class VideoRecordHandler {
         
         FileDownloadUtility.downloadBlob(blob, `VDM_Architecture_${Date.now()}.${extension}`);
         
-        if (this.view.isDestroyed()) return;
-        MessageToast.show(this.textFormatter("msgRecordingSaved"));
+        if (!this.view.isDestroyed()) {
+            MessageToast.show(this.textFormatter("msgRecordingSaved"));
+        }
     }
 
     /**
      * @private
      */
     private handleRecordingError(errorMsg: string): void {
-        BusyIndicator.hide();
-
         this.updateUIState({ 
             isRecording: false, 
             isCountingDown: false, 

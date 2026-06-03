@@ -122,6 +122,7 @@ export default class DiagramGenerationHandler {
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
                 if (sFormatKey) {
                     oPayload.engineConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
+                    oPayload.engineConfig.isRestore = bIsRestore;
                 }
                 this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
             }

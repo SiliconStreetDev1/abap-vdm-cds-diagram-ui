@@ -141,12 +141,11 @@ export default class VariantHandler {
     /**
      * Handles variant selection from the dropdown. 
      * Re-hydrates all UI state, layout logic, formatting objects, and token lists.
-     * @param {Event} oEvent - Selection change event from the Variant Select control.
+     * @param {string} selectedName - The name of the variant to apply.
      * @param {Function} [fnGenerateCallback] - Optional callback to trigger generation after application.
      * @public
      */
-    public applyVariant(event: Event, generateCallback?: () => void): void {
-        const selectedName = (event.getSource() as Select).getSelectedKey();
+    public applyVariant(selectedName: string, generateCallback?: () => void): void {
         const variantsModel = this.view.getModel("variants") as JSONModel;
         
         // Retrieve the full variant configuration object
