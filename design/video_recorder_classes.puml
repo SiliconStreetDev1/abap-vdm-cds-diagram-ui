@@ -7,6 +7,7 @@ skinparam classAttributeIconSize 0
 interface IRecordingConfig {
   + resolutionStr: string
   + fps: number
+  + videoQuality: string
   + delaySeconds: number
   + onWaitingForPermission()
   + onPermissionGranted()
@@ -14,6 +15,7 @@ interface IRecordingConfig {
   + onStart()
   + onStop(blob)
   + onError(err)
+  + onTick(time: number)
 }
 
 abstract class VideoRecorder {

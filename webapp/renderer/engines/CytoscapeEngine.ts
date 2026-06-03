@@ -61,7 +61,7 @@ export default class CytoscapeEngine {
      * @description Provides the baseline default configuration for the UI Model.
      */
     public static getDefaultConfig(): Record<string, any> {
-        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false };
+        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false, enableFocusMode: false };
     }
 
     public static applyStateToConfig(oConfig: Record<string, any>, oState: any): Record<string, any> {
@@ -163,6 +163,7 @@ export default class CytoscapeEngine {
                         layout: parsedConfig.layout,
                         snapGuides: parsedConfig.snapGuides
                     });
+                    cyInstance.scratch('_enableFocusMode', !!oFormat.enableFocusMode);
 
                     // Inject visual styling for Sticky Notes and Edges
                     CytoscapeStyleBuilder.injectAnnotationStyles(cyInstance);
@@ -173,8 +174,6 @@ export default class CytoscapeEngine {
                         cyInstance.viewport(parsedConfig.camera);
                     }
 
-                    CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
-
                     CytoscapeEventHandler.attachEvents(sViewId, cyInstance, parsedConfig.isDrillDown);
                     CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
                     CytoscapeContextMenu.attach(sViewId, cyInstance, parsedConfig.isDrillDown);
@@ -183,6 +182,9 @@ export default class CytoscapeEngine {
                     CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
 
                     MinimapManager.toggle(sViewId, cyInstance, MinimapManager.getShowState(sViewId));
+
+                    // ENTERPRISE FIX: Trigger the layout engine AFTER event handlers are bound so UndoHandler catches CANVAS_READY
+                    CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
 
                 } catch (e: any) {
                     fnOnError(`Cytoscape Parsing Error. Details: ${e.message}`);
@@ -209,6 +211,9 @@ export default class CytoscapeEngine {
             context.layout = parsedConfig.layout;
             context.snapGuides = parsedConfig.snapGuides;
             
+            const bFocusModeChanged = cyInstance.scratch('_enableFocusMode') !== !!oConfig.enableFocusMode;
+            cyInstance.scratch('_enableFocusMode', !!oConfig.enableFocusMode);
+            
             const oContainer = cyInstance.container();
             if (oContainer) {
                 oContainer.style.backgroundColor = parsedConfig.theme === 'fiori_dark' ? '#29313a' : 'var(--sapBackgroundColor, #ffffff)';
@@ -230,6 +235,42 @@ export default class CytoscapeEngine {
 
             // 4. Rerun the physical layout using the centralized hybrid rules
             CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
+
+            // 5. Re-evaluate focus mode if toggled dynamically
+            if (bFocusModeChanged) {
+                cyInstance.scratch('_tempFocusMode', false);
+                const selected = cyInstance.elements('node:selected');
+                if (selected.length > 0) {
+                    cyInstance.scratch('_ignoreTempFocusWipe', true);
+                    cyInstance.elements().unselect();
+                    selected.select(); // Trigger the event handler to apply/remove classes
+                    cyInstance.scratch('_ignoreTempFocusWipe', false);
+                } else {
+                    cyInstance.elements().removeClass('faded highlighted');
+                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { detail: { viewId: sViewId, isFocused: false, nodeName: "", hasNodeSelected: false, tempFocusMode: false } }));
+                }
+            }
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Applies a temporary neighborhood highlight around the current selection.
+     */
+    public static setTempFocusMode(sViewId: string, bEnable: boolean): void {
+        const context = this._cyContexts.get(sViewId);
+        if (context) {
+            const cyInstance = context.cy;
+            cyInstance.scratch('_tempFocusMode', bEnable);
+            
+            const selected = cyInstance.elements('node:selected');
+            if (selected.length > 0) {
+                cyInstance.scratch('_ignoreTempFocusWipe', true);
+                cyInstance.elements().unselect();
+                selected.select(); 
+                cyInstance.scratch('_ignoreTempFocusWipe', false);
+            }
         }
     }
 
@@ -252,6 +293,51 @@ export default class CytoscapeEngine {
     public static clearSelection(sViewId: string): void {
         const context = this._cyContexts.get(sViewId);
         if (context) CytoscapeInteractionManager.clearSelection(context.cy);
+    }
+
+    /**
+     * @public
+     * @description Deletes selected sticky notes and hides selected diagram entities.
+     */
+    public static deleteSelection(sViewId: string): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context) return;
+        
+        const cyInstance = context.cy;
+        const selected = cyInstance.nodes(':selected');
+        if (selected.length === 0) return;
+
+        const notes = selected.filter('.annotation-note');
+        const entities = selected.difference('.annotation-note');
+        
+        let bChanged = false;
+
+        if (notes.length > 0) {
+            cyInstance.remove(notes);
+            bChanged = true;
+        }
+
+        if (entities.length > 0) {
+            entities.addClass('hidden');
+            entities.unselect();
+            bChanged = true;
+            
+            // Ensure Fiori UI 'Hidden Entities' list syncs up
+            if (typeof document !== "undefined") {
+                const hiddenNodes = cyInstance.nodes('.hidden').map((n: any) => ({
+                    id: n.id(),
+                    label: n.data('label') || n.id()
+                }));
+                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, {
+                    detail: { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes }
+                }));
+            }
+        }
+
+        // Commit changes to the Ctrl+Z Undo Stack
+        if (bChanged && typeof document !== "undefined") {
+            document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, { detail: { viewId: sViewId } }));
+        }
     }
 
     /**

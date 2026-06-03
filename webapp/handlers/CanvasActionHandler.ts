@@ -104,6 +104,20 @@ export default class CanvasActionHandler {
 
     /**
      * @public
+     * @description Activates a temporary Focus Mode on the currently selected entity.
+     * @param {Event} oEvent - The toggle button event.
+     */
+    public toggleTempFocusMode(oEvent: Event): void {
+        const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel) oViewModel.setProperty("/tempFocusMode", bPressed);
+        
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        Renderer.setTempFocusMode(this._getInstanceId(), sEngine, bPressed);
+    }
+
+    /**
+     * @public
      * @description Dispatches formatting configuration parameters to the active renderer.
      * @returns {void}
      */
@@ -202,6 +216,12 @@ export default class CanvasActionHandler {
         if (oViewModel) {
             oViewModel.setProperty("/isFocusMode", oCustomEvent.detail?.isFocused || false);
             oViewModel.setProperty("/focusNodeName", oCustomEvent.detail?.nodeName || "");
+            if (oCustomEvent.detail?.hasNodeSelected !== undefined) {
+                oViewModel.setProperty("/hasNodeSelected", oCustomEvent.detail.hasNodeSelected);
+            }
+            if (oCustomEvent.detail?.tempFocusMode !== undefined) {
+                oViewModel.setProperty("/tempFocusMode", oCustomEvent.detail.tempFocusMode);
+            }
         }
     }
 

@@ -59,7 +59,7 @@ When exploring massive enterprise models, use the **Minimap Toggle** in the tool
 ### 7. Custom Layouts & Variant Persistence
 * **Drag and Drop Positioning:** Entities can now be freely dragged and positioned anywhere on the canvas.
 * **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved to local storage as View Variants.
-* **Undo/Redo Stack:** Integrated `Ctrl+Z` support utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
+* **Undo/Redo Stack:** Integrated `Ctrl+Z` support (and a dedicated UI toolbar button) utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
 * **Grid Snapping:** Toggleable alignment guides and strict snap-to-grid constraints for precise architectural mapping.
 
 ### 8. Visual Annotations (Sticky Notes)
@@ -68,7 +68,7 @@ When exploring massive enterprise models, use the **Minimap Toggle** in the tool
 
 ### 9. Contextual Actions & Visibility
 * **Right-Click Fiori Context Menu:** Pin/Unlock specific nodes in place while allowing the physics engine to route other entities around them.
-* **Hidden Node Manager:** Hide irrelevant CDS views via the context menu, and use the dedicated manager Dialog to review and selectively restore hidden entities. Hiding a node will automatically cascade and hide any sticky notes specifically linked to it.
+* **Hidden Node Manager:** Hide irrelevant CDS views via the context menu (or the `Delete`/`Backspace` keys), and use the dedicated manager Dialog to review and selectively restore hidden entities. Hiding a node will automatically cascade and hide any sticky notes specifically linked to it.
 
 ### 10. Search & Export
 * **Graph Search:** A dedicated search bar allows you to quickly locate, zoom, and highlight specific entities within massive, complex architectures.
@@ -80,7 +80,16 @@ Beyond `dagre` and `cose`, the Cytoscape engine supports switching between disti
 * **Grid & Circular:** Structured topology generation for strict alignment.
 * **Breadthfirst:** Interactive tree expansion representations.
 
-### 12. How Variants Work (State Persistence)
+### 12. Power User Shortcuts
+The canvas supports several native keyboard shortcuts for rapid architecture modeling:
+* `Ctrl + Z` (or UI Undo Button): Undo the last layout action or note deletion.
+* `Delete` / `Backspace`: Instantly hide selected CDS entities or delete selected sticky notes.
+* `Shift + N`: Add a new sticky note.
+* `Shift + T`: Toggle temporary Focus Mode on the currently selected entity.
+* `Shift + H`: Open the Hidden Entities manager.
+* `Shift + M`: Toggle the Bird's-Eye Minimap.
+
+### 13. How Variants Work (State Persistence)
 The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session directly into local storage. 
 
 > **Note:** Variants are currently saved to your browser's **local storage** for now. They are specific to your machine/browser and are not yet synced globally to the SAP backend.
@@ -113,13 +122,14 @@ The application features a built-in, native HTML5 Video Recording engine that ex
 * **Canvas Only (Clean) Mode:** Directly captures the WebGL pixel buffer of the Cytoscape graph. The resulting video is completely clean, hiding the SAP Fiori UI, your mouse cursor, and any system notifications.
 * **Entire Screen Mode:** Captures the full SAP Fiori UI, useful for training or tutorial videos.
 * **Stealth Mode:** For 100% invisible diagram capture, enable Stealth Mode to hide all UI recording indicators and control the engine strictly via the `Ctrl + Shift + X` global hotkey.
-* **Dynamic Encoding:** Automatically calculates optimal bitrates based on the user's selected resolution (720p to 4K) and Framerate (30-60 FPS) to prevent pixelation while optimizing `.webm` / `.mp4` file sizes.
+* **Dynamic Encoding & Quality Control:** Automatically calculates optimal bitrates based on the user's selected resolution (720p to 4K) and Framerate (30-60 FPS). Users can further fine-tune the output using the Quality dropdown (Low, Medium, High, Ultra) to prioritize file size or visual fidelity.
 * **Burned-In Subtitles:** Add professional lower-third titles and descriptions to your Canvas recordings to provide context during architectural presentations.
+* **Native Buffered Mode:** The recording engine utilizes the browser's lowest-level C++ hardware muxer by capturing frames entirely in RAM. This zero-hack approach guarantees mathematically perfect, seekable WebM/MP4 videos without requiring heavy WebAssembly libraries or backend FFmpeg servers.
 
 ### How to Record
 1. Expand the **Video Recording** panel in the configuration sidebar.
 2. Toggle **Enable Video Recording** to `Yes`. This reveals the recording controls in the main diagram toolbar.
-3. Select your desired mode (`Entire Screen` or `Diagram Only`), Resolution, and Framerate. (If using Canvas mode, you can optionally enter a Video Title to be burned into the final file).
+3. Select your desired mode (`Entire Screen` or `Diagram Only`), Resolution, Framerate, and Quality. (If using Canvas mode, you can optionally enter a Video Title and Subtitle to be burned into the final file).
 4. Click the **Record** button in the main toolbar above the canvas. A cinematic countdown will appear before capture begins.
 5. Use the **Pause / Resume** controls during long backend fetches (Note: The engine will auto-pause during drill-downs to conserve CPU!).
 6. Click **Stop** to finalize. The file will automatically compile and download to your machine.

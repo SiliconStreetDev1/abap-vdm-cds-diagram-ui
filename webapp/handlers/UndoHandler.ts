@@ -13,13 +13,15 @@ import Renderer from "../renderer/Renderer";
 export default class UndoHandler {
     private _oView: View;
     private _oEventBus?: EventBus;
-    private _aStack: string[] = [];
-    private _iMaxLimit = 15;
+    private _mStacks: Record<string, string[]> = {};
+    private _iMaxLimit = 25;
     private _fnUndoRequestBind!: EventListener;
     private _fnStateChangeBind!: EventListener;
     private _bIsRestoring = false;
+    private _bIsRestoringCache = false;
     private _iDebounceTimer?: ReturnType<typeof setTimeout>;
     private _iFailsafeTimer?: ReturnType<typeof setTimeout>;
+    private _iFallbackTimer?: ReturnType<typeof setTimeout>;
     private _bIsAttached: boolean = false;
 
     /**
@@ -53,7 +55,7 @@ export default class UndoHandler {
         this._fnStateChangeBind = this._onStateChange.bind(this) as EventListener;
         
         if (this._oEventBus) {
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this.clearHistory, this);
+            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
         }
 
         if (typeof document !== "undefined") {
@@ -81,7 +83,7 @@ export default class UndoHandler {
         if (!this._bIsAttached) return;
 
         if (this._oEventBus) {
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this.clearHistory, this);
+            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
         }
         
         if (typeof document !== "undefined") {
@@ -97,6 +99,7 @@ export default class UndoHandler {
         }
         clearTimeout(this._iDebounceTimer);
         clearTimeout(this._iFailsafeTimer); // ENTERPRISE FIX: Clear dangling failsafe timer
+        clearTimeout(this._iFallbackTimer);
         
         this._bIsAttached = false;
     }
@@ -107,10 +110,49 @@ export default class UndoHandler {
      * new diagram or variant is loaded to prevent cross-contamination of layout states.
      */
     public clearHistory(): void {
-        this._aStack = [];
+        this._mStacks = {};
         this._bIsRestoring = false;
+        this._bIsRestoringCache = false;
         clearTimeout(this._iDebounceTimer);
         clearTimeout(this._iFailsafeTimer);
+        clearTimeout(this._iFallbackTimer);
+    }
+
+    /**
+     * @private
+     * @description Intercepts render requests to intelligently flush history only on brand new sessions.
+     */
+    private _onRenderRequest(sChannel: string, sEvent: string, oData: any): void {
+        if (oData && oData.engineConfig?.isRestore) {
+            this._bIsRestoringCache = true;
+        }
+        
+        // Only flush session history if it's a completely fresh root generation 
+        // (Not a drill-down, and not restoring from a session cache)
+        if (oData && oData.breadcrumbs && oData.breadcrumbs.length <= 1 && !oData.engineConfig?.isRestore) {
+            this.clearHistory();
+        } else if (oData && oData.breadcrumbs) {
+            // ENTERPRISE MEMORY MANAGEMENT: Purge orphaned child stacks when navigating up
+            const aActiveBreadcrumbs = oData.breadcrumbs.map((s: string) => s.toUpperCase());
+            Object.keys(this._mStacks).forEach(sKey => {
+                if (!aActiveBreadcrumbs.includes(sKey)) {
+                    delete this._mStacks[sKey];
+                }
+            });
+        }
+    }
+
+    /**
+     * @private
+     * @description Retrieves the active undo stack specific to the current CDS entity.
+     */
+    private _getStack(): string[] {
+        const oDataModel = this._oView.getModel("diagramData") as JSONModel;
+        const sCdsName = oDataModel ? (oDataModel.getProperty("/cdsName") || "DEFAULT").toUpperCase() : "DEFAULT";
+        if (!this._mStacks[sCdsName]) {
+            this._mStacks[sCdsName] = [];
+        }
+        return this._mStacks[sCdsName];
     }
 
     /**
@@ -121,6 +163,15 @@ export default class UndoHandler {
     private _onStateChange(oEvent: Event): void {
         const oCustomEvent = oEvent as CustomEvent;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
+        
+        if (this._bIsRestoringCache) {
+            // Defensive UX: Release the lock immediately when the canvas finishes rendering the restored cache state
+            if (oCustomEvent.type === DomEvents.CANVAS_READY) {
+                this._bIsRestoringCache = false;
+            }
+            return; // DO NOT capture state. The stack already perfectly matches this visual layout.
+        }
+
         if (this._bIsRestoring) {
             // Defensive UX: Release the lock immediately when the canvas finishes rendering the restored state
             if (oCustomEvent.type === DomEvents.CANVAS_READY) {
@@ -130,6 +181,14 @@ export default class UndoHandler {
             return;
         }
         
+        // ENTERPRISE FIX: Synchronously capture the exact pristine state the millisecond the canvas is ready.
+        // Bypassing the debounce timer guarantees the baseline state (State 0) is never lost 
+        // if a power-user interacts with the canvas within the first 300ms.
+        if (oCustomEvent.type === DomEvents.CANVAS_READY) {
+            this._captureState();
+            return;
+        }
+
         clearTimeout(this._iDebounceTimer);
         this._iDebounceTimer = setTimeout(() => {
             this._captureState();
@@ -149,15 +208,16 @@ export default class UndoHandler {
             const state = Renderer.getCanvasState(this._getInstanceId(), sEngine);
             if (state) {
                 const sSerializedState = JSON.stringify(state);
+                const aStack = this._getStack();
                 
                 // Prevent pushing an identical consecutive state
-                if (this._aStack.length > 0 && this._aStack[this._aStack.length - 1] === sSerializedState) {
+                if (aStack.length > 0 && aStack[aStack.length - 1] === sSerializedState) {
                     return;
                 }
                 
-                this._aStack.push(sSerializedState);
-                if (this._aStack.length > this._iMaxLimit) {
-                    this._aStack.shift();
+                aStack.push(sSerializedState);
+                if (aStack.length > this._iMaxLimit) {
+                    aStack.shift();
                 }
             }
         }
@@ -170,12 +230,34 @@ export default class UndoHandler {
     private _onUndoRequest(oEvent: Event): void {
         const oCustomEvent = oEvent as CustomEvent;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
-        if (this._aStack.length <= 1) return;
+        
+        const aStack = this._getStack();
+
+        if (aStack.length <= 1) {
+            // ENTERPRISE FIX: Root Guard - Instantly drop the action if we are at the root diagram.
+            const oDataModel = this._oView.getModel("diagramData") as JSONModel;
+            const aBreadcrumbs = oDataModel ? oDataModel.getProperty("/breadcrumbLinks") || [] : [];
+            if (aBreadcrumbs.length === 0) return;
+
+            // ENTERPRISE UX: Stack Exhaustion Fallback
+            // Wrap in an asynchronous debounce to decouple the JS Main Thread, 
+            // preventing UI locks and overlapping drill-down requests if the user holds Ctrl+Z.
+            if (this._iFallbackTimer) return;
+            
+            this._iFallbackTimer = setTimeout(() => {
+                this._iFallbackTimer = undefined;
+                const sParentName = aBreadcrumbs[aBreadcrumbs.length - 1].name;
+                if (sParentName && this._oEventBus) {
+                    this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sParentName });
+                }
+            }, 50);
+            return;
+        }
         
         this._bIsRestoring = true;
-        this._aStack.pop(); // Drop the current state
+        aStack.pop(); // Drop the current state
         
-        const sPrevState = this._aStack[this._aStack.length - 1]; // Read the new top
+        const sPrevState = aStack[aStack.length - 1]; // Read the new top
         const oPrevState = JSON.parse(sPrevState);
         
         const oUiModel = this._oView.getModel("ui") as JSONModel;

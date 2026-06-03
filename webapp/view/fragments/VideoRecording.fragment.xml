@@ -39,6 +39,15 @@
                 </Select>
             </HBox>
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+                <Label text="Quality (Bitrate)" />
+                <Select selectedKey="{ui>/videoQuality}" width="150px" enabled="{= !${ui>/isRecording} &amp;&amp; !${ui>/isCountingDown} &amp;&amp; !${ui>/isWaitingForPermission} }">
+                    <core:Item key="LOW" text="Low (Smaller File)" />
+                    <core:Item key="MEDIUM" text="Medium" />
+                    <core:Item key="HIGH" text="High (Recommended)" />
+                    <core:Item key="ULTRA" text="Ultra (Large File)" />
+                </Select>
+            </HBox>
+            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
                 <Label text="Start Delay (sec)" />
                 <StepInput value="{ui>/videoDelay}" min="0" max="60" width="150px" enabled="{= !${ui>/isRecording} &amp;&amp; !${ui>/isCountingDown} &amp;&amp; !${ui>/isWaitingForPermission} }" />
             </HBox>

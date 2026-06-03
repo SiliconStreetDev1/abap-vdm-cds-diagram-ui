@@ -321,6 +321,30 @@ export default class Renderer {
     /**
      * @public
      * @static
+     * @description Deletes selected notes and hides selected entities.
+     */
+    public static deleteSelection(sViewId: string, sEngine: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.deleteSelection) {
+            engine.deleteSelection(sViewId);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Engages a temporary neighborhood focus mode on the current selection.
+     */
+    public static setTempFocusMode(sViewId: string, sEngine: string, bEnable: boolean): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.setTempFocusMode) {
+            engine.setTempFocusMode(sViewId, bEnable);
+        }
+    }
+
+    /**
+     * @public
+     * @static
      * @description Safely destroys the active engine to prevent memory and event listener leaks on app exit.
      */
     public static destroyActiveEngine(sViewId: string): void {

@@ -65,7 +65,6 @@ export default class MinimapManager {
             navInstance.destroy();
             this._navInstances.delete(sViewId);
         }
-        this._bShowMinimaps.delete(sViewId); // Prevent memory leak across sessions
     }
 
     /**

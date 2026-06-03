@@ -24,31 +24,37 @@ export default class CytoscapeDependencyLoader {
             try {
                 const config = ConfigManager.get();
                 await NetworkManager.loadScript(config.localPaths?.cytoscape, config.cdnPaths?.cytoscape);
-            await NetworkManager.loadScript(config.localPaths?.dagre, config.cdnPaths?.dagre);
-            await NetworkManager.loadScript(config.localPaths?.cytoscapeDagre, config.cdnPaths?.cytoscapeDagre);
-            await NetworkManager.loadScript(config.localPaths?.elk, config.cdnPaths?.elk);
-            await NetworkManager.loadScript(config.localPaths?.cytoscapeElk, config.cdnPaths?.cytoscapeElk);
-            
-            const cyElk = (window as any).cytoscapeElk;
-            if (cyElk && typeof cytoscape.use === "function") {
-                try { cytoscape.use(cyElk); } catch(e) { console.warn("Failed to register Cytoscape ELK plugin", e); }
-            }
+                await NetworkManager.loadScript(config.localPaths?.dagre, config.cdnPaths?.dagre);
+                await NetworkManager.loadScript(config.localPaths?.cytoscapeDagre, config.cdnPaths?.cytoscapeDagre);
+                await NetworkManager.loadScript(config.localPaths?.elk, config.cdnPaths?.elk);
+                await NetworkManager.loadScript(config.localPaths?.cytoscapeElk, config.cdnPaths?.cytoscapeElk);
+                
+                const cyElk = (window as any).cytoscapeElk;
+                if (cyElk && typeof cytoscape.use === "function") {
+                    try { cytoscape.use(cyElk); } catch(e) { console.warn("Failed to register Cytoscape ELK plugin", e); }
+                }
 
-            await NetworkManager.loadScript(config.localPaths?.gridGuideJs, config.cdnPaths?.gridGuideJs || "https://unpkg.com/cytoscape-grid-guide@2.3.3/cytoscape-grid-guide.js");
-            
-            const cyGridGuide = (window as any).cytoscapeGridGuide;
-            if (cyGridGuide && typeof cytoscape.use === "function") {
-                try { cytoscape.use(cyGridGuide); } catch(e) { console.warn("Failed to register Cytoscape Grid Guide plugin", e); }
-            }
+                await NetworkManager.loadScript(config.localPaths?.gridGuideJs, config.cdnPaths?.gridGuideJs || "https://unpkg.com/cytoscape-grid-guide@2.3.3/cytoscape-grid-guide.js");
+                
+                const cyGridGuide = (window as any).cytoscapeGridGuide;
+                if (cyGridGuide && typeof cytoscape.use === "function") {
+                    try { cytoscape.use(cyGridGuide); } catch(e) { console.warn("Failed to register Cytoscape Grid Guide plugin", e); }
+                }
 
-            await NetworkManager.loadScript(config.localPaths?.navigatorJs, config.cdnPaths?.navigatorJs);
-            
-            const nav = (window as any).cytoscapeNavigator;
-            if (nav && typeof cytoscape.use === "function") {
-                try { cytoscape.use(nav); } catch(e) { console.warn("Failed to register Cytoscape Navigator plugin", e); }
-            }
+                await NetworkManager.loadScript(config.localPaths?.navigatorJs, config.cdnPaths?.navigatorJs);
+                
+                const nav = (window as any).cytoscapeNavigator;
+                if (nav && typeof cytoscape.use === "function") {
+                    try { cytoscape.use(nav); } catch(e) { console.warn("Failed to register Cytoscape Navigator plugin", e); }
+                }
 
-            await NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg);
+                // ENTERPRISE FIX: Suppress expected Cytoscape mathematical overlapping edge warnings 
+                // from cluttering the console during layout recalculations or cache hydrations.
+                if (typeof cytoscape !== "undefined" && typeof cytoscape.warnings === "function") {
+                    cytoscape.warnings(false);
+                }
+
+                await NetworkManager.loadScript(config.localPaths?.cytoscapeSvg, config.cdnPaths?.cytoscapeSvg);
             } catch (err) {
                 // Enterprise Fix: Release the cache lock so the user can gracefully retry if the network drops.
                 this._loadPromise = null;

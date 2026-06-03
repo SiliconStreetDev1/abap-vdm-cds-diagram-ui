@@ -57,10 +57,56 @@ export default class CanvasKeyboardHandler {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
         const bIsTyping = this._isInputActive(e.target);
 
+        // Enterprise UX: Undo Stack must remain Ctrl+Z / Cmd+Z natively
         if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.code === "KeyZ") && !bIsTyping) {
             e.preventDefault();
             if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, { detail: { viewId: this._getInstanceId() } }));
             return;
+        }
+
+        // Enterprise UX: Use Shift+Key for toolbar actions to prevent hijacking browser native shortcuts
+        // like Ctrl+T (New Tab), Ctrl+N (New Window), and Ctrl+H (History)
+        if (e.shiftKey && !bIsTyping) {
+            if (e.code === "KeyN") {
+                e.preventDefault();
+                const oViewModel = this._oView.getModel("view") as JSONModel;
+                if (oViewModel && !oViewModel.getProperty("/isDrillDown")) {
+                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: this._getInstanceId() } }));
+                }
+                return;
+            }
+            if (e.code === "KeyH") {
+                e.preventDefault();
+                const oViewModel = this._oView.getModel("view") as JSONModel;
+                if (oViewModel && oViewModel.getProperty("/hasHiddenNodes")) {
+                    const oDialog = this._oView.byId("popHiddenNodes") as any;
+                    if (oDialog) oDialog.open();
+                }
+                return;
+            }
+            if (e.code === "KeyM") {
+                e.preventDefault();
+                const oViewModel = this._oView.getModel("view") as JSONModel;
+                if (oViewModel && oViewModel.getProperty("/hasDiagram") && oViewModel.getProperty("/canShowMinimap")) {
+                    const bShow = !oViewModel.getProperty("/showMinimap");
+                    oViewModel.setProperty("/showMinimap", bShow);
+                    const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+                    Renderer.toggleMinimap(this._getInstanceId(), sEngine, bShow);
+                }
+                return;
+            }
+            if (e.code === "KeyT") {
+                e.preventDefault();
+                const oUiModel = this._oView.getModel("ui") as JSONModel;
+                const oViewModel = this._oView.getModel("view") as JSONModel;
+                if (oViewModel && oUiModel && oViewModel.getProperty("/hasNodeSelected") && !oUiModel.getProperty("/formatCytoscape/enableFocusMode")) {
+                    const bCurrentFocus = oViewModel.getProperty("/tempFocusMode");
+                    oViewModel.setProperty("/tempFocusMode", !bCurrentFocus);
+                    const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+                    Renderer.setTempFocusMode(this._getInstanceId(), sEngine, !bCurrentFocus);
+                }
+                return;
+            }
         }
 
         if (e.code === "Escape" && !bIsTyping) {
@@ -84,6 +130,8 @@ export default class CanvasKeyboardHandler {
 
         if ((e.code === "Delete" || e.code === "Backspace") && !bIsTyping) {
             e.preventDefault();
+            const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+            Renderer.deleteSelection(this._getInstanceId(), sEngine);
             if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.DELETE_SELECTION_REQUEST, { detail: { viewId: this._getInstanceId() } }));
         }
     }

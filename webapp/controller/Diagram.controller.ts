@@ -76,7 +76,9 @@ export default class Diagram extends Controller {
             hasHiddenNodes: false,
             isSelectMode: true,
             isFocusMode: false,
-            focusNodeName: ""
+            focusNodeName: "",
+            hasNodeSelected: false,
+            tempFocusMode: false
         }), "view");
         
         // Data model storage required for ExportHandler operations
@@ -206,10 +208,17 @@ export default class Diagram extends Controller {
     // CANVAS ACTION DELEGATIONS
     // ========================================================================
     
+    public onUndo(): void {
+        if (typeof document !== "undefined") {
+            document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, { detail: { viewId: this._getInstanceId() } }));
+        }
+    }
+
     public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.byId("diagramContainer") as Control); }
     public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
     public onChangeInteractionMode(oEvent: Event): void { this._oCanvasActionHandler.changeInteractionMode(oEvent); }
     public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
+    public onToggleTempFocusMode(oEvent: Event): void { this._oCanvasActionHandler.toggleTempFocusMode(oEvent); }
     public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
     public onAddNote(): void { this._oNoteDialogHandler.promptAddNote(); }
 

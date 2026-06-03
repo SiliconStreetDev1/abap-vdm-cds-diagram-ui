@@ -66,7 +66,15 @@ export default class CytoscapeEventHandler {
             // Enterprise UX: Focus Mode is strictly for single-entity discovery.
             // If > 1 node is selected (Mass Selection), we instantly abort the fade to retain full visual context.
             // We also suppress focus if a modifier key is held, or if the user is actively using the box selection tool.
-            if (selected.length === 1 && !selected.hasClass('hidden') && !selected.hasClass('annotation-note') && !bIsMultiSelectModifier && !bIsBoxSelecting) {
+            const bHasSingleNode = selected.length === 1 && !selected.hasClass('annotation-note');
+            
+            if (!bHasSingleNode && !cyInstance.scratch('_ignoreTempFocusWipe')) {
+                cyInstance.scratch('_tempFocusMode', false);
+            }
+            
+            const bFocusModeEnabled = cyInstance.scratch('_enableFocusMode') || cyInstance.scratch('_tempFocusMode');
+            
+            if (bFocusModeEnabled && bHasSingleNode && !bIsMultiSelectModifier && !bIsBoxSelecting) {
                 const neighborhood = selected.closedNeighborhood();
                 cyInstance.elements().difference(neighborhood).addClass('faded');
                 neighborhood.addClass('highlighted');
@@ -77,7 +85,7 @@ export default class CytoscapeEventHandler {
             
             if (typeof document !== "undefined") {
                 document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { 
-                    detail: { viewId: sViewId, isFocused: bFocus, nodeName: sFocusName } 
+                    detail: { viewId: sViewId, isFocused: bFocus, nodeName: sFocusName, hasNodeSelected: bHasSingleNode, tempFocusMode: cyInstance.scratch('_tempFocusMode') || false } 
                 }));
             }
         });

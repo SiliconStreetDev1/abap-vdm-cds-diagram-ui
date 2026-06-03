@@ -65,7 +65,7 @@ export default class CanvasRecorder extends VideoRecorder {
         const res = this.calculateResolution(container, config.resolutionStr);
         const targetW = res.w;
         const targetH = res.h;
-        const dynamicBitrate = this.calculateDynamicBitrate(targetW, targetH, config.fps);
+        const dynamicBitrate = this.calculateDynamicBitrate(targetW, targetH, config.fps, config.videoQuality);
 
         this.compositor = new CanvasCompositor();
         this.stream = this.compositor.start(this.containerId, targetW, targetH, config.fps, this.subtitleTitle, this.subtitleDesc);
@@ -81,6 +81,7 @@ export default class CanvasRecorder extends VideoRecorder {
      * @description Safely pauses the WebGL compositor loop during heavy CPU operations (like drill-downs).
      */
     public systemPause(): void {
+        super.systemPause();
         if (this.compositor) this.compositor.pause();
     }
 
@@ -89,7 +90,11 @@ export default class CanvasRecorder extends VideoRecorder {
      * @description Resumes the WebGL compositor loop after a system-level pause.
      */
     public systemResume(): void {
-        if (this.compositor) this.compositor.resume();
+        super.systemResume();
+        if (this.compositor) {
+            this.compositor.updateTarget(this.containerId);
+            this.compositor.resume();
+        }
     }
 
     /**

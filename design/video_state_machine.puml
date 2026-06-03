@@ -25,9 +25,11 @@ Paused --> BlobCompiling : Clicks Stop
 BlobCompiling --> Idle : FileDownloadUtility triggers OS Save
 
 note right of BlobCompiling
-  The engine revokes Blob memory
-  and explicitly zeroes out Canvas 
-  dimensions to prevent OOM panics.
+  Executes entirely natively via 
+  Chrome's Buffered Mode. RAM is
+  flushed, and the browser's C++
+  encoder generates a mathematically
+  flawless 'Cues' timeline index.
 end note
 
 @enduml

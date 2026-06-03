@@ -36,7 +36,7 @@
 
             <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{view>/canSearch}" class="sapUiTinyMarginEnd" />
 
-            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap" type="Transparent" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
+            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap (Shift+M)" type="Transparent" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
 
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" tooltip="{i18n>ttFullScreen}" press="onToggleFullScreen" type="Transparent" visible="{view>/hasDiagram}" />
             
@@ -63,7 +63,7 @@
             </Dialog>
         </dependents>
 
-        <HBox visible="{view>/isFocusMode}" class="focusBadgeContainer" alignItems="Center" justifyContent="Center">
+        <HBox visible="{view>/isFocusMode}" class="focusBadgeContainer sapUiLargeMarginTop" alignItems="Center" justifyContent="Center">
              <Label text="{view>/focusNodeName}" design="Bold" class="sapUiSmallMarginEnd" />
              <Button icon="sap-icon://chain-link" text="Drill Down" press=".onFocusDrillDown" type="Transparent" class="sapUiTinyMarginEnd" tooltip="Open this view" />
              <core:Icon src="sap-icon://decline" press=".onClearFocus" color="#d32f2f" tooltip="Clear Focus" cursor="pointer" class="actionIcon sapUiTinyMarginBegin" />
@@ -79,12 +79,18 @@
             
             <Button id="btnInfo" icon="sap-icon://information" press="onShowInfo" customData:infoType="InteractionMode" tooltip="{i18n>ttClickInfo}" visible="{ui>/showHelp}" class="btnIconInfo" />
             
+            <Button id="btnUndo" icon="sap-icon://undo" press="onUndo" tooltip="Undo Layout Change (Ctrl+Z)" class="btnIconBlue" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+
+            <ToggleButton id="btnToggleFocus" icon="sap-icon://lightbulb" pressed="{view>/tempFocusMode}" press=".onToggleTempFocusMode" tooltip="Focus Selected Entity (Temporary) (Shift+T)" class="btnIconBlue" enabled="{view>/hasNodeSelected}" visible="{= !${ui>/formatCytoscape/enableFocusMode} }" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+
             <Button id="btnSpacing" icon="sap-icon://resize-horizontal" press="onShowSpacing" tooltip="Adjust Node Spacing" class="btnIconBlue" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
             
-            <Button id="btnShowHidden" icon="sap-icon://show" press=".onOpenHiddenNodes" tooltip="Manage Hidden Nodes" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
+            <Button id="btnShowHidden" icon="sap-icon://show" press=".onOpenHiddenNodes" tooltip="Manage Hidden Nodes (Shift+H)" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
-            <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note" class="btnIconOrange" enabled="{= !${view>/isDrillDown} }" />
+            <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note (Shift+N)" class="btnIconOrange" enabled="{= !${view>/isDrillDown} }" />
         </HBox>
 
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">

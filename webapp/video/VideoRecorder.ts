@@ -22,6 +22,7 @@ export interface IMediaRecorder {
 export interface IRecordingConfig {
     resolutionStr: string;
     fps: number;
+    videoQuality?: string;
     delaySeconds: number;
     onWaitingForPermission?: () => void;
     onPermissionGranted?: () => void;
@@ -155,11 +156,20 @@ export default abstract class VideoRecorder {
      * @description Calculates an optimal encoding bitrate mathematically based on target resolution and framerate.
      * Prevents pixelation on 4K/60FPS captures while conserving memory on 720p/30FPS captures.
      */
-    protected calculateDynamicBitrate(width: number, height: number, fps: number): number {
-        // Formula: Width * Height * FPS * BitsPerPixel (Targeting 0.1 BPP for high-fidelity enterprise diagrams)
+    protected calculateDynamicBitrate(width: number, height: number, fps: number, quality: string = "HIGH"): number {
+        // Bits Per Pixel (BPP) Compression Target
+        let bpp = 0.2; // HIGH
+        switch (quality.toUpperCase()) {
+            case "LOW": bpp = 0.05; break;
+            case "MEDIUM": bpp = 0.1; break;
+            case "HIGH": bpp = 0.2; break;
+            case "ULTRA": bpp = 0.4; break;
+        }
+        
+        // Formula: Width * Height * FPS * BitsPerPixel
         const pixelsPerFrame = width * height;
-        const bitsPerSecond = pixelsPerFrame * fps * 0.1;
-        return Math.max(2500000, Math.min(bitsPerSecond, 50000000)); // Clamp between 2.5 Mbps and 50 Mbps
+        const bitsPerSecond = pixelsPerFrame * fps * bpp;
+        return Math.max(1000000, Math.min(bitsPerSecond, 20000000)); // Clamp between 1 Mbps and 20 Mbps (Protects RAM Buffer)
     }
 
     /**
@@ -187,14 +197,14 @@ export default abstract class VideoRecorder {
      */
     protected startTrackingTimer(onTick: (time: number) => void): void {
         this.totalElapsedMs = 0;
-        this.lastTickTime = Date.now();
+        this.lastTickTime = performance.now();
         this.timeoutId = window.setInterval(() => {
             if (this.isPaused) {
                 // We no longer advance the tick time here, as pauseRecording() handles 
                 // the fractional capture and we want the timer frozen.
                 return;
             }
-            const now = Date.now();
+            const now = performance.now();
             this.totalElapsedMs += (now - this.lastTickTime);
             this.lastTickTime = now;
             onTick(this.totalElapsedMs);
@@ -240,7 +250,7 @@ export default abstract class VideoRecorder {
         
         // Ensure the exact fraction of a second is captured for flawless metadata injection
         if (!this.isPaused && this.lastTickTime > 0) {
-            this.totalElapsedMs += (Date.now() - this.lastTickTime);
+            this.totalElapsedMs += (performance.now() - this.lastTickTime);
         }
 
         const actualMimeType = this.mediaRecorder && (this.mediaRecorder as any).mimeType ? (this.mediaRecorder as any).mimeType.split(';')[0] : 'video/webm';
@@ -273,7 +283,7 @@ export default abstract class VideoRecorder {
      * @description Safely halts internal engine compositing without triggering MediaRecorder exceptions.
      */
     public systemPause(): void {
-        // Overridden by subclasses to safely halt internal engines without touching the MediaRecorder
+        this.pauseRecording();
     }
 
     /**
@@ -281,7 +291,7 @@ export default abstract class VideoRecorder {
      * @description Resumes internal engine compositing after a system pause.
      */
     public systemResume(): void {
-        // Overridden by subclasses
+        this.resumeRecording();
     }
 
     /**
@@ -298,7 +308,7 @@ export default abstract class VideoRecorder {
         // ENTERPRISE FIX: Capture fractional elapsed time before entering the paused state.
         // Ensures duration metadata accurately reflects all recorded frames to prevent seeking corruption.
         if (!this.isPaused && this.lastTickTime > 0) {
-            this.totalElapsedMs += (Date.now() - this.lastTickTime);
+            this.totalElapsedMs += (performance.now() - this.lastTickTime);
         }
         
         this.isPaused = true;
@@ -315,7 +325,7 @@ export default abstract class VideoRecorder {
             console.warn("MediaRecorder resume failed:", e);
         }
         this.isPaused = false;
-        this.lastTickTime = Date.now();
+        this.lastTickTime = performance.now();
     }
 
     /**
@@ -334,7 +344,10 @@ export default abstract class VideoRecorder {
             this.mediaRecorder = null;
         }
         if (this.stream) {
-            this.stream.getTracks().forEach(track => track.stop());
+            this.stream.getTracks().forEach(track => {
+                track.onended = null; // Prevent lingering closure executions
+                track.stop();
+            });
             this.stream = null;
         }
         this.recordedChunks = [];
@@ -342,5 +355,6 @@ export default abstract class VideoRecorder {
         if (this.timeoutId !== null) { window.clearInterval(this.timeoutId); this.timeoutId = null; }
         this.isActive = false;
         this.isPaused = false;
+        this.cancelDelayCallback = undefined;
     }
 }

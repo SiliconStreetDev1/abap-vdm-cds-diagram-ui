@@ -37,7 +37,7 @@ export default class ScreenRecorder extends VideoRecorder {
             aVideoTracks[0].onended = () => this.stopRecording();
         }
 
-        const dynamicBitrate = this.calculateDynamicBitrate(screenW, screenH, config.fps);
+        const dynamicBitrate = this.calculateDynamicBitrate(screenW, screenH, config.fps, config.videoQuality);
         // Delegate standardized encoding to the base class Template Method
         this.startMediaRecorder(config, dynamicBitrate);
     }

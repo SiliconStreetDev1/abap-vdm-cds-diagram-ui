@@ -50,7 +50,9 @@ export interface IEngineFacade {
     showHiddenNodes?(sViewId: string): void;
     showSpecificNodes?(sViewId: string, aNodeIds: string[]): void;
     setInteractionMode?(sViewId: string, sMode: "pan" | "select"): void;
+    setTempFocusMode?(sViewId: string, bEnable: boolean): void;
     clearSelection?(sViewId: string): void;
+    deleteSelection?(sViewId: string): void;
 
     /**
      * @public

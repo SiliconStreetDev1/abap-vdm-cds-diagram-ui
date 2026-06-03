@@ -117,6 +117,8 @@ export default class DiagramRenderHandler {
             oViewModel.setProperty("/hasDiagram", false);
             oViewModel.setProperty("/isFocusMode", false);
             oViewModel.setProperty("/focusNodeName", "");
+            oViewModel.setProperty("/hasNodeSelected", false);
+            oViewModel.setProperty("/tempFocusMode", false);
         }
     }
 }

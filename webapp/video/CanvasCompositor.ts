@@ -14,6 +14,16 @@ export default class CanvasCompositor {
     private rafId: number | null = null;
     private isActive: boolean = false;
     private isPaused: boolean = false;
+    private sourceCanvases: HTMLCanvasElement[] = [];
+
+    /**
+     * @public
+     * @description Explicitly queries the DOM for active canvases. Avoids HTMLCollection thrashing.
+     */
+    public updateTarget(containerId: string): void {
+        const liveContainer = document.getElementById(containerId);
+        this.sourceCanvases = liveContainer ? Array.from(liveContainer.getElementsByTagName("canvas")) : [];
+    }
 
     /**
      * @public
@@ -52,9 +62,7 @@ export default class CanvasCompositor {
         document.body.appendChild(this.compositeCanvas);
 
         this.isActive = true;
-
-        let liveContainer = document.getElementById(containerId);
-        let liveCanvases = liveContainer ? liveContainer.getElementsByTagName("canvas") : null;
+        this.updateTarget(containerId);
 
         let lastDrawTime = 0;
         const frameInterval = 1000 / fps; // Target dynamic FPS for compositor
@@ -75,30 +83,24 @@ export default class CanvasCompositor {
                 ctx.fillStyle = bgColor;
                 ctx.fillRect(0, 0, targetW, targetH);
                 
-                // DYNAMIC DOM HOOK: Only query the DOM if Fiori physically destroyed the container (Drill-Down).
-                if (!liveContainer || !liveContainer.isConnected) {
-                    liveContainer = document.getElementById(containerId);
-                    liveCanvases = liveContainer ? liveContainer.getElementsByTagName("canvas") : null;
-                }
-                
-                if (liveCanvases) {
-                    for (let i = 0; i < liveCanvases.length; i++) {
-                        const srcCvs = liveCanvases[i];
-                        const srcW = srcCvs.width;
-                        const srcH = srcCvs.height;
-                        if (srcW === 0 || srcH === 0) continue;
-                        
-                        const drawScale = Math.min(targetW / srcW, targetH / srcH);
-                        const drawW = srcW * drawScale;
-                        const drawH = srcH * drawScale;
-                        const drawX = (targetW - drawW) / 2;
-                        const drawY = (targetH - drawH) / 2;
-                        
-                        try {
-                            ctx.drawImage(srcCvs, drawX, drawY, drawW, drawH);
-                        } catch (e) {
-                            // Suppress InvalidStateError if Cytoscape destroyed the WebGL context mid-frame
-                        }
+                for (let i = 0; i < this.sourceCanvases.length; i++) {
+                    const srcCvs = this.sourceCanvases[i];
+                    if (!srcCvs.isConnected) continue;
+
+                    const srcW = srcCvs.width;
+                    const srcH = srcCvs.height;
+                    if (srcW === 0 || srcH === 0) continue;
+                    
+                    const drawScale = Math.min(targetW / srcW, targetH / srcH);
+                    const drawW = srcW * drawScale;
+                    const drawH = srcH * drawScale;
+                    const drawX = (targetW - drawW) / 2;
+                    const drawY = (targetH - drawH) / 2;
+                    
+                    try {
+                        ctx.drawImage(srcCvs, drawX, drawY, drawW, drawH);
+                    } catch (e) {
+                        // Suppress InvalidStateError if Cytoscape destroyed the WebGL context mid-frame
                     }
                 }
                 SubtitleEngine.burn(ctx, targetW, targetH, subtitleTitle, subtitleDesc);
@@ -135,5 +137,6 @@ export default class CanvasCompositor {
             if (this.compositeCanvas.parentNode) { this.compositeCanvas.parentNode.removeChild(this.compositeCanvas); }
         }
         this.compositeCanvas = null;
+        this.sourceCanvases = [];
     }
 }

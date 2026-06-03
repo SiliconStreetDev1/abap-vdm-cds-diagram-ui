@@ -86,6 +86,10 @@ export default class DiagramGenerationHandler {
         } else {
             const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
             if (iIndex > -1) {
+                // Enterprise Memory Management: Wipe children from the session cache when navigating up
+                const aOrphans = this._aBreadcrumbs.slice(iIndex + 1);
+                aOrphans.forEach(sOrphan => SessionStateCache.remove(this._getInstanceId(), sOrphan));
+
                 this._aBreadcrumbs = this._aBreadcrumbs.slice(0, iIndex + 1);
             } else {
                 this._aBreadcrumbs.push(sCdsName);

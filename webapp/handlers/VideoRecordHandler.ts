@@ -10,8 +10,6 @@ import MessageToast from "sap/m/MessageToast";
 import EventBus from "sap/ui/core/EventBus";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import FileDownloadUtility from "../helpers/FileDownloadUtility";
-import NetworkManager from "../helpers/NetworkManager";
-import ConfigManager from "../renderer/ConfigManager";
 import VideoRecorder, { IRecordingConfig } from "../video/VideoRecorder";
 import ScreenRecorder from "../video/ScreenRecorder";
 import CanvasRecorder from "../video/CanvasRecorder";
@@ -30,6 +28,7 @@ export default class VideoRecordHandler {
     private startBind: () => void;
     private hotkeyBind: EventListener;
     private _bIsAttached: boolean = false;
+    private _autoPauseTimer: number | null = null;
 
     /**
      * Initializes the Video Record Handler.
@@ -113,6 +112,7 @@ export default class VideoRecordHandler {
         const mode = uiModel.getProperty("/recordingModeInput") || "SCREEN";
         const resolution = uiModel.getProperty("/videoResolution") || "SCREEN";
         const fps = parseInt(uiModel.getProperty("/videoFps") as string, 10) || 30;
+        const videoQuality = uiModel.getProperty("/videoQuality") || "HIGH";
         
         const delaySeconds = uiModel.getProperty("/videoDelay") || 0;
         const maxLengthSeconds = uiModel.getProperty("/videoMaxLength") || 150;
@@ -121,6 +121,13 @@ export default class VideoRecordHandler {
 
         // 1. Polymorphic Factory Instantiation
         if (mode === "CANVAS") {
+            const diagramModel = this.view.getModel("diagramData") as JSONModel;
+            const sEngine = diagramModel ? diagramModel.getProperty("/engine") : "";
+            if (sEngine !== "CYTOSCAPE") {
+                this.handleRecordingError("Diagram Only mode is only supported for the interactive Cytoscape engine. Please use Entire Screen mode for SVG diagrams.");
+                return;
+            }
+
             const htmlControl = this.view.byId("htmlRenderer");
             const wrapperId = htmlControl ? `${htmlControl.getId()}-vdmCanvasContainer` : "";
 
@@ -150,6 +157,7 @@ export default class VideoRecordHandler {
         const config: IRecordingConfig = {
             resolutionStr: resolution,
             fps: fps,
+            videoQuality: videoQuality,
             delaySeconds: delaySeconds,
             onWaitingForPermission: () => this.updateUIState({ isWaitingForPermission: true }),
             onPermissionGranted: () => this.updateUIState({ isWaitingForPermission: false }),
@@ -169,6 +177,11 @@ export default class VideoRecordHandler {
      * @description Stops the recording process, aborting countdowns or saving active media.
      */
     public stopRecording(): void {
+        if (this._autoPauseTimer !== null) {
+            window.clearTimeout(this._autoPauseTimer);
+            this._autoPauseTimer = null;
+        }
+
         const uiModel = this.view.getModel("ui") as JSONModel;
 
         if (this.recorder) this.recorder.stopRecording();
@@ -207,9 +220,14 @@ export default class VideoRecordHandler {
      */
     private handleAutoPause(): void {
         const uiModel = this.view.getModel("ui") as JSONModel;
-        if (uiModel && uiModel.getProperty("/isRecording") && !uiModel.getProperty("/isVideoPaused")) {
-            if (this.recorder) this.recorder.systemPause();
-            this.updateUIState({ _autoPaused: true });
+        if (uiModel && uiModel.getProperty("/isRecording") && !uiModel.getProperty("/isVideoPaused") && !uiModel.getProperty("/_autoPaused")) {
+            if (this._autoPauseTimer === null) {
+                this._autoPauseTimer = window.setTimeout(() => {
+                    if (this.recorder) this.recorder.systemPause();
+                    this.updateUIState({ _autoPaused: true });
+                    this._autoPauseTimer = null;
+                }, 250) as unknown as number;
+            }
         }
     }
 
@@ -218,6 +236,11 @@ export default class VideoRecordHandler {
      * @description Auto-resumes recording once CPU operations yield.
      */
     private handleAutoResume(): void {
+        if (this._autoPauseTimer !== null) {
+            window.clearTimeout(this._autoPauseTimer);
+            this._autoPauseTimer = null;
+        }
+
         const uiModel = this.view.getModel("ui") as JSONModel;
         if (uiModel && uiModel.getProperty("/isRecording") && uiModel.getProperty("/_autoPaused")) {
             this.updateUIState({ _autoPaused: false });

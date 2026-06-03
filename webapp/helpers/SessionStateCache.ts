@@ -26,6 +26,14 @@ export default class SessionStateCache {
         return this._oSessionCache[`${sViewId}_${sName.toUpperCase()}`];
     }
 
+    /**
+     * @public
+     * @description Explicitly purges a specific view's state from the session cache.
+     */
+    public static remove(sViewId: string, sName: string): void {
+        delete this._oSessionCache[`${sViewId}_${sName.toUpperCase()}`];
+    }
+
     public static clear(sViewId: string): void {
         Object.keys(this._oSessionCache).forEach(sKey => {
             if (sKey.startsWith(`${sViewId}_`)) {

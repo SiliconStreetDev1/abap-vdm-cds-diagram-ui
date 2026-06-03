@@ -140,7 +140,7 @@ export default class CytoscapeLayoutManager {
                 snapToGridOnRelease: false, 
                 snapToGridDuringDrag: false, 
                 snapToAlignmentLocationOnRelease: false, 
-                snapToAlignmentLocationDuringDrag: false, 
+                snapToAlignmentLocationDuringDrag: config.snapGuides, 
                 guidelines: config.snapGuides,
                 geometricGuideline: true, 
                 initPosAlignment: true,
