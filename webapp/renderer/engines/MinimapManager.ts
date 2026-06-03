@@ -10,6 +10,63 @@ export default class MinimapManager {
     
     // Track left/bottom instead of transform to prevent coordinate math breaking in the canvas
     private static _minimapState = { w: 200, h: 200, left: 20, bottom: 20 };
+    private static _navInstances: Map<string, any> = new Map();
+    private static _bShowMinimaps: Map<string, boolean> = new Map();
+    private static _fnMinimapCleanups: Map<string, (() => void)> = new Map();
+
+    /**
+     * @public
+     * @static
+     * @description Retrieves the stored visibility state of the minimap.
+     */
+    public static getShowState(sViewId: string): boolean {
+        return this._bShowMinimaps.get(sViewId) || false;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Instantiates, toggles, or destroys the cytoscape-navigator plugin based on user UI commands.
+     */
+    public static toggle(sViewId: string, cyInstance: Core | undefined, bShow: boolean): void {
+        this._bShowMinimaps.set(sViewId, bShow);
+        if (!cyInstance) return;
+        
+        let navInstance = this._navInstances.get(sViewId);
+        if (bShow) {
+            if (!navInstance && typeof (cyInstance as any).navigator === "function") {
+                navInstance = (cyInstance as any).navigator({ container: false });
+                this._navInstances.set(sViewId, navInstance);
+                const navElem = navInstance.$panel;
+                if (navElem) {
+                    this._fnMinimapCleanups.set(sViewId, this.enhancePanel(sViewId, navElem, cyInstance));
+                }
+                cyInstance.one("render", () => cyInstance.resize());
+            }
+        } else if (navInstance) {
+            this.destroy(sViewId);
+        }
+        if (bShow) cyInstance.emit('render');
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Safely destroys the minimap plugin instance and cleans up its DOM hooks.
+     */
+    public static destroy(sViewId: string): void {
+        const navInstance = this._navInstances.get(sViewId);
+        if (navInstance) {
+            const fnCleanup = this._fnMinimapCleanups.get(sViewId);
+            if (fnCleanup) {
+                fnCleanup();
+                this._fnMinimapCleanups.delete(sViewId);
+            }
+            navInstance.destroy();
+            this._navInstances.delete(sViewId);
+        }
+        this._bShowMinimaps.delete(sViewId); // Prevent memory leak across sessions
+    }
 
     /**
      * @public

@@ -77,6 +77,10 @@
                 <core:Fragment fragmentName="nz.co.siliconstreet.vdmdiagrammer.view.fragments.AdvancedFilters" type="XML" />
             </Panel>
             
+            <Panel headerText="Video Recording" expandable="true" expanded="false" width="100%">
+                <core:Fragment fragmentName="nz.co.siliconstreet.vdmdiagrammer.view.fragments.VideoRecording" type="XML" />
+            </Panel>
+            
         </VBox>
     </ScrollContainer>
 </mvc:View>

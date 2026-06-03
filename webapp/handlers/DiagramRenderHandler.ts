@@ -61,16 +61,11 @@ export default class DiagramRenderHandler {
             engineConfig: oData.engineConfig
         });
 
-        // 2. Engine-specific UI validation
-        if (oData.engine === EngineType.D2) {
-            oViewModel.setProperty("/hasDiagram", true);
-            oViewModel.setProperty("/canExportImg", false);
-            this.showError("msgD2Warning");
-            return;
-        }
+        // 2. Extract specific export capabilities from the active Engine architecture
+        oViewModel.setProperty("/canExportImg", Renderer.supportsImageExport(oData.engine));
+        oViewModel.setProperty("/canExportSource", Renderer.supportsSourceExport(oData.engine));
 
-        // 3. Update UI state BEFORE calling the Renderer to prevent race conditions
-        oViewModel.setProperty("/canExportImg", true);
+        // 3. Prepare the general canvas UI state 
         oViewModel.setProperty("/hasDiagram", true);
         
         const bIsDrillDown = !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName);
@@ -100,7 +95,8 @@ export default class DiagramRenderHandler {
 
         // 4. Trigger the WASM/JS rendering engine
         try {
-            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, oHtmlControl, (sMsg: string) => this.showError(sMsg), oData.engineConfig);
+            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, oHtmlControl, (sMsg: string) => this.showError(sMsg), oData.engineConfig)
+                .catch((oError: any) => this.showError(oError.message || "Asynchronous rendering failure."));
         } catch (oError: any) {
             this.showError(oError.message);
         }

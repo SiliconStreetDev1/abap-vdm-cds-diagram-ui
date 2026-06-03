@@ -15,6 +15,8 @@ export default class GraphvizEngine {
     public static configPath = "/formatGraphviz";
     public static supportsMinimap = false;
     public static supportsSearch = false;
+    public static supportsSourceExport = true;
+    public static supportsImageExport = true;
 
     /**
      * @public

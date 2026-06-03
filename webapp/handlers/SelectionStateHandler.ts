@@ -133,7 +133,15 @@ export default class SelectionStateHandler {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty("/isCanvasStale", true);
-            oUiModel.setProperty("/formatCytoscape/camera", null);
+            
+            const sEngine = oUiModel.getProperty("/activeEngine");
+            if (sEngine) {
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+                if (sFormatKey) {
+                    oUiModel.setProperty(`/${sFormatKey}/camera`, null);
+                }
+            }
         }
     }
 }

@@ -56,8 +56,9 @@ export default class ExportUtility {
 
             // Memory Safeguard (Governor)
             let scale = 2;
-            const MAX_DIMENSION = 16000;
-            const MAX_AREA = 100000000;
+            // ENTERPRISE FIX: iOS Safari / Mobile browsers hard-crash at 16,777,216 pixels.
+            const MAX_DIMENSION = 8192; 
+            const MAX_AREA = 16777216; 
 
             while ((width * scale > MAX_DIMENSION || height * scale > MAX_DIMENSION || (width * scale * height * scale) > MAX_AREA) && scale > 0.5) {
                 scale -= 0.5;
@@ -75,9 +76,17 @@ export default class ExportUtility {
                 ctx.fillStyle = "white";
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0);
+                
+                // ENTERPRISE FIX: Release the massive Base64 string from DOM memory instantly
+                img.src = "";
 
                 try {
                     canvas.toBlob((blob) => {
+                        // ENTERPRISE FIX: Instantly release the massive Canvas memory buffer 
+                        // before the GC runs to prevent OOM panics on subsequent exports.
+                        canvas.width = 0;
+                        canvas.height = 0;
+                        
                         if (blob) resolve(blob);
                         else reject(new Error("Image too massive for pixel rendering. Use SVG Download instead."));
                     }, "image/png");

@@ -7,7 +7,7 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Select from "sap/m/Select";
-import ComboBox from "sap/m/ComboBox";
+import Input from "sap/m/Input";
 import StepInput from "sap/m/StepInput";
 import Switch from "sap/m/Switch";
 import SegmentedButton from "sap/m/SegmentedButton";
@@ -35,7 +35,7 @@ export default class VariantStateMapper {
         // ENTERPRISE FIX: Use a strictly typed Dictionary to ensure safe dynamic format appending
         const oState: Record<string, any> = {
             name: sName,
-            cdsName: (oView.byId("cmbCdsName") as ComboBox).getValue().trim().toUpperCase(), // Normalizes to prevent the Uppercase Bug
+            cdsName: (oView.byId("cmbCdsName") as Input).getValue().trim().toUpperCase(), // Normalizes to prevent the Uppercase Bug
             engine: sEngine,
             maxLevel: (oView.byId("stepMaxLevel") as StepInput).getValue(),
             keys: (oView.byId("swKeys") as Switch).getState(),
@@ -83,7 +83,7 @@ export default class VariantStateMapper {
         const oUiModel = oView.getModel("ui") as JSONModel;
 
         const sVariantCdsName = (oVariant.cdsName || "").toUpperCase(); // Normalizes to prevent the Uppercase Bug
-        (oView.byId("cmbCdsName") as ComboBox).setValue(sVariantCdsName);
+        (oView.byId("cmbCdsName") as Input).setValue(sVariantCdsName);
         oUiModel.setProperty("/lastGeneratedCdsName", sVariantCdsName); 
 
         // ENTERPRISE SAFETY: Coerce missing properties to prevent UI5 fatal crashes on older variants

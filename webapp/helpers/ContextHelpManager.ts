@@ -11,7 +11,7 @@ import FormattedText from "sap/m/FormattedText";
 import JSONModel from "sap/ui/model/json/JSONModel";
 
 export default class ContextHelpManager {
-    private static _oInfoPopover?: ResponsivePopover;
+    private static _mPopovers: Map<string, ResponsivePopover> = new Map();
 
     /**
      * @public
@@ -25,19 +25,38 @@ export default class ContextHelpManager {
     public static openPopover(oEvent: Event, oView: View, fnGetText: (k: string, args?: any[]) => string): void {
         const oIcon = oEvent.getSource() as Icon;
         const sInfoType = oIcon.data("infoType") as string;
+        const sViewId = oView.getId();
         
-        if (!this._oInfoPopover) {
-            this._oInfoPopover = new ResponsivePopover({
+        let oPopover = this._mPopovers.get(sViewId);
+
+        // ENTERPRISE FIX: Key popovers per-view to prevent UI5 Aggregation Collisions.
+        if (!oPopover || oPopover.isDestroyed()) {
+            oPopover = new ResponsivePopover({
                 placement: "Auto",
                 contentWidth: "350px", // Expanded to support clean bullet lists
                 showHeader: true,
                 content: [ new FormattedText({ htmlText: "{popover>/text}" }).addStyleClass("sapUiSmallMargin") ]
             });
+            this._mPopovers.set(sViewId, oPopover);
+            oView.addDependent(oPopover); // Ensures proper i18n and theme inheritance
         }
-        oView.addDependent(this._oInfoPopover); // Ensures proper i18n and theme inheritance
 
-        this._oInfoPopover.setModel(new JSONModel({ text: fnGetText(`infoText${sInfoType}`) }), "popover");
-        this._oInfoPopover.setTitle(fnGetText(`infoTitle${sInfoType}`));
-        this._oInfoPopover.openBy(oIcon);
+        oPopover.setModel(new JSONModel({ text: fnGetText(`infoText${sInfoType}`) }), "popover");
+        oPopover.setTitle(fnGetText(`infoTitle${sInfoType}`));
+        oPopover.openBy(oIcon);
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Destroys the popover and severs the memory reference to prevent GC leaks on View exit.
+     * @param {string} sViewId - The current SAPUI5 View ID.
+     */
+    public static destroy(sViewId: string): void {
+        const oPopover = this._mPopovers.get(sViewId);
+        if (oPopover) {
+            if (!oPopover.isDestroyed()) oPopover.destroy();
+            this._mPopovers.delete(sViewId);
+        }
     }
 }

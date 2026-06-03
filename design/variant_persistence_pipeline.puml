@@ -1,0 +1,38 @@
+@startuml
+title Variant Persistence & Hydration Pipeline
+
+skinparam handwritten false
+skinparam responseMessageBelowArrow true
+
+actor User
+participant "Selection\nController" as Ctrl
+participant "Variant\nHandler" as VHandler
+participant "VariantState\nMapper" as Mapper
+participant "Variant\nManager" as Storage
+participant "Renderer\n(Facade)" as Renderer
+
+User -> Ctrl : Clicks "Save Variant"
+activate Ctrl
+Ctrl -> VHandler : openSaveDialog()
+activate VHandler
+User -> VHandler : Enters Name & Confirms
+VHandler -> Mapper : captureState(view, name, bSavePositions)
+activate Mapper
+Mapper -> Renderer : getCanvasState(sEngine)
+activate Renderer
+Renderer --> Mapper : Canvas X/Y, Zoom, Pins
+deactivate Renderer
+Mapper --> VHandler : IVariantState (DTO)
+deactivate Mapper
+
+VHandler -> Storage : saveVariant(IVariantState)
+activate Storage
+Storage -> Storage : Check 5MB Quota\nJSON.stringify()
+Storage --> VHandler : Updated Variant List
+deactivate Storage
+
+VHandler --> Ctrl : UI Dropdown Updated
+deactivate VHandler
+deactivate Ctrl
+
+@enduml

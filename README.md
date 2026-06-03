@@ -107,8 +107,45 @@ When you save a Variant, it captures:
 * **Collapsible Workspace:** Hide the configuration panel to maximize the drawing area.
 * **Smart Centering:** Diagrams automatically scale and center upon generation.
 
-## Architecture
-This is the **Frontend (UI)**. It requires the **Backend (ABAP)** component found here: [abap-vdm-cds-diagram](https://github.com/SiliconStreetDev1/abap-vdm-cds-diagram)
+## Native Video Recording
+The application features a built-in, native HTML5 Video Recording engine that executes entirely client-side with zero backend dependencies.
+
+* **Canvas Only (Clean) Mode:** Directly captures the WebGL pixel buffer of the Cytoscape graph. The resulting video is completely clean, hiding the SAP Fiori UI, your mouse cursor, and any system notifications.
+* **Entire Screen Mode:** Captures the full SAP Fiori UI, useful for training or tutorial videos.
+* **Stealth Mode:** For 100% invisible diagram capture, enable Stealth Mode to hide all UI recording indicators and control the engine strictly via the `Ctrl + Shift + X` global hotkey.
+* **Dynamic Encoding:** Automatically calculates optimal bitrates based on the user's selected resolution (720p to 4K) and Framerate (30-60 FPS) to prevent pixelation while optimizing `.webm` / `.mp4` file sizes.
+* **Burned-In Subtitles:** Add professional lower-third titles and descriptions to your Canvas recordings to provide context during architectural presentations.
+
+### How to Record
+1. Expand the **Video Recording** panel in the configuration sidebar.
+2. Toggle **Enable Video Recording** to `Yes`. This reveals the recording controls in the main diagram toolbar.
+3. Select your desired mode (`Entire Screen` or `Diagram Only`), Resolution, and Framerate. (If using Canvas mode, you can optionally enter a Video Title to be burned into the final file).
+4. Click the **Record** button in the main toolbar above the canvas. A cinematic countdown will appear before capture begins.
+5. Use the **Pause / Resume** controls during long backend fetches (Note: The engine will auto-pause during drill-downs to conserve CPU!).
+6. Click **Stop** to finalize. The file will automatically compile and download to your machine.
+
+---
+
+## System Architecture & Design
+This repository acts as the **Frontend (UI)** component, utilizing the SAPUI5 framework. It requires the **Backend (ABAP)** component found here: abap-vdm-cds-diagram
+
+### Patterns
+The codebase is strictly engineered adhering to **SOLID** principles, ensuring high performance and memory safety across Fiori Launchpad environments:
+* **Strategy Pattern (`Renderer.ts`):** Decouples the UI from the rendering logic, allowing dynamic switching between Cytoscape, Graphviz, Mermaid, PlantUML, and D2.
+* **Template Method Pattern (`VideoRecorder.ts`):** Enforces strict execution mutex locks and memory cleanup for native browser video capture.
+* **Memento Pattern (`UndoHandler.ts`):** Provides a 15-step memory-safe undo/redo stack for physical layout changes.
+* **Pub/Sub Orchestration (`EventBus`):** Fiori Flexible Column Layout (FCL) panes communicate entirely asynchronously, preventing tight coupling.
+* **LRU Caching (`DiagramCache.ts`):** Repeated OData backend requests are intercepted and served from an immutable memory cache to eliminate network spam.
+
+### Design Diagrams
+Detailed PlantUML architectural diagrams mapping the system's execution flows, class hierarchies, and state machines can be found in the `/design` directory:
+* `system_architecture_context.puml` - Full system execution boundaries.
+* `core_pipeline.puml` - Component Sequence Diagram.
+* `event_choreography.puml` - EventBus & DOM Pub/Sub flows.
+* `engine_facade_classes.puml` - Rendering Engine Class Diagram.
+* `video_recorder_classes.puml` & `video_state_machine.puml` - Video Engine logic.
+* `variant_persistence_pipeline.puml` - LocalStorage serialization flow.
+* `undo_memento_sequence.puml` - State hydration pipeline.
 
 ## Configuration Overrides (`config.json`)
 Manage external endpoints, CDN paths, and performance limits. 

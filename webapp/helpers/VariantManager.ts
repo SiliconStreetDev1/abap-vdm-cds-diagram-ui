@@ -38,7 +38,11 @@ export default class VariantManager {
         aHistory.unshift({ name: sName });
         if (aHistory.length > 10) aHistory.pop();
         
-        localStorage.setItem(this.KEY_HISTORY, JSON.stringify(aHistory));
+        try {
+            localStorage.setItem(this.KEY_HISTORY, JSON.stringify(aHistory));
+        } catch (e) {
+            console.warn("VDM Diagrammer: LocalStorage history quota exceeded. History not updated.");
+        }
         return aHistory;
     }
 
@@ -65,7 +69,12 @@ export default class VariantManager {
         aVariants = aVariants.filter(v => v.name !== oState.name);
         aVariants.push(oState);
         
-        localStorage.setItem(this.KEY_VARIANTS, JSON.stringify(aVariants));
+        try {
+            localStorage.setItem(this.KEY_VARIANTS, JSON.stringify(aVariants));
+        } catch (e: any) {
+            // Enterprise Fix: Gracefully trap 5MB DOMException quota limits.
+            throw new Error("Local Storage Quota Exceeded. Please delete older variants to save new ones.");
+        }
         return aVariants;
     }
 
@@ -80,7 +89,11 @@ export default class VariantManager {
         let aVariants = this.getVariants();
         aVariants = aVariants.filter(v => v.name !== sName);
         
-        localStorage.setItem(this.KEY_VARIANTS, JSON.stringify(aVariants));
+        try {
+            localStorage.setItem(this.KEY_VARIANTS, JSON.stringify(aVariants));
+        } catch (e) {
+            console.warn("VDM Diagrammer: Failed to update local storage during deletion.");
+        }
         return aVariants;
     }
 }

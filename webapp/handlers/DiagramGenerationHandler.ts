@@ -9,15 +9,15 @@ import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import EventBus from "sap/ui/core/EventBus";
 import MessageToast from "sap/m/MessageToast";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
-import ComboBox from "sap/m/ComboBox";
+import Input from "sap/m/Input";
 import Select from "sap/m/Select";
 
 import DiagramRequestMapper from "../helpers/DiagramRequestMapper";
 import DiagramService from "../services/DiagramService";
 import VariantManager from "../helpers/VariantManager";
+import SessionStateCache from "../helpers/SessionStateCache";
 import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
-import { IVariantState } from "../types/IVariantState";
 import Renderer from "../renderer/Renderer";
 
 export default class DiagramGenerationHandler {
@@ -26,7 +26,6 @@ export default class DiagramGenerationHandler {
     private _fnGetText: (k: string, args?: any[]) => string;
     private _sRootCdsName: string = "";
     private _aBreadcrumbs: string[] = [];
-    private _oSessionCache: Record<string, IVariantState> = {};
 
     constructor(oView: View, oEventBus: EventBus | undefined, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
@@ -35,27 +34,12 @@ export default class DiagramGenerationHandler {
     }
 
     /**
-     * @public
-     * @description Caches a snapshot of the current view's state for seamless breadcrumb restoration.
-     * @param {string} sName - The CDS view name.
-     * @param {IVariantState} oState - The captured canvas and filter state.
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
      */
-    public cacheSessionState(sName: string, oState: IVariantState): void {
-        this._oSessionCache[sName.toUpperCase()] = oState;
-    }
-
-    /**
-     * @public
-     * @description Retrieves a cached snapshot for a given CDS view, if one exists in this session.
-     * @param {string} sName - The CDS view name.
-     * @returns {IVariantState | undefined}
-     */
-    public getCachedSessionState(sName: string): IVariantState | undefined {
-        return this._oSessionCache[sName.toUpperCase()];
-    }
-
-    public clearSessionCache(): void {
-        this._oSessionCache = {};
+    private _getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
     }
 
     /**
@@ -67,8 +51,8 @@ export default class DiagramGenerationHandler {
      * @returns {Promise<void>}
      */
     public async generate(bIsDrillDown: boolean, bIsRestore: boolean = false): Promise<void> {
-        const oComboBox = this._oView.byId("cmbCdsName") as ComboBox;
-        const sCdsName = oComboBox.getValue().trim().toUpperCase();
+        const oInputField = this._oView.byId("cmbCdsName") as Input;
+        const sCdsName = oInputField.getValue().trim().toUpperCase();
 
         if (!sCdsName) {
             MessageToast.show(this._fnGetText("msgEnterCds"));
@@ -98,7 +82,7 @@ export default class DiagramGenerationHandler {
         if (!bIsDrillDown) {
             this._sRootCdsName = sCdsName;
             this._aBreadcrumbs = [sCdsName];
-            this.clearSessionCache(); // Reset the snapshot memory on completely new searches
+            SessionStateCache.clear(this._getInstanceId()); // Reset the snapshot memory on completely new searches
         } else {
             const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
             if (iIndex > -1) {
@@ -112,6 +96,12 @@ export default class DiagramGenerationHandler {
 
         // Eagerly drop the stale state so the UI doesn't flash yellow behind the BusyIndicator
         oUiModel.setProperty("/isCanvasStale", false);
+
+        // ENTERPRISE FIX: Auto-pause the video recording before the network fetch begins 
+        // so the "Busy Loading" wait time is not captured in the video timeline.
+        if (this._oEventBus) {
+            this._oEventBus.publish("VideoRecording", "AutoPause");
+        }
 
         BusyIndicator.show(0);
 
@@ -140,6 +130,7 @@ export default class DiagramGenerationHandler {
             // Restore the stale state if the diagram generation failed to complete
             oUiModel.setProperty("/isCanvasStale", true);
             MessageToast.show(this._fnGetText(oError.message) || oError.message);
+            if (this._oEventBus) this._oEventBus.publish("VideoRecording", "AutoResume");
         } finally {
             BusyIndicator.hide();
         }
@@ -154,7 +145,7 @@ export default class DiagramGenerationHandler {
      */
     public handleDrillDown(sViewName?: string, bIsRestore: boolean = false): void {
         if (sViewName) {
-            (this._oView.byId("cmbCdsName") as ComboBox).setValue(sViewName);
+            (this._oView.byId("cmbCdsName") as Input).setValue(sViewName);
             this.generate(true, bIsRestore);
         }
     }

@@ -11,6 +11,7 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
 import File from "sap/ui/core/util/File";
 import BusyIndicator from "sap/ui/core/BusyIndicator";
+import FileDownloadUtility from "../helpers/FileDownloadUtility";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 
@@ -62,12 +63,7 @@ export default class ExportHandler {
                 const b64Image = Renderer.exportPng(this._getInstanceId(), oData.engine);
                 if (!b64Image) throw new Error("Canvas is empty or not initialized.");
                 
-                const link = document.createElement("a");
-                link.href = b64Image;
-                link.download = `${oData.cdsName}_${oData.engine}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                FileDownloadUtility.downloadFromUrl(b64Image, `${oData.cdsName}_${oData.engine}.png`);
                 
             } else {
                 // Request a brand new, clean SVG string from the isolated headless engine
@@ -76,16 +72,7 @@ export default class ExportHandler {
 
                 // Rasterize the pure string into a PNG Blob via the ExportUtility
                 const oPngBlob = await Renderer.convertSvgStringToPng(sCleanSvgData);
-                const url = URL.createObjectURL(oPngBlob);
-                
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `${oData.cdsName}_${oData.engine}.png`;
-                document.body.appendChild(link);
-                link.click();
-                
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+                FileDownloadUtility.downloadBlob(oPngBlob, `${oData.cdsName}_${oData.engine}.png`);
             }
         } catch (oError: any) {
             this._fnShowError("PNG Export Failed: " + (oError.message || oError));
@@ -117,16 +104,7 @@ export default class ExportHandler {
 
             // Convert the standard XML string into a downloadable File Blob
             const blob = new Blob([sSvgData], { type: "image/svg+xml;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${oData.cdsName}_${oData.engine}.svg`;
-            document.body.appendChild(link);
-            link.click();
-            
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            FileDownloadUtility.downloadBlob(blob, `${oData.cdsName}_${oData.engine}.svg`);
 
         } catch (oError: any) {
             this._fnShowError("SVG Export Failed: " + (oError.message || oError));
@@ -144,7 +122,11 @@ export default class ExportHandler {
     public copySyntax(): void {
         const sPayload: string = (this._oView.getModel("diagramData") as JSONModel).getProperty("/payload");
         if (navigator?.clipboard) {
-            navigator.clipboard.writeText(sPayload).then(() => MessageToast.show(this._fnGetText("msgCopied")));
+            navigator.clipboard.writeText(sPayload)
+                .then(() => MessageToast.show(this._fnGetText("msgCopied")))
+                .catch((e: any) => this._fnShowError("Clipboard Access Denied: " + (e.message || "Check browser permissions.")));
+        } else {
+            this._fnShowError("Clipboard API is not supported in this browser context.");
         }
     }
 

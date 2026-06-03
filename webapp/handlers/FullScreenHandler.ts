@@ -25,6 +25,7 @@ type FullscreenDoc = Document & {
 export default class FullScreenHandler {
     private _oView: View;
     private _fnFullScreenChangeBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
     /**
      * @constructor
@@ -40,9 +41,11 @@ export default class FullScreenHandler {
      * @returns {void}
      */
     public attachEvents(): void {
+        if (this._bIsAttached) return;
         this._fnFullScreenChangeBind = this._onFullScreenChange.bind(this);
         document.addEventListener("fullscreenchange", this._fnFullScreenChangeBind);
         document.addEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind);
+        this._bIsAttached = true;
     }
 
     /**
@@ -51,8 +54,10 @@ export default class FullScreenHandler {
      * @returns {void}
      */
     public detachEvents(): void {
+        if (!this._bIsAttached) return;
         document.removeEventListener("fullscreenchange", this._fnFullScreenChangeBind);
         document.removeEventListener("webkitfullscreenchange", this._fnFullScreenChangeBind);
+        this._bIsAttached = false;
     }
 
     /**
@@ -79,7 +84,8 @@ export default class FullScreenHandler {
             }
         } else {
             if (doc.exitFullscreen) {
-                doc.exitFullscreen();
+                const promise = doc.exitFullscreen();
+                if (promise) promise.catch((err: Error) => console.warn(`Exit fullscreen error: ${err.message}`));
             } else if (doc.webkitExitFullscreen) {
                 doc.webkitExitFullscreen();
             } else if (doc.msExitFullscreen) {

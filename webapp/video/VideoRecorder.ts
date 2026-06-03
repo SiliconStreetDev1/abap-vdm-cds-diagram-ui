@@ -1,291 +1,372 @@
-import SubtitleEngine from "./SubtitleEngine";
+import CountdownOverlay from "./CountdownOverlay";
 
 /**
  * @interface IMediaRecorder
  * @description Strict interface for native browser video capture APIs
  */
-interface IMediaRecorder {
+export interface IMediaRecorder {
     state: string;
     start(timeslice?: number): void;
     stop(): void;
     pause(): void;
     resume(): void;
     ondataavailable: ((e: { data: Blob }) => void) | null;
-    onstop: (() => void) | null;
+    onstop: (() => void | Promise<void>) | null;
 }
 
 /**
- * @interface IStreamCanvas
- * @description Safely extends native HTMLCanvasElement for WebGL media capture.
+ * @interface IRecordingConfig
+ * @description Unified configuration payload for polymorphic recording execution.
  */
-interface IStreamCanvas extends HTMLCanvasElement {
-    captureStream(frameRate?: number): MediaStream;
+export interface IRecordingConfig {
+    resolutionStr: string;
+    fps: number;
+    delaySeconds: number;
+    onWaitingForPermission?: () => void;
+    onPermissionGranted?: () => void;
+    onCountdown: (sec: number) => void;
+    onStart: () => void;
+    onStop: (blob: Blob) => void;
+    onError: (err: string) => void;
+    onTick: (time: number) => void;
 }
 
 /**
  * @class VideoRecorder
  * @namespace nz.co.siliconstreet.vdmdiagrammer.video
- * @description Captures multi-layered WebGL canvases into a single, high-fidelity video stream.
+ * @description Orchestrates MediaStream capture, time tracking, and encoding for video generation.
  */
-export default class VideoRecorder {
-    private _mediaRecorder: IMediaRecorder | null = null;
-    private _screenRecorder: MediaRecorder | null = null;
-    private _screenStream: MediaStream | null = null;
-    private _recordedChunks: Blob[] = [];
-    private _rafId: number | null = null;
-    private _compositeCanvas: HTMLCanvasElement | null = null;
-    private _isActive: boolean = false;
-    private _subtitleTitle: string = "";
-    private _subtitleDesc: string = "";
-    private _iTimeoutId: number | null = null;
-    private readonly _iMaxDuration = 150000; // 2 minutes and 30 seconds
-    private _isPaused: boolean = false;
-    private _iTotalElapsed: number = 0;
-    private _iLastTickTime: number = 0;
+export default abstract class VideoRecorder {
+    protected mediaRecorder: IMediaRecorder | MediaRecorder | null = null;
+    protected stream: MediaStream | null = null;
+    
+    protected recordedChunks: Blob[] = [];
+    protected isActive: boolean = false;
+    protected isPaused: boolean = false;
+    protected isStarting: boolean = false;
+    protected isCountingDown: boolean = false;
+    
+    protected subtitleTitle: string = "";
+    protected subtitleDesc: string = "";
+    
+    protected timeoutId: number | null = null;
+    protected maxDurationMs = 150000; // 2 minutes and 30 seconds
+    protected totalElapsedMs: number = 0;
+    protected lastTickTime: number = 0;
+    protected cancelDelayCallback?: () => void;
 
-    public setSubtitles(title: string, desc: string): void {
-        this._subtitleTitle = title;
-        this._subtitleDesc = desc;
-    }
-
-    public calculateResolution(container: HTMLElement, resSetting: string): { w: number, h: number } {
-        const sourceCanvases = container.getElementsByTagName("canvas");
-        const baseW = sourceCanvases.length > 0 ? (sourceCanvases[0].width || container.clientWidth) : container.clientWidth;
-        const baseH = sourceCanvases.length > 0 ? (sourceCanvases[0].height || container.clientHeight) : container.clientHeight;
+    /**
+     * @public
+     * @description Concrete execution entrypoint. Enforces strict concurrency Mutex locks,
+     * memory sanitation, and error routing for all subclass engines. (Template Method Pattern)
+     * @param {IRecordingConfig} config - Unified settings payload.
+     */
+    public async start(config: IRecordingConfig): Promise<void> {
+        if (this.isStarting || this.isActive) return;
         
-        let targetW = baseW;
-        let targetH = baseH;
-        
-        switch (resSetting.toUpperCase()) {
-            case "1080P": targetW = 1920; targetH = 1080; break;
-            case "1440P": targetW = 2560; targetH = 1440; break;
-            case "4K": targetW = 3840; targetH = 2160; break;
-            case "720P": targetW = 1280; targetH = 720; break;
-        }
-        return {
-            w: targetW % 2 === 0 ? targetW : targetW + 1,
-            h: targetH % 2 === 0 ? targetH : targetH + 1
-        };
-    }
-
-    public async startScreenRecording(sResolution: string, fnOnStop: (blob: Blob) => void, fnOnError: (err: string) => void, fnOnTick: (time: number) => void): Promise<void> {
         this.stopRecording();
+        this.cleanupMemory(); // Synchronous wipe to prevent async race conditions
+        this.isStarting = true;
+
         try {
-            let videoConstraints: boolean | MediaTrackConstraints = true;
-            if (sResolution === "1080P") videoConstraints = { width: { ideal: 1920 }, height: { ideal: 1080 } };
-            else if (sResolution === "720P") videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
-
-            this._screenStream = await navigator.mediaDevices.getDisplayMedia({ video: videoConstraints, audio: false });
+            await this.performCapture(config);
             
-            // ENTERPRISE FIX: Safari fallback for MediaRecorder. Not all browsers support webm.
-            let sMimeType = 'video/webm; codecs=vp9';
-            if (!MediaRecorder.isTypeSupported(sMimeType)) sMimeType = 'video/webm';
-            if (!MediaRecorder.isTypeSupported(sMimeType)) sMimeType = 'video/mp4'; // Apple ecosystem fallback
-            if (!MediaRecorder.isTypeSupported(sMimeType)) sMimeType = ''; // Let browser choose default
-            
-            this._screenRecorder = sMimeType ? new MediaRecorder(this._screenStream, { mimeType: sMimeType }) : new MediaRecorder(this._screenStream);
-            this._recordedChunks = [];
-
-            this._screenRecorder.ondataavailable = (e: BlobEvent) => { if (e.data && e.data.size > 0) this._recordedChunks.push(e.data); };
-            this._screenRecorder.onstop = () => {
-                const sActualType = this._screenRecorder?.mimeType ? this._screenRecorder.mimeType.split(';')[0] : 'video/webm';
-                const blob = new Blob(this._recordedChunks, { type: sActualType });
-                fnOnStop(blob);
-                this._cleanup();
-            };
-            
-            const aVideoTracks = this._screenStream.getVideoTracks();
-            if (aVideoTracks && aVideoTracks.length > 0) {
-                aVideoTracks[0].onended = () => this.stopRecording();
+            // Template Method: Automatically enforce post-capture success invariants
+            if (this.isStarting) { 
+                this.isActive = true;
+                this.isStarting = false;
+                this.startTrackingTimer(config.onTick);
             }
-            
-            this._screenRecorder.start(1000);
-            this._isActive = true;
-            this._startTimer(fnOnTick);
-            
         } catch (e: any) {
-            fnOnError(e.message || "Failed to start screen recording");
+            this.isStarting = false;
+            this.cleanupMemory();
+            // Suppress internal execution aborts gracefully
+            if (e.message !== "ABORT") {
+                config.onError(e.message || "Failed to start recording.");
+            }
         }
     }
 
-    public startCanvasRecording(containerId: string, sResolution: string, fnOnStop: (blob: Blob) => void, fnOnError: (err: string) => void, fnOnTick: (time: number) => void): void {
-        this.stopRecording(); 
-        this._cleanup(); // Synchronous wipe to prevent async race conditions from old recordings
+    /**
+     * @protected
+     * @description Abstract capture hook to be implemented by targeted subclass engines.
+     * @param {IRecordingConfig} config - Unified settings payload.
+     */
+    protected abstract performCapture(config: IRecordingConfig): Promise<void>;
 
-        const container = document.getElementById(containerId);
-        if (!container) {
-            fnOnError("Canvas container not found.");
-            return;
-        }
-
-        const sourceCanvases = container.getElementsByTagName("canvas");
-        if (sourceCanvases.length === 0) {
-            fnOnError("No WebGL canvas found to record.");
-            return;
-        }
-
-        const res = this.calculateResolution(container, sResolution);
-        const targetW = res.w;
-        const targetH = res.h;
-
-        this._compositeCanvas = document.createElement("canvas");
-        this._compositeCanvas.width = targetW;
-        this._compositeCanvas.height = targetH;
-        const ctx = this._compositeCanvas.getContext("2d");
-        if (!ctx) return;
-
-        // UX ARCHITECTURE: Auto-detect Fiori Dark/Light Theme for the background
-        const isDarkTheme = document.body.classList.contains("sapTheme-sap_horizon_dark");
-        const bgColor = isDarkTheme ? "#12171c" : "#f2f4f6";
-        
-        ctx.fillStyle = bgColor;
-        ctx.fillRect(0, 0, targetW, targetH);
-        
-        // ARCHITECTURE FIX: Fiori FlexibleColumnLayout relies on strict viewport boundaries.
-        // We use position fixed to prevent flexbox squashing. 
-        // ENTERPRISE FIX: We keep it at top: 0 to prevent WebKit "Occlusion Culling" from freezing the video,
-        // but we use clip-path to make it completely invisible to the user.
-        this._compositeCanvas.style.position = "fixed";
-        this._compositeCanvas.style.top = "0px";
-        this._compositeCanvas.style.left = "0px";
-        this._compositeCanvas.style.pointerEvents = "none";
-        this._compositeCanvas.style.opacity = "0.01";
-        this._compositeCanvas.style.zIndex = "-9999";
-        this._compositeCanvas.style.clipPath = "inset(100%)";
-        document.body.appendChild(this._compositeCanvas);
-
-        this._isActive = true; 
-        
-        let liveContainer = document.getElementById(containerId);
-        let liveCanvases = liveContainer ? liveContainer.getElementsByTagName("canvas") : null;
-
-        const drawFrame = () => {
-            if (!this._compositeCanvas || !this._isActive) return;
-            
-            // CPU PERFORMANCE FIX: Halt DOM queries and WebGL copying while paused or loading
-            if (!this._isPaused) {
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, 0, targetW, targetH);
-                
-                // DYNAMIC DOM HOOK: Only query the DOM if Fiori physically destroyed the container (Drill-Down).
-                // This eliminates 60 DOM queries per second, drastically reducing CPU load.
-                if (!liveContainer || !liveContainer.isConnected) {
-                    liveContainer = document.getElementById(containerId);
-                    liveCanvases = liveContainer ? liveContainer.getElementsByTagName("canvas") : null;
-                }
-                
-                if (liveCanvases) {
-                    for (let i = 0; i < liveCanvases.length; i++) {
-                        const srcCvs = liveCanvases[i];
-                        const srcW = srcCvs.width;
-                        const srcH = srcCvs.height;
-                        if (srcW === 0 || srcH === 0) continue;
-                        
-                        const drawScale = Math.min(targetW / srcW, targetH / srcH);
-                        const drawW = srcW * drawScale;
-                        const drawH = srcH * drawScale;
-                        const drawX = (targetW - drawW) / 2;
-                        const drawY = (targetH - drawH) / 2;
-                        
-                        ctx.drawImage(srcCvs, drawX, drawY, drawW, drawH);
-                    }
-                }
-                
-                SubtitleEngine.burn(ctx, targetW, targetH, this._subtitleTitle, this._subtitleDesc);
-            }
-            this._rafId = requestAnimationFrame(drawFrame);
-        };
-        drawFrame(); 
-
-        try {
-            const stream = (this._compositeCanvas as IStreamCanvas).captureStream(30);
-            this._recordedChunks = [];
-
-            try {
-                const options = { mimeType: 'video/webm', videoBitsPerSecond: 16000000 };
-                this._mediaRecorder = new window.MediaRecorder(stream, options) as IMediaRecorder;
-            } catch (e) {
-                try {
-                    this._mediaRecorder = new window.MediaRecorder(stream, { mimeType: 'video/mp4' }) as IMediaRecorder;
-                } catch (e2) {
-                    this._mediaRecorder = new window.MediaRecorder(stream) as IMediaRecorder;
-                }
-            }
-        
-            this._mediaRecorder.ondataavailable = (ev: any) => { if (ev.data && ev.data.size > 0) this._recordedChunks.push(ev.data); };
-            
-            const localCanvasRef = this._compositeCanvas; // Closure to prevent async overwrites
-            this._mediaRecorder.onstop = () => {
-                this._isActive = false;
-                if (this._rafId !== null) cancelAnimationFrame(this._rafId);
-                if (localCanvasRef && localCanvasRef.parentNode) {
-                    localCanvasRef.parentNode.removeChild(localCanvasRef);
-                }
-                const sActualType = this._mediaRecorder && (this._mediaRecorder as any).mimeType ? (this._mediaRecorder as any).mimeType.split(';')[0] : 'video/webm';
-                const blob = new Blob(this._recordedChunks, { type: sActualType });
-                fnOnStop(blob);
-                this._cleanup();
-            };
-        
-            this._mediaRecorder.start(1000); 
-            this._startTimer(fnOnTick);
-        } catch (e: any) {
-            this._cleanup();
-            fnOnError("Browser engine does not support Canvas Stream Capture.");
-        }
+    /**
+     * @public
+     * @description Sets the maximum duration limit for the recording to prevent indefinite capture.
+     * @param {number} ms - Maximum duration in milliseconds.
+     */
+    public setMaxDuration(ms: number): void {
+        this.maxDurationMs = ms;
     }
 
-    private _startTimer(fnOnTick: (time: number) => void): void {
-        this._iTotalElapsed = 0;
-        this._iLastTickTime = Date.now();
-        this._iTimeoutId = window.setInterval(() => {
-            if (this._isPaused) {
-                this._iLastTickTime = Date.now();
+    /**
+     * @public
+     * @description Sets the subtitle text to be burned into the video output.
+     * @param {string} title - The main title text.
+     * @param {string} desc - The descriptive text.
+     */
+    public setSubtitles(title: string, desc: string): void {
+        this.subtitleTitle = title;
+        this.subtitleDesc = desc;
+    }
+
+    /**
+     * @public
+     * @description Exposes the current recording state of the engine.
+     * @returns {boolean} True if the engine is actively capturing frames.
+     */
+    public isRecording(): boolean { 
+        return this.isActive; 
+    }
+
+    /**
+     * @private
+     * @description Executes a strictly bound asynchronous delay loop. Allows cancellation mid-tick.
+     */
+    protected async delayLoop(seconds: number, onCountdownTick: (s: number) => void): Promise<boolean> {
+        this.isCountingDown = true;
+        for (let i = seconds; i > 0; i--) {
+            if (!this.isCountingDown) {
+                CountdownOverlay.hide();
+                return false;
+            }
+            onCountdownTick(i);
+            CountdownOverlay.show(i);
+            await new Promise<void>(resolve => {
+                let timer = window.setTimeout(resolve, 1000);
+                this.cancelDelayCallback = () => {
+                    clearTimeout(timer);
+                    resolve();
+                };
+            });
+        }
+        CountdownOverlay.hide();
+        this.isCountingDown = false;
+        return true;
+    }
+
+    /**
+     * @private
+     * @description Calculates an optimal encoding bitrate mathematically based on target resolution and framerate.
+     * Prevents pixelation on 4K/60FPS captures while conserving memory on 720p/30FPS captures.
+     */
+    protected calculateDynamicBitrate(width: number, height: number, fps: number): number {
+        // Formula: Width * Height * FPS * BitsPerPixel (Targeting 0.1 BPP for high-fidelity enterprise diagrams)
+        const pixelsPerFrame = width * height;
+        const bitsPerSecond = pixelsPerFrame * fps * 0.1;
+        return Math.max(2500000, Math.min(bitsPerSecond, 50000000)); // Clamp between 2.5 Mbps and 50 Mbps
+    }
+
+    /**
+     * @private
+     * @description Fallback chain to find the optimal MIME type for encoding depending on browser support.
+     */
+    protected getOptimalMimeType(): string {
+        if (typeof MediaRecorder !== 'undefined') {
+            // Enterprise Fix: Prioritize WebM with VP8.
+            // 1. Fragmented MP4s (video/mp4) generated by Chrome are natively UNSEEKABLE in desktop players 
+            //    because they lack a central 'moov' atom. Prioritizing MP4 breaks local file scrubbing.
+            // 2. VP9 aggressively drops keyframes on static UI screens. VP8 combined with start(1000) 
+            //    forces a new WebM Cluster and Keyframe every 1 second, allowing fix-webm-duration 
+            //    to build a flawless 'Cues' timeline index for smooth fast-forwarding.
+            if (MediaRecorder.isTypeSupported('video/webm; codecs=vp8')) return 'video/webm; codecs=vp8';
+            if (MediaRecorder.isTypeSupported('video/webm; codecs=h264')) return 'video/webm; codecs=h264';
+            if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) return 'video/webm; codecs=vp9';
+            if (MediaRecorder.isTypeSupported('video/webm')) return 'video/webm';
+            if (MediaRecorder.isTypeSupported('video/mp4')) return 'video/mp4'; // Absolute fallback for Safari
+        }
+        return '';
+    }
+
+    /**
+     * @protected
+     * @description Starts the internal timer to track elapsed recording duration.
+     * @param {function} onTick - Callback executed every second with the total elapsed time.
+     */
+    protected startTrackingTimer(onTick: (time: number) => void): void {
+        this.totalElapsedMs = 0;
+        this.lastTickTime = Date.now();
+        this.timeoutId = window.setInterval(() => {
+            if (this.isPaused) {
+                // We no longer advance the tick time here, as pauseRecording() handles 
+                // the fractional capture and we want the timer frozen.
                 return;
             }
-            const iNow = Date.now();
-            this._iTotalElapsed += (iNow - this._iLastTickTime);
-            this._iLastTickTime = iNow;
-            fnOnTick(this._iTotalElapsed);
-            if (this._iTotalElapsed >= this._iMaxDuration) this.stopRecording();
+            const now = Date.now();
+            this.totalElapsedMs += (now - this.lastTickTime);
+            this.lastTickTime = now;
+            onTick(this.totalElapsedMs);
+            if (this.totalElapsedMs >= this.maxDurationMs) this.stopRecording();
         }, 1000) as unknown as number;
     }
 
+    /**
+     * @protected
+     * @description Standardizes the instantiation and event binding of the native MediaRecorder.
+     * Enforces an identical, memory-safe compilation pipeline for all subclass engines.
+     */
+    protected startMediaRecorder(config: IRecordingConfig, dynamicBitrate: number): void {
+        if (!this.stream) throw new Error("Cannot start MediaRecorder without an active stream.");
+
+        const sMimeType = this.getOptimalMimeType();
+        const options: any = { videoBitsPerSecond: Math.round(dynamicBitrate) };
+        if (sMimeType) options.mimeType = sMimeType;
+
+        try {
+            this.mediaRecorder = new window.MediaRecorder(this.stream, options) as IMediaRecorder;
+        } catch (e) {
+            this.mediaRecorder = new window.MediaRecorder(this.stream) as IMediaRecorder;
+        }
+
+        this.recordedChunks = [];
+        this.mediaRecorder.ondataavailable = (ev: any) => { if (ev.data && ev.data.size > 0) this.recordedChunks.push(ev.data); };
+        this.mediaRecorder.onstop = () => this.finalizeRecording(config);
+        
+        this.mediaRecorder.start(1000); 
+    }
+
+    /**
+     * @protected
+     * @description Shared Blob compilation routine ensuring all subclass recordings finalize identically.
+     */
+    protected async finalizeRecording(config: IRecordingConfig): Promise<void> {
+        this.isActive = false;
+        
+        // Ensure the exact fraction of a second is captured for flawless metadata injection
+        if (!this.isPaused && this.lastTickTime > 0) {
+            this.totalElapsedMs += (Date.now() - this.lastTickTime);
+        }
+
+        const actualMimeType = this.mediaRecorder && (this.mediaRecorder as any).mimeType ? (this.mediaRecorder as any).mimeType.split(';')[0] : 'video/webm';
+        const blob = new Blob(this.recordedChunks, { type: actualMimeType });
+        
+        // ENTERPRISE FIX: Deep Binary Metadata Injection for WebM files.
+        // Chromium's MediaRecorder streams WebM files linearly without a 'Cues' index or 'Duration'.
+        // Without Cues, external desktop players (VLC, MPC-HC) crash or jump back to 0:00 when fast-forwarding.
+        // tsEBML reads the binary buffer, identifies Keyframes, and injects a perfect Cues index.
+        if (actualMimeType.includes("webm") && typeof (window as any).tsEBML !== "undefined") {
+            try {
+                const tsEBML = (window as any).tsEBML;
+                const reader = new tsEBML.Reader();
+                const decoder = new tsEBML.Decoder();
+                
+                const arrayBuffer = await blob.arrayBuffer();
+                const elms = decoder.decode(arrayBuffer);
+                elms.forEach((elm: any) => reader.read(elm));
+                reader.stop();
+
+                const refinedMetadataBuf = tsEBML.tools.makeMetadataSeekable(reader.metadatas, reader.duration, reader.cues);
+                const body = arrayBuffer.slice(reader.metadataSize);
+                const fixedBlob = new Blob([refinedMetadataBuf, body], { type: blob.type });
+
+                config.onStop(fixedBlob);
+                this.cleanupMemory();
+            } catch (e: any) {
+                console.warn("tsEBML binary parsing failed. Video may not be seekable in external players.", e);
+                config.onStop(blob);
+                this.cleanupMemory();
+            }
+        } else {
+            config.onStop(blob);
+            this.cleanupMemory();
+        }
+    }
+
+    /**
+     * @public
+     * @description Aborts or finalizes the active recording, releasing all hardware locks.
+     */
     public stopRecording(): void {
-        if (this._screenRecorder && (this._screenRecorder.state === "recording" || this._screenRecorder.state === "paused")) {
-            this._screenRecorder.stop();
+        this.isStarting = false; // Immediately release the lock if the user cancels
+        if (this.isCountingDown) {
+            this.isCountingDown = false;
+            if (this.cancelDelayCallback) this.cancelDelayCallback();
         }
-        if (this._mediaRecorder && (this._mediaRecorder.state === "recording" || this._mediaRecorder.state === "paused")) {
-            this._mediaRecorder.stop();
+        CountdownOverlay.hide();
+        if (this.mediaRecorder && (this.mediaRecorder.state === "recording" || this.mediaRecorder.state === "paused")) {
+            this.mediaRecorder.stop();
         }
-        this._isActive = false;
-        this._isPaused = false;
+        this.isActive = false;
+        this.isPaused = false;
     }
 
+    /**
+     * @public
+     * @description Safely halts internal engine compositing without triggering MediaRecorder exceptions.
+     */
+    public systemPause(): void {
+        // Overridden by subclasses to safely halt internal engines without touching the MediaRecorder
+    }
+
+    /**
+     * @public
+     * @description Resumes internal engine compositing after a system pause.
+     */
+    public systemResume(): void {
+        // Overridden by subclasses
+    }
+
+    /**
+     * @public
+     * @description Pauses the native MediaRecorder instance.
+     */
     public pauseRecording(): void {
-        if (this._screenRecorder && this._screenRecorder.state === "recording") this._screenRecorder.pause();
-        if (this._mediaRecorder && this._mediaRecorder.state === "recording") this._mediaRecorder.pause();
-        this._isPaused = true;
-    }
-
-    public resumeRecording(): void {
-        if (this._screenRecorder && this._screenRecorder.state === "paused") this._screenRecorder.resume();
-        if (this._mediaRecorder && this._mediaRecorder.state === "paused") this._mediaRecorder.resume();
-        this._isPaused = false;
-        this._iLastTickTime = Date.now();
-    }
-
-    private _cleanup(): void {
-        if (this._screenStream) {
-            this._screenStream.getTracks().forEach(t => t.stop());
-            this._screenStream = null;
+        try {
+            if (this.mediaRecorder && this.mediaRecorder.state === "recording") this.mediaRecorder.pause();
+        } catch (e) {
+            console.warn("MediaRecorder pause failed:", e);
         }
-        if (this._rafId !== null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
-        if (this._compositeCanvas && this._compositeCanvas.parentNode) { this._compositeCanvas.parentNode.removeChild(this._compositeCanvas); this._compositeCanvas = null; }
-        if (this._iTimeoutId !== null) { window.clearInterval(this._iTimeoutId); this._iTimeoutId = null; }
-        this._isActive = false;
-        this._isPaused = false;
+        
+        // ENTERPRISE FIX: Capture fractional elapsed time before entering the paused state.
+        // Ensures duration metadata accurately reflects all recorded frames to prevent seeking corruption.
+        if (!this.isPaused && this.lastTickTime > 0) {
+            this.totalElapsedMs += (Date.now() - this.lastTickTime);
+        }
+        
+        this.isPaused = true;
     }
 
-    public isRecording(): boolean { return this._isActive; }
+    /**
+     * @public
+     * @description Resumes the native MediaRecorder instance.
+     */
+    public resumeRecording(): void {
+        try {
+            if (this.mediaRecorder && this.mediaRecorder.state === "paused") this.mediaRecorder.resume();
+        } catch (e) {
+            console.warn("MediaRecorder resume failed:", e);
+        }
+        this.isPaused = false;
+        this.lastTickTime = Date.now();
+    }
+
+    /**
+     * @protected
+     * @description Wipes active streams, clears timeouts, and severs closure bindings to prevent GC memory leaks.
+     */
+    protected cleanupMemory(): void {
+        this.isStarting = false;
+        CountdownOverlay.hide();
+        
+        // Release MediaRecorder event listeners to break closure memory rings
+        if (this.mediaRecorder) {
+            this.mediaRecorder.ondataavailable = null;
+            this.mediaRecorder.onstop = null;
+            this.mediaRecorder = null;
+        }
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+        this.recordedChunks = [];
+        
+        if (this.timeoutId !== null) { window.clearInterval(this.timeoutId); this.timeoutId = null; }
+        if (this.keyframeIntervalId !== null) { window.clearInterval(this.keyframeIntervalId); this.keyframeIntervalId = null; }
+        this.isActive = false;
+        this.isPaused = false;
+    }
 }

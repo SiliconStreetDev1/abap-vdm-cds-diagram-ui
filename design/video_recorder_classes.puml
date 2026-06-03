@@ -1,0 +1,65 @@
+@startuml
+title Video Recorder Architecture (Template Method Pattern)
+
+skinparam handwritten false
+skinparam classAttributeIconSize 0
+
+interface IRecordingConfig {
+  + resolutionStr: string
+  + fps: number
+  + delaySeconds: number
+  + onWaitingForPermission()
+  + onPermissionGranted()
+  + onCountdown(sec)
+  + onStart()
+  + onStop(blob)
+  + onError(err)
+}
+
+abstract class VideoRecorder {
+  # mediaRecorder: IMediaRecorder
+  # stream: MediaStream
+  # isStarting: boolean
+  # isActive: boolean
+  + start(config: IRecordingConfig): Promise<void>
+  {abstract} # performCapture(config: IRecordingConfig): Promise<void>
+  # startMediaRecorder(config, dynamicBitrate)
+  + stopRecording()
+  + pauseRecording()
+  + resumeRecording()
+  # cleanupMemory()
+}
+
+class ScreenRecorder extends VideoRecorder {
+  # performCapture(config: IRecordingConfig): Promise<void>
+}
+
+class CanvasRecorder extends VideoRecorder {
+  - compositor: CanvasCompositor
+  - containerId: string
+  # performCapture(config: IRecordingConfig): Promise<void>
+}
+
+class CanvasCompositor {
+  + start(containerId, w, h, fps): MediaStream
+  + pause()
+  + resume()
+  + destroy()
+}
+
+class CountdownOverlay {
+  {static} + show(sec: number)
+  {static} + hide()
+}
+
+VideoRecorder ..> IRecordingConfig : Uses
+VideoRecorder ..> CountdownOverlay : Triggers
+CanvasRecorder *-- CanvasCompositor : Composes
+
+note left of VideoRecorder::start
+  Template Method: Enforces
+  Mutex locks and Memory Cleanup,
+  then delegates to performCapture()
+end note
+
+@enduml

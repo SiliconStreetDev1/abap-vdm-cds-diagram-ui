@@ -1,0 +1,33 @@
+@startuml
+title Video Recording UI State Machine
+
+skinparam handwritten false
+
+[*] --> Idle
+
+Idle --> WaitingForPermission : Clicks "Record"\n[Mutex Locked]
+
+WaitingForPermission --> CountingDown : OS Permission Granted
+WaitingForPermission --> Idle : Cancelled / Denied
+
+CountingDown --> Recording : Delay Reaches 0
+CountingDown --> Idle : User Clicks Cancel
+
+Recording --> Paused : Clicks Pause
+Recording --> Paused : AutoPause (Drill-Down Fetch)
+
+Paused --> Recording : Clicks Resume
+Paused --> Recording : AutoResume (Layout Ready)
+
+Recording --> BlobCompiling : Clicks Stop / Max Duration
+Paused --> BlobCompiling : Clicks Stop
+
+BlobCompiling --> Idle : FileDownloadUtility triggers OS Save
+
+note right of BlobCompiling
+  The engine revokes Blob memory
+  and explicitly zeroes out Canvas 
+  dimensions to prevent OOM panics.
+end note
+
+@enduml

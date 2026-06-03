@@ -72,7 +72,8 @@ export default class CytoscapeNoteManager {
         const sFontFamily = oCustomEvent.detail?.fontFamily || "Marker";
         if (!sText) return;
 
-        const sId = "note_" + Date.now();
+        // ENTERPRISE FIX: Salt the timestamp to prevent fatal duplicate ID crashes during rapid automated testing
+        const sId = "note_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         
         let iX = 0, iY = 0;
         const aSelectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');

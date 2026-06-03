@@ -11,14 +11,15 @@ import MermaidEngine from "./engines/MermaidEngine";
 import GraphvizEngine from "./engines/GraphvizEngine";
 import PlantUmlEngine from "./engines/PlantUmlEngine";
 import CytoscapeEngine from "./engines/CytoscapeEngine";
+import D2Engine from "./engines/D2Engine";
 import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
 import SvgProcessor from "../helpers/SvgProcessor";
 import { EngineType } from "../types";
-import { IEngineFacade, ICytoscapeConfig } from "./engines/IEngineFacade";
+import { IEngineFacade } from "./engines/IEngineFacade";
 
 export default class Renderer {
-    private static _aEngines: IEngineFacade[] = [MermaidEngine, GraphvizEngine, PlantUmlEngine, CytoscapeEngine];
+    private static _aEngines: IEngineFacade[] = [MermaidEngine, GraphvizEngine, PlantUmlEngine, CytoscapeEngine, D2Engine];
 
     private static _getEngine(sEngine: string): IEngineFacade | null {
         const sNormalizedEngine = String(sEngine).toUpperCase();
@@ -27,6 +28,7 @@ export default class Renderer {
             case String(EngineType.GRAPHVIZ).toUpperCase(): return GraphvizEngine;
             case String(EngineType.PLANTUML).toUpperCase(): return PlantUmlEngine;
             case String(EngineType.CYTOSCAPE).toUpperCase(): return CytoscapeEngine;
+            case "D2": return D2Engine;
             default: return null;
         }
     }
@@ -42,7 +44,7 @@ export default class Renderer {
      * @param {any} [oConfig] - Engine-specific configuration
      * @returns {Promise<void>}
      */
-    public static async renderDiagram(sViewId: string, sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): Promise<void> {
+    public static async renderDiagram(sViewId: string, sEngine: EngineType | string, sPayload: string, oHtmlControl: HTML, fnOnError: (msg: string) => void, oConfig?: Record<string, any>): Promise<void> {
         await ConfigManager.initialize();
 
         const engine = this._getEngine(sEngine);
@@ -141,7 +143,7 @@ export default class Renderer {
      * @param {any} oFormat - Config Payload
      * @returns {void}
      */
-    public static updateLiveFormat(sViewId: string, sEngine: EngineType | string, oFormat: ICytoscapeConfig): void {
+    public static updateLiveFormat(sViewId: string, sEngine: EngineType | string, oFormat: Record<string, any>): void {
         const engine = this._getEngine(sEngine);
         if (engine && engine.updateFormat) {
             engine.updateFormat(sViewId, oFormat);
@@ -208,6 +210,16 @@ export default class Renderer {
     public static supportsSearch(sEngine: string): boolean {
         const engine = this._getEngine(sEngine);
         return engine ? !!engine.supportsSearch : false;
+    }
+
+    public static supportsSourceExport(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsSourceExport : false;
+    }
+
+    public static supportsImageExport(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsImageExport : false;
     }
 
     public static supportsNativePngExport(sEngine: string): boolean {

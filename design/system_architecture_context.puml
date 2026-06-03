@@ -1,0 +1,110 @@
+@startuml
+title VDM Diagrammer - Full System Architecture (AI Context Map)
+
+skinparam componentStyle uml2
+skinparam handwritten false
+skinparam packageStyle rectangle
+
+actor "SAP Fiori User" as User
+
+node "Browser Environment (Client-Side Rendering)" {
+    
+    database "Browser LocalStorage" as LS {
+        [Variant Configs (5MB Quota)]
+        [Search History]
+    }
+
+    package "SAPUI5 EventBus (Asynchronous Bridge)" as EventBus <<Node>> #FFF9C4
+
+    package "Flexible Column Layout: Left Pane" #E3F2FD {
+        [Selection.controller] as SelCtrl
+        [DiagramService] as DiagSvc
+        [DiagramCache (LRU)] as LRU
+        [VariantHandler] as VarHand
+        [SelectionStateHandler] as StateHand
+        [DiagramGenerationHandler] as GenHand
+        [SessionStateCache] as Session
+
+        SelCtrl -down-> GenHand : Generates
+        SelCtrl -down-> VarHand : Manages Config
+        VarHand -left-> LS : Saves/Loads
+        GenHand -right-> Session : Saves Breadcrumb State
+        GenHand -down-> DiagSvc : Fetches Data
+        DiagSvc <--> LRU : Caches Payloads (Immutability)
+        GenHand -right-> EventBus : Publishes (RENDER_REQUEST)
+    }
+
+    package "Flexible Column Layout: Right Pane" #FBE9E7 {
+        [Diagram.controller] as DiagCtrl
+        [DiagramRenderHandler] as RenderHand
+        [CanvasActionHandler] as ActionHand
+        [ExportHandler] as ExpHand
+        [UndoHandler (Memento)] as UndoHand
+        [VideoRecordHandler] as VidHand
+
+        EventBus -down-> DiagCtrl : Subscribes
+        DiagCtrl -down-> RenderHand : Delegates Render
+        DiagCtrl -down-> ActionHand : Delegates UI/DOM
+        DiagCtrl -down-> ExpHand : Delegates Export
+        DiagCtrl -down-> UndoHand : Delegates Ctrl+Z
+        DiagCtrl -down-> VidHand : Delegates Recording
+        
+        EventBus -down-> VidHand : AutoPause/Resume
+    }
+
+    package "Rendering Core (Strategy Pattern)" #E8F5E9 {
+        [Renderer (Facade)] as Renderer
+        interface "IEngineFacade" as IEngine
+
+        RenderHand -down-> Renderer : renderDiagram()
+        ExpHand -down-> Renderer : generateExportSvg()
+        UndoHand -down-> Renderer : get/applyState()
+        ActionHand -down-> Renderer : liveUpdates()
+
+        Renderer -down-> IEngine : Dispatches (Polymorphic)
+    }
+
+    package "Execution Engines" #FFF3E0 {
+        [CytoscapeEngine] as CyEngine
+        [MermaidEngine] as MmdEngine
+        [GraphvizEngine (WASM)] as GvEngine
+        [PlantUmlEngine (6-bit Base64)] as PumlEngine
+        [D2Engine (Headless)] as D2Engine
+
+        IEngine ^-- CyEngine
+        IEngine ^-- MmdEngine
+        IEngine ^-- GvEngine
+        IEngine ^-- PumlEngine
+        IEngine ^-- D2Engine
+        
+        [CanvasCompositor & WebGL] as WebGL
+        CyEngine -down-> WebGL : Renders Interactive Physics
+    }
+    
+    package "Hardware & OS APIs" #F5F5F5 {
+        [FileDownloadUtility] as Downloader
+        [MediaRecorder API] as MediaRec
+        
+        VidHand -down-> MediaRec : Captures WebGL/Display
+        MediaRec -down-> Downloader : Outputs .webm/.mp4\n(2-second Revocation)
+        ExpHand -down-> Downloader : Outputs .png/.svg
+    }
+}
+
+cloud "SAP ABAP Backend" as Backend {
+    [OData V4 Service] as OData
+}
+
+cloud "Public Internet" as PublicNet {
+    [PlantUML Server] as PumlServer
+    [CDN / unpkg.com] as CDN
+}
+
+User -down-> SelCtrl : Form Input
+User -down-> DiagCtrl : Canvas Interaction
+DiagSvc <--> OData : HTTP GET (JSON)
+PumlEngine <--> PumlServer : HTTP GET (Deflated Base64)
+CyEngine ..> CDN : Fetches Plugins (Fallback)
+GvEngine ..> CDN : Fetches WASM (Fallback)
+
+@enduml

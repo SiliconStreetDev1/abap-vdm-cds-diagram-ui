@@ -16,6 +16,8 @@ export default class MermaidEngine {
     public static configPath = "/formatMermaid";
     public static supportsMinimap = false;
     public static supportsSearch = false;
+    public static supportsSourceExport = true;
+    public static supportsImageExport = true;
 
     /**
      * @public

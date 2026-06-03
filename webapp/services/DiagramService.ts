@@ -8,6 +8,7 @@ import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
 import Filter from "sap/ui/model/Filter";
 import FilterOperator from "sap/ui/model/FilterOperator";
+import DiagramCache from "./DiagramCache";
 
 export interface IDiagramResult {
     DiagramPayload: string;
@@ -36,6 +37,10 @@ export interface IDiagramRequest {
 }
 
 export default class DiagramService {
+
+    public static clearCache(): void {
+        DiagramCache.clear();
+    }
 
     /**
      * @public
@@ -68,6 +73,12 @@ export default class DiagramService {
         if (oRequest.includeCds) aFilters.push(new Filter("IncludeCds", FilterOperator.EQ, oRequest.includeCds));
         if (oRequest.excludeCds) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, oRequest.excludeCds));
 
+        // 1. Check LRU Cache before hitting the network
+        const oCachedResult = DiagramCache.get(oRequest);
+        if (oCachedResult) {
+            return oCachedResult;
+        }
+
         const oListBinding = oModel.bindList("/Diagram") as ODataListBinding;
         oListBinding.filter(aFilters);
 
@@ -84,6 +95,9 @@ export default class DiagramService {
                 throw new Error(oResult.DiagramPayload.replace("Error: ", ""));
             }
 
+        // 2. Commit to Cache to optimize subsequent visits
+        DiagramCache.set(oRequest, oResult);
+
             return oResult;
 
         } catch (oError: any) {
@@ -92,6 +106,9 @@ export default class DiagramService {
                 sErrorMsg = oError.error.message;
             }
             throw new Error(sErrorMsg);
+        } finally {
+            // ENTERPRISE FIX: Destroy transient bindings to prevent ODataModel memory leaks
+            oListBinding.destroy();
         }
     }
 }

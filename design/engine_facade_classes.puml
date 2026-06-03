@@ -1,0 +1,37 @@
+@startuml
+title Renderer Facade Architecture (Strategy Pattern)
+
+skinparam handwritten false
+
+class Renderer {
+  {static} - _aEngines: IEngineFacade[]
+  {static} + renderDiagram(sViewId, sEngine, payload, html, onError, config)
+  {static} + generateExportSvg(sViewId, sEngine, payload)
+  {static} + updateLiveFormat(sViewId, sEngine, config)
+  {static} + getCanvasState(sViewId, sEngine)
+}
+
+interface IEngineFacade {
+  + configPath: string
+  + supportsLiveUpdate: boolean
+  + getMaxPayloadSize(): number
+  + render(sViewId, payload, renderId, onError, config)
+  + exportSvg(payload, sViewId)
+  + destroy(sViewId)
+}
+
+class CytoscapeEngine implements IEngineFacade {
+  - _cyContexts: Map
+  + render()
+  + updateFormat()
+  + getCanvasState()
+}
+
+class MermaidEngine implements IEngineFacade
+class GraphvizEngine implements IEngineFacade
+class PlantUmlEngine implements IEngineFacade
+class D2Engine implements IEngineFacade
+
+Renderer "1" *--> "many" IEngineFacade : Delegates Execution
+
+@enduml

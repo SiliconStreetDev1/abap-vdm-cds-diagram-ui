@@ -26,6 +26,23 @@ export default class ViewStateHelper {
             activeEngine: "CYTOSCAPE",
             isCanvasStale: false,
             isDrillDown: false,
+            isRecording: false,
+            isVideoPaused: false,
+            _autoPaused: false,
+            recordingMode: "SCREEN",
+            recordingModeInput: "SCREEN",
+            recordingTime: "00:00",
+            videoResolution: "SCREEN",
+            videoFps: "30",
+            videoDelay: 5,
+            videoMaxLength: 150,
+            videoTitle: "",
+            videoSubtitle: "",
+            isCountingDown: false,
+            isWaitingForPermission: false,
+            countdownTime: 5,
+            enableVideoRecording: false,
+            stealthMode: false,
             ...Renderer.getEngineDefaults()
         };
         return new JSONModel(oDefaults);

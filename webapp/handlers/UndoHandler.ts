@@ -20,6 +20,7 @@ export default class UndoHandler {
     private _bIsRestoring = false;
     private _iDebounceTimer?: ReturnType<typeof setTimeout>;
     private _iFailsafeTimer?: ReturnType<typeof setTimeout>;
+    private _bIsAttached: boolean = false;
 
     /**
      * @public
@@ -46,6 +47,8 @@ export default class UndoHandler {
      * @returns {void}
      */
     public attachEvents(): void {
+        if (this._bIsAttached) return;
+
         this._fnUndoRequestBind = this._onUndoRequest.bind(this) as EventListener;
         this._fnStateChangeBind = this._onStateChange.bind(this) as EventListener;
         
@@ -65,6 +68,8 @@ export default class UndoHandler {
             document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnStateChangeBind);
             document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnStateChangeBind);
         }
+        
+        this._bIsAttached = true;
     }
 
     /**
@@ -73,6 +78,8 @@ export default class UndoHandler {
      * @returns {void}
      */
     public detachEvents(): void {
+        if (!this._bIsAttached) return;
+
         if (this._oEventBus) {
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this.clearHistory, this);
         }
@@ -89,6 +96,9 @@ export default class UndoHandler {
             document.removeEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnStateChangeBind);
         }
         clearTimeout(this._iDebounceTimer);
+        clearTimeout(this._iFailsafeTimer); // ENTERPRISE FIX: Clear dangling failsafe timer
+        
+        this._bIsAttached = false;
     }
 
     /**

@@ -17,7 +17,6 @@ import CytoscapeDataProcessor from "./cytoscape/CytoscapeDataProcessor";
 import CytoscapeExporter from "./cytoscape/CytoscapeExporter";
 import CytoscapeSearchManager from "./cytoscape/CytoscapeSearchManager";
 import CytoscapeEventHandler from "./cytoscape/CytoscapeEventHandler";
-import { ICytoscapeConfig } from "./IEngineFacade";
 import CytoscapeDependencyLoader from "./cytoscape/CytoscapeDependencyLoader";
 import CytoscapeLayoutManager from "./cytoscape/CytoscapeLayoutManager";
 import CytoscapeContextMenu from "./cytoscape/CytoscapeContextMenu";
@@ -34,21 +33,18 @@ export default class CytoscapeEngine {
 
     /**
      * @private
-     * @description Holds the singleton instance of the Cytoscape canvas.
+     * @description Groups the Cytoscape instance and its specific state rules 
+     * together into a single contextual map to prevent disconnected memory references.
      */
-    private static _cyInstances: Map<string, Core> = new Map();
-    private static _navInstances: Map<string, any> = new Map();
-    private static _bShowMinimaps: Map<string, boolean> = new Map();
-    private static _sLastLayouts: Map<string, string> = new Map();
-    private static _oLastParsedConfigs: Map<string, IParsedCytoscapeConfig> = new Map();
-    private static _bSnapGuides: Map<string, boolean> = new Map();
-    private static _fnMinimapCleanups: Map<string, (() => void)> = new Map();
+    private static _cyContexts: Map<string, { cy: Core, layout: string, snapGuides: boolean }> = new Map();
 
     public static configPath = "/formatCytoscape";
     public static supportsLiveUpdate = true;
     public static supportsStateCapture = true;
     public static supportsMinimap = true;
     public static supportsSearch = true;
+    public static supportsSourceExport = false;
+    public static supportsImageExport = true;
 
     /**
      * @public
@@ -109,9 +105,9 @@ export default class CytoscapeEngine {
      * @param {string} sPayload - The JSON payload containing nodes, edges, and config.
      * @param {string} sRenderId - The DOM element ID where the canvas will be injected.
      * @param {function} fnOnError - Callback function to handle rendering errors.
-     * @param {any} [oConfig] - Cytoscape formatting config
+     * @param {Record<string, any>} [oConfig] - Cytoscape formatting config
      */
-    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void {
+    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: Record<string, any>): void {
         CytoscapeDependencyLoader.load().then(() => {
                 try {
                     const oData = JSON.parse(sPayload);
@@ -121,9 +117,6 @@ export default class CytoscapeEngine {
                     const parsedConfig = CytoscapeConfigParser.parse(oFormat);
                     
                     const iNodeCount = oData.nodes ? oData.nodes.length : 0;
-                    this._oLastParsedConfigs.set(sViewId, parsedConfig);
-                    this._sLastLayouts.set(sViewId, parsedConfig.layout);
-                    this._bSnapGuides.set(sViewId, parsedConfig.snapGuides);
 
                     const oContainer = document.getElementById(sRenderId);
                     if (!oContainer) {
@@ -165,7 +158,11 @@ export default class CytoscapeEngine {
                         selectionType: 'single'
                     });
                     
-                    this._cyInstances.set(sViewId, cyInstance);
+                    this._cyContexts.set(sViewId, {
+                        cy: cyInstance,
+                        layout: parsedConfig.layout,
+                        snapGuides: parsedConfig.snapGuides
+                    });
 
                     // Inject visual styling for Sticky Notes and Edges
                     CytoscapeStyleBuilder.injectAnnotationStyles(cyInstance);
@@ -179,13 +176,13 @@ export default class CytoscapeEngine {
                     CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
 
                     CytoscapeEventHandler.attachEvents(sViewId, cyInstance, parsedConfig.isDrillDown);
-                    CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._bSnapGuides.get(sViewId) || false);
+                    CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
                     CytoscapeContextMenu.attach(sViewId, cyInstance, parsedConfig.isDrillDown);
 
                     // Delegate note lifecycle to specialized manager
                     CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
 
-                    this.toggleMinimap(sViewId, this._bShowMinimaps.get(sViewId) || false);
+                    MinimapManager.toggle(sViewId, cyInstance, MinimapManager.getShowState(sViewId));
 
                 } catch (e: any) {
                     fnOnError(`Cytoscape Parsing Error. Details: ${e.message}`);
@@ -199,18 +196,18 @@ export default class CytoscapeEngine {
      * @public
      * @static
      * @description Dynamically updates the active Cytoscape instance with new layout and style configurations without a full re-render.
-     * @param {any} oConfig - The updated formatting configuration.
+     * @param {Record<string, any>} oConfig - The updated formatting configuration.
      */
-    public static updateFormat(sViewId: string, oConfig: ICytoscapeConfig): void {
-        const cyInstance = this._cyInstances.get(sViewId);
-        if (cyInstance) {
+    public static updateFormat(sViewId: string, oConfig: Record<string, any>): void {
+        const context = this._cyContexts.get(sViewId);
+        if (context) {
+            const cyInstance = context.cy;
             const parsedConfig = CytoscapeConfigParser.parse(oConfig);
             const iNodeCount = cyInstance.nodes().length;
             
-            this._oLastParsedConfigs.set(sViewId, parsedConfig);
-            const bIsLayoutChange = parsedConfig.layout !== this._sLastLayouts.get(sViewId);
-            this._sLastLayouts.set(sViewId, parsedConfig.layout);
-            this._bSnapGuides.set(sViewId, parsedConfig.snapGuides);
+            const bIsLayoutChange = parsedConfig.layout !== context.layout;
+            context.layout = parsedConfig.layout;
+            context.snapGuides = parsedConfig.snapGuides;
             
             const oContainer = cyInstance.container();
             if (oContainer) {
@@ -244,8 +241,8 @@ export default class CytoscapeEngine {
      * @param {"pan" | "select"} sMode - The desired mouse behavior mode.
      */
     public static setInteractionMode(sViewId: string, sMode: "pan" | "select"): void {
-        const cy = this._cyInstances.get(sViewId);
-        if (cy) CytoscapeInteractionManager.setInteractionMode(cy, sMode);
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeInteractionManager.setInteractionMode(context.cy, sMode);
     }
 
     /**
@@ -253,8 +250,8 @@ export default class CytoscapeEngine {
      * @description Drops all active selections from the graph.
      */
     public static clearSelection(sViewId: string): void {
-        const cy = this._cyInstances.get(sViewId);
-        if (cy) CytoscapeInteractionManager.clearSelection(cy);
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeInteractionManager.clearSelection(context.cy);
     }
 
     /**
@@ -263,34 +260,8 @@ export default class CytoscapeEngine {
      * @param {boolean} bShow - True to enable the minimap, false to destroy it.
      */
     public static toggleMinimap(sViewId: string, bShow: boolean): void {
-        this._bShowMinimaps.set(sViewId, bShow);
-        const cyInstance = this._cyInstances.get(sViewId);
-        if (cyInstance) {
-            let navInstance = this._navInstances.get(sViewId);
-            if (bShow) {
-                if (!navInstance && typeof (cyInstance as any).navigator === "function") {
-                    navInstance = (cyInstance as any).navigator({ container: false });
-                    this._navInstances.set(sViewId, navInstance);
-                    const navElem = navInstance.$panel;
-                    if (navElem) {
-                        this._fnMinimapCleanups.set(sViewId, MinimapManager.enhancePanel(sViewId, navElem, cyInstance));
-                    }
-                    cyInstance.one("render", () => { 
-                        const cy = this._cyInstances.get(sViewId);
-                        if (cy) cy.resize(); 
-                    });
-                }
-            } else if (navInstance) {
-                const fnCleanup = this._fnMinimapCleanups.get(sViewId);
-                if (fnCleanup) {
-                    fnCleanup();
-                    this._fnMinimapCleanups.delete(sViewId);
-                }
-                navInstance.destroy();
-                this._navInstances.delete(sViewId);
-            }
-            if (bShow) cyInstance.emit('render');
-        }
+        const context = this._cyContexts.get(sViewId);
+        MinimapManager.toggle(sViewId, context?.cy, bShow);
     }
 
     /**
@@ -298,22 +269,13 @@ export default class CytoscapeEngine {
      * @description Destroys the active Cytoscape instance and cleans up memory.
      */
     public static destroy(sViewId: string): void {
-        const cyInstance = this._cyInstances.get(sViewId);
-        if (cyInstance) {
-            const navInstance = this._navInstances.get(sViewId);
-            if (navInstance) {
-                const fnCleanup = this._fnMinimapCleanups.get(sViewId);
-                if (fnCleanup) {
-                    fnCleanup();
-                    this._fnMinimapCleanups.delete(sViewId);
-                }
-                navInstance.destroy();
-                this._navInstances.delete(sViewId);
-            }
+        const context = this._cyContexts.get(sViewId);
+        if (context) {
+            MinimapManager.destroy(sViewId);
             CytoscapeNoteManager.detachEvents(sViewId);
             CytoscapeContextMenu.removeAll(sViewId);
-            cyInstance.destroy();
-            this._cyInstances.delete(sViewId);
+            context.cy.destroy();
+            this._cyContexts.delete(sViewId);
         }
     }
 
@@ -323,8 +285,8 @@ export default class CytoscapeEngine {
      * @returns {string} Base64 PNG data URI.
      */
     public static exportPng(sViewId: string): string {
-        const cy = this._cyInstances.get(sViewId);
-        return cy ? CytoscapeExporter.exportPng(cy) : "";
+        const context = this._cyContexts.get(sViewId);
+        return context ? CytoscapeExporter.exportPng(context.cy) : "";
     }
 
     /**
@@ -334,8 +296,8 @@ export default class CytoscapeEngine {
      * @returns {string} Formatted SVG XML string.
      */
     public static exportSvg(sPayload: string, sViewId?: string): string {
-        const cy = sViewId ? this._cyInstances.get(sViewId) : undefined;
-        return cy ? CytoscapeExporter.exportSvg(cy) : "";
+        const context = sViewId ? this._cyContexts.get(sViewId) : undefined;
+        return context ? CytoscapeExporter.exportSvg(context.cy) : "";
     }
 
     /**
@@ -344,8 +306,8 @@ export default class CytoscapeEngine {
      * @param {string} sQuery - The text to search for
      */
     public static search(sViewId: string, sQuery: string): void {
-        const cy = this._cyInstances.get(sViewId);
-        if (cy) CytoscapeSearchManager.search(cy, sQuery);
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeSearchManager.search(context.cy, sQuery);
     }
 
     /**
@@ -353,8 +315,8 @@ export default class CytoscapeEngine {
      * @description Restores all hidden nodes to the canvas and notifies the UI.
      */
     public static showHiddenNodes(sViewId: string): void {
-        const cy = this._cyInstances.get(sViewId);
-        if (cy) CytoscapeVisibilityManager.showHiddenNodes(sViewId, cy);
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeVisibilityManager.showHiddenNodes(sViewId, context.cy);
     }
 
     /**
@@ -363,8 +325,8 @@ export default class CytoscapeEngine {
      * @param {string[]} aNodeIds - Array of internal node IDs to restore.
      */
     public static showSpecificNodes(sViewId: string, aNodeIds: string[]): void {
-        const cy = this._cyInstances.get(sViewId);
-        if (cy) CytoscapeVisibilityManager.showSpecificNodes(sViewId, cy, aNodeIds);
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeVisibilityManager.showSpecificNodes(sViewId, context.cy, aNodeIds);
     }
 
     /**
@@ -372,7 +334,7 @@ export default class CytoscapeEngine {
      * @description Returns the X/Y coordinates of all current nodes for variant persistence.
      */
     public static getCanvasState(sViewId: string): Record<string, any> {
-        const cy = this._cyInstances.get(sViewId);
-        return cy ? CytoscapeStateManager.getCanvasState(cy) : {};
+        const context = this._cyContexts.get(sViewId);
+        return context ? CytoscapeStateManager.getCanvasState(context.cy) : {};
     }
 }

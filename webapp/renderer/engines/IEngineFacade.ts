@@ -3,19 +3,6 @@
  * @fileoverview Unified interface for all diagram rendering engines.
  */
 
-export interface ICytoscapeConfig {
-    layout_algorithm?: string;
-    rank_dir?: string;
-    theme?: string;
-    line_style?: string;
-    node_spacing?: number;
-    animate?: boolean;
-    snapGuides?: boolean;
-    isDrillDown?: boolean;
-    presetPositions?: Record<string, any> | null;
-    camera?: { zoom: number, pan: { x: number, y: number } };
-}
-
 export interface IEngineFacade {
     configPath?: string;
     supportsLiveUpdate?: boolean;
@@ -23,6 +10,8 @@ export interface IEngineFacade {
     
     supportsMinimap: boolean;
     supportsSearch: boolean;
+    supportsSourceExport?: boolean;
+    supportsImageExport?: boolean;
     
     /**
      * @public
@@ -49,12 +38,12 @@ export interface IEngineFacade {
     applyStateToConfig?(oConfig: Record<string, any>, oState: any): Record<string, any>;
     extractStateForVariant?(oConfig: Record<string, any>, oCanvasState: any, bSavePositions: boolean): Record<string, any>;
 
-    render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: ICytoscapeConfig): void | Promise<void>;
+    render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: Record<string, any>): void | Promise<void>;
     exportSvg?(sPayload: string, sViewId?: string): string | Promise<string>;
     exportPng?(sViewId: string): string;
     toggleMinimap?(sViewId: string, bShow: boolean): void;
     search?(sViewId: string, sQuery: string): void;
-    updateFormat?(sViewId: string, oFormat: ICytoscapeConfig): void;
+    updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
     getCanvasState?(sViewId: string): any;
     setNodesLocked?(sViewId: string, bLocked: boolean): void;
     runLayout?(sViewId: string): void;

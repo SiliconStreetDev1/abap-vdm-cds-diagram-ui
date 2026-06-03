@@ -11,7 +11,7 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import Select from "sap/m/Select";
-import ComboBox from "sap/m/ComboBox";
+import Input from "sap/m/Input";
 import MultiInput from "sap/m/MultiInput";
 import MessageToast from "sap/m/MessageToast";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
@@ -19,11 +19,13 @@ import ResourceBundle from "sap/base/i18n/ResourceBundle";
 
 import VariantHandler from "../handlers/VariantHandler";
 import VariantStateMapper from "../helpers/VariantStateMapper";
+import SessionStateCache from "../helpers/SessionStateCache";
 import DiagramGenerationHandler from "../handlers/DiagramGenerationHandler";
 import SelectionStateHandler from "../handlers/SelectionStateHandler";
 import SelectionUIHandler from "../handlers/SelectionUIHandler";
 import InputValidationService from "../services/InputValidationService";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
+import ContextHelpManager from "../helpers/ContextHelpManager";
 
 export default class Selection extends Controller {
 
@@ -37,6 +39,15 @@ export default class Selection extends Controller {
     private _fnCanvasStateChangedBind!: EventListener;
     private _fnViewportChangedBind!: EventListener;
     private _fnEventBusDrillDownBind!: (c: string, e: string, d: any) => void;
+
+    /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
+    private _getInstanceId(): string {
+        return this.getOwnerComponent()?.getId() || this.getView()?.getId() || "";
+    }
 
     /**
      * @public
@@ -108,6 +119,7 @@ export default class Selection extends Controller {
         document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
         document.removeEventListener(DomEvents.CANVAS_VIEWPORT_CHANGED, this._fnViewportChangedBind);
 
+        ContextHelpManager.destroy(this._getInstanceId());
     }
 
     // ========================================================================
@@ -226,18 +238,18 @@ export default class Selection extends Controller {
     private _processDrillDown(sViewName?: string): void {
         if (!sViewName) return;
 
-        const oComboBox = this.byId("cmbCdsName") as ComboBox;
-        const sCurrentCdsName = oComboBox ? oComboBox.getValue().trim().toUpperCase() : "";
+        const oInputField = this.byId("cmbCdsName") as Input;
+        const sCurrentCdsName = oInputField ? oInputField.getValue().trim().toUpperCase() : "";
         const sTargetCdsName = sViewName.toUpperCase();
 
         // 1. Snapshot the current view's layout and settings before leaving
         if (sCurrentCdsName && sCurrentCdsName !== sTargetCdsName) {
             const oCurrentState = VariantStateMapper.captureState(this.getView() as View, sCurrentCdsName, true);
-            this._oGenerationHandler.cacheSessionState(sCurrentCdsName, oCurrentState);
+            SessionStateCache.set(this._getInstanceId(), sCurrentCdsName, oCurrentState);
         }
 
         // 2. Check if the target view has a cached session state (i.e., we are navigating BACK to it)
-        const oCachedState = this._oGenerationHandler.getCachedSessionState(sTargetCdsName);
+        const oCachedState = SessionStateCache.get(this._getInstanceId(), sTargetCdsName);
         if (oCachedState) {
             // Restore exact coordinates, zoom, pins, and hidden nodes without manual saves
             VariantStateMapper.applyState(this.getView() as View, oCachedState);
@@ -292,4 +304,8 @@ export default class Selection extends Controller {
         const oBundle = oModel?.getResourceBundle() as ResourceBundle;
         return oBundle ? oBundle.getText(sKey, aArgs) || sKey : sKey;
     }
+
+    // ========================================================================
+    // VIDEO RECORDING
+    // ========================================================================
 }
