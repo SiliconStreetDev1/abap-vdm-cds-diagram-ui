@@ -4,13 +4,21 @@
  */
 
 export const EventChannels = {
-    DIAGRAM_ENGINE: "DiagramEngine"
+    DIAGRAM_ENGINE: "DiagramEngine",
+    VIDEO_RECORDING: "VideoRecording"
 };
 
 export const EventIds = {
     RENDER_REQUEST: "RenderRequest",
     LIVE_FORMAT_UPDATE: "LiveFormatUpdate",
-    NODE_DRILL_DOWN: "NodeDrillDownRequest"
+    NODE_DRILL_DOWN: "NodeDrillDownRequest",
+    VIDEO_AUTO_PAUSE: "AutoPause",
+    VIDEO_AUTO_RESUME: "AutoResume",
+    VIDEO_STOP: "Stop",
+    VIDEO_PAUSE: "Pause",
+    VIDEO_RESUME: "Resume",
+    VIDEO_START: "Start",
+    VIDEO_TOGGLE_STEALTH: "ToggleStealth"
 };
 
 export const DomEvents = {

@@ -193,12 +193,21 @@ export default class CanvasActionHandler {
     }
 
     /**
+     * @public
+     * @description Selects all active nodes on the canvas.
+     * @returns {void}
+     */
+    public selectAll(): void {
+        Renderer.selectAll(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
+    }
+
+    /**
      * @private
      * @description Intercepts events requesting a teardown of the minimap control.
      * @returns {void}
      */
     private _onCloseMinimapRequest(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent;
+        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         (this._oView.getModel("view") as JSONModel)?.setProperty("/showMinimap", false);
         Renderer.toggleMinimap(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine"), false);
@@ -210,7 +219,7 @@ export default class CanvasActionHandler {
      * @param {CustomEvent} oEvent - Custom DOM Event.
      */
     private _onFocusModeChanged(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent;
+        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string, isFocused: boolean, nodeName: string, hasNodeSelected: boolean, tempFocusMode: boolean }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
@@ -232,7 +241,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public onSliderUpdate(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent;
+        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string, node_spacing: number }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
         if (oCustomEvent.detail?.node_spacing) {
             const oUiModel = this._oView.getModel("ui") as JSONModel;

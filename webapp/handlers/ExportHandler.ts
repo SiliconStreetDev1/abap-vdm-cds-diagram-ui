@@ -10,8 +10,8 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
 import File from "sap/ui/core/util/File";
-import BusyIndicator from "sap/ui/core/BusyIndicator";
 import FileDownloadUtility from "../helpers/FileDownloadUtility";
+import ViewStateHelper from "../helpers/ViewStateHelper";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 
@@ -56,7 +56,7 @@ export default class ExportHandler {
             return;
         }
 
-        BusyIndicator.show(0);
+        ViewStateHelper.toggleGlassPane(true, this._oView);
 
         try {
             if (Renderer.supportsNativePngExport(oData.engine)) {
@@ -77,7 +77,7 @@ export default class ExportHandler {
         } catch (oError: any) {
             this._fnShowError("PNG Export Failed: " + (oError.message || oError));
         } finally {
-            BusyIndicator.hide();
+            ViewStateHelper.toggleGlassPane(false, this._oView);
         }
     }
 
@@ -95,7 +95,7 @@ export default class ExportHandler {
             return;
         }
 
-        BusyIndicator.show(0);
+        ViewStateHelper.toggleGlassPane(true, this._oView);
 
         try {
             // Request a brand new, clean SVG string from the isolated headless engine
@@ -109,7 +109,7 @@ export default class ExportHandler {
         } catch (oError: any) {
             this._fnShowError("SVG Export Failed: " + (oError.message || oError));
         } finally {
-            BusyIndicator.hide();
+            ViewStateHelper.toggleGlassPane(false, this._oView);
         }
     }
 

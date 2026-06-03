@@ -321,6 +321,18 @@ export default class Renderer {
     /**
      * @public
      * @static
+     * @description Selects all visible nodes on the canvas.
+     */
+    public static selectAll(sViewId: string, sEngine: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.selectAll) {
+            engine.selectAll(sViewId);
+        }
+    }
+
+    /**
+     * @public
+     * @static
      * @description Deletes selected notes and hides selected entities.
      */
     public static deleteSelection(sViewId: string, sEngine: string): void {

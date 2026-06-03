@@ -19,13 +19,13 @@ Undo -> Renderer : getCanvasState()
 activate Renderer
 Renderer --> Undo : Memento (JSON Object)
 deactivate Renderer
-Undo -> Undo : _aStack.push(Memento)\n(Cap at 15 items)
+Undo -> Undo : _mStacks[path].push(Memento)\n(Cap at 25 items per view)
 deactivate Undo
 deactivate Cy
 
 User -> Undo : Presses Ctrl+Z
 activate Undo
-Undo -> Undo : _aStack.pop()
+Undo -> Undo : _mStacks[path].pop()
 Undo -> Model : Extract Current Config
 Undo -> Renderer : applyStateToConfig(config, Memento)
 activate Renderer

@@ -16,6 +16,7 @@ import FilterOperator from "sap/ui/model/FilterOperator";
 import Event from "sap/ui/base/Event";
 import MessageToast from "sap/m/MessageToast";
 import ListBinding from "sap/ui/model/ListBinding";
+import { SelectDialog$SearchEvent, SelectDialog$ConfirmEvent } from "sap/m/SelectDialog";
 
 export default class CdsValueHelpHandler {
     // Member variables
@@ -66,9 +67,9 @@ export default class CdsValueHelpHandler {
      * @param {Event} oEvent - The search event triggered by the user.
      * @public
      */
-    public onSearch(oEvent: Event): void {
-        // Extract search value, using 'any' cast to bypass strict UI5 type definitions
-        const sValue = ((oEvent as any).getParameter("value") as string || "").trim();
+    public onSearch(oEvent: SelectDialog$SearchEvent): void {
+        // Extract search value securely
+        const sValue = (oEvent.getParameter("value") || "").trim();
         const oSelectDialog = oEvent.getSource() as SelectDialog;
         const oBinding = oSelectDialog.getBinding("items") as ListBinding;
         
@@ -98,9 +99,9 @@ export default class CdsValueHelpHandler {
      * @param {Event} oEvent - The confirm event.
      * @public
      */
-    public onConfirm(oEvent: Event): void {
+    public onConfirm(oEvent: SelectDialog$ConfirmEvent): void {
         // Extract the selected item and pass its title (CDS Name) back to the main controller
-        const oSelectedItem = (oEvent as any).getParameter("selectedItem");
+        const oSelectedItem = oEvent.getParameter("selectedItem");
         if (oSelectedItem) this._fnOnSelectCallback(oSelectedItem.getTitle());
         
         // Reset the dialog state for the next time it is opened

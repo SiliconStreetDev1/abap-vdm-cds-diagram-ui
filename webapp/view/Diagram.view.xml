@@ -34,10 +34,6 @@
             
             <ToolbarSeparator visible="{= ${ui>/isRecording} || ${ui>/isCountingDown} || ${ui>/isWaitingForPermission} || ${ui>/enableVideoRecording} === true }" />
 
-            <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{view>/canSearch}" class="sapUiTinyMarginEnd" />
-
-            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap (Shift+M)" type="Transparent" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
-
             <Button id="btnFullScreen" icon="{view>/fullScreenIcon}" tooltip="{i18n>ttFullScreen}" press="onToggleFullScreen" type="Transparent" visible="{view>/hasDiagram}" />
             
             <Button id="btnCopy" icon="sap-icon://copy" text="{i18n>btnCopy}" press="onCopySyntax" visible="{= ${view>/canExportSource} &amp;&amp; ${view>/hasDiagram} }" />
@@ -70,16 +66,24 @@
         </HBox>
 
         <HBox visible="{= ${diagramData>/engine} === 'CYTOSCAPE' &amp;&amp; ${view>/hasDiagram} }" class="floatingLayoutActions" alignItems="Center">
+            <BusyIndicator size="1rem" visible="{= ${ui>/isFetching} &amp;&amp; ${view>/isFullScreen} }" class="sapUiTinyMarginEnd" tooltip="Processing..." />
+            <SearchField id="searchCanvas" placeholder="Locate node..." width="200px" search="onSearchCanvas" visible="{view>/canSearch}" class="sapUiTinyMarginEnd" />
+            <ToggleButton id="btnMinimap" icon="sap-icon://map" pressed="{view>/showMinimap}" press="onToggleMinimap" tooltip="Toggle Minimap (Shift+M)" class="btnIconBlue" visible="{= ${view>/hasDiagram} &amp;&amp; ${view>/canShowMinimap} }" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+
             <SegmentedButton id="segInteractionMode" selectedKey="{= ${view>/isSelectMode} ? 'select' : 'pan' }" selectionChange=".onChangeInteractionMode">
                 <items>
-                    <SegmentedButtonItem key="select" icon="sap-icon://draw-rectangle" tooltip="Box Select Mode" width="3rem" />
-                    <SegmentedButtonItem key="pan" icon="sap-icon://move" tooltip="Pan Mode" width="3rem" />
+                    <SegmentedButtonItem key="select" icon="sap-icon://draw-rectangle" tooltip="Box Select Mode (V or S)" width="3rem" />
+                    <SegmentedButtonItem key="pan" icon="sap-icon://move" tooltip="Pan Mode (H or P)" width="3rem" />
                 </items>
             </SegmentedButton>
             
             <Button id="btnInfo" icon="sap-icon://information" press="onShowInfo" customData:infoType="InteractionMode" tooltip="{i18n>ttClickInfo}" visible="{ui>/showHelp}" class="btnIconInfo" />
             
             <Button id="btnUndo" icon="sap-icon://undo" press="onUndo" tooltip="Undo Layout Change (Ctrl+Z)" class="btnIconBlue" />
+            <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
+
+            <Button id="btnSelectAll" icon="sap-icon://multiselect-all" press=".onSelectAll" tooltip="Select All Visible Nodes (Ctrl+A)" class="btnIconBlue" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
 
             <ToggleButton id="btnToggleFocus" icon="sap-icon://lightbulb" pressed="{view>/tempFocusMode}" press=".onToggleTempFocusMode" tooltip="Focus Selected Entity (Temporary) (Shift+T)" class="btnIconBlue" enabled="{view>/hasNodeSelected}" visible="{= !${ui>/formatCytoscape/enableFocusMode} }" />

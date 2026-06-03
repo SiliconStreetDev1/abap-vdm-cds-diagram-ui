@@ -11,9 +11,13 @@ import Button from "sap/m/Button";
 import SplitterLayoutData from "sap/ui/layout/SplitterLayoutData";
 import VBox from "sap/m/VBox";
 import Event from "sap/ui/base/Event";
+import BusyDialog from "sap/m/BusyDialog";
 import Renderer from "../renderer/Renderer";
 
 export default class ViewStateHelper {
+
+    private static _oBusyDialog?: BusyDialog;
+    private static _iBusyTimer?: ReturnType<typeof setTimeout>;
 
     /**
      * @public
@@ -40,6 +44,7 @@ export default class ViewStateHelper {
             videoSubtitle: "",
             isCountingDown: false,
             isWaitingForPermission: false,
+            isFetching: false,
             countdownTime: 5,
             enableVideoRecording: false,
             stealthMode: false,
@@ -97,6 +102,51 @@ export default class ViewStateHelper {
         } else {
             oLeftPaneLayout.setSize("0px"); 
             oButton.setIcon("sap-icon://exit-full-screen");
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Injects an invisible Glass Pane to swallow interactions during async fetches,
+     * while surfacing a sleek, localized loading spinner that survives HTML5 Fullscreen layer promotions.
+     */
+    public static toggleGlassPane(bShow: boolean, oView: View): void {
+        const oUiModel = oView.getModel("ui") as JSONModel;
+        if (oUiModel) oUiModel.setProperty("/isFetching", bShow);
+
+        if (!this._oBusyDialog) {
+            this._oBusyDialog = new BusyDialog({ text: "Processing..." });
+            oView.addDependent(this._oBusyDialog);
+        }
+
+        const doc = document as any;
+        const bIsFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+
+        let oGlassPane = document.getElementById(`vdm-glass-pane-${oView.getId()}`);
+        if (bShow) {
+            if (!oGlassPane) {
+                oGlassPane = document.createElement("div");
+                oGlassPane.id = `vdm-glass-pane-${oView.getId()}`;
+                Object.assign(oGlassPane.style, {
+                    position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
+                    zIndex: "999999", backgroundColor: "transparent", cursor: "wait"
+                });
+                const target = document.fullscreenElement || (document as any).webkitFullscreenElement || document.body;
+                target.appendChild(oGlassPane);
+            }
+
+            // ENTERPRISE UX: Display the proper SAPUI5 Busy Dialog when in standard windowed mode
+            if (!bIsFullScreen) {
+                clearTimeout(this._iBusyTimer);
+                this._iBusyTimer = setTimeout(() => {
+                    this._oBusyDialog?.open();
+                }, 300);
+            }
+        } else {
+            if (oGlassPane) oGlassPane.remove();
+            clearTimeout(this._iBusyTimer);
+            this._oBusyDialog?.close();
         }
     }
 

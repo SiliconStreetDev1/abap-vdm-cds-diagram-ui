@@ -5,21 +5,26 @@
  */
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
+import EventBus from "sap/ui/core/EventBus";
 import Renderer from "../renderer/Renderer";
-import { DomEvents } from "../constants/EventConstants";
+import { DomEvents, EventChannels, EventIds } from "../constants/EventConstants";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 
 export default class CanvasKeyboardHandler {
     private _oView: View;
+    private _oEventBus?: EventBus;
     private _fnKeyDownBind!: EventListener;
     private _fnKeyUpBind!: EventListener;
     private _fnWindowBlurBind!: EventListener;
     private _bSpaceLock: boolean = false;
+    private _bShiftLock: boolean = false;
     private _bWasSelectMode: boolean = false;
+    private _bWasPanMode: boolean = false;
     private _bIsAttached: boolean = false;
 
-    constructor(oView: View) {
+    constructor(oView: View, oEventBus?: EventBus) {
         this._oView = oView;
+        this._oEventBus = oEventBus;
     }
 
     private _getInstanceId(): string {
@@ -55,97 +60,102 @@ export default class CanvasKeyboardHandler {
 
     private _onKeyDown(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
+
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (oUiModel && oUiModel.getProperty("/isFetching")) return;
+
         const bIsTyping = this._isInputActive(e.target);
 
-        // Enterprise UX: Undo Stack must remain Ctrl+Z / Cmd+Z natively
-        if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.code === "KeyZ") && !bIsTyping) {
+        // Handle Temporary Modifier Holds (Space for Pan, Shift for Box Select) safely
+        if (!bIsTyping) {
+            if ((e.key === " " || e.code === "Space") && !this._bSpaceLock) {
+                e.preventDefault();
+                this._bSpaceLock = true;
+                this._bWasSelectMode = (this._oView.getModel("view") as JSONModel).getProperty("/isSelectMode");
+                if (this._bWasSelectMode) this._setMode("pan");
+                return;
+            }
+
+            if ((e.key === "Shift" || e.code === "ShiftLeft" || e.code === "ShiftRight") && !this._bShiftLock) {
+                this._bShiftLock = true;
+                this._bWasPanMode = !(this._oView.getModel("view") as JSONModel).getProperty("/isSelectMode");
+                if (this._bWasPanMode) this._setMode("select");
+                return;
+            }
+        }
+
+        // Centralized Mapping Block
+        this._mapShortcuts(e, bIsTyping);
+    }
+
+    /**
+     * @private
+     * @description The Single Source of Truth for all explicit key bindings.
+     */
+    private _mapShortcuts(e: KeyboardEvent, bIsTyping: boolean): void {
+        const bCtrl = e.ctrlKey || e.metaKey;
+        const bShift = e.shiftKey;
+        const sKey = e.key ? e.key.toLowerCase() : "";
+        const sRawKey = e.key || "";
+
+        // ========================================================================
+        // 1. GLOBAL HOTKEYS (Bypasses Typing Guards)
+        // ========================================================================
+        if (bCtrl && bShift && sKey === "x") {
             e.preventDefault();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, { detail: { viewId: this._getInstanceId() } }));
+            if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH);
             return;
         }
 
-        // Enterprise UX: Use Shift+Key for toolbar actions to prevent hijacking browser native shortcuts
-        // like Ctrl+T (New Tab), Ctrl+N (New Window), and Ctrl+H (History)
-        if (e.shiftKey && !bIsTyping) {
-            if (e.code === "KeyN") {
-                e.preventDefault();
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                if (oViewModel && !oViewModel.getProperty("/isDrillDown")) {
-                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: this._getInstanceId() } }));
-                }
-                return;
-            }
-            if (e.code === "KeyH") {
-                e.preventDefault();
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                if (oViewModel && oViewModel.getProperty("/hasHiddenNodes")) {
-                    const oDialog = this._oView.byId("popHiddenNodes") as any;
-                    if (oDialog) oDialog.open();
-                }
-                return;
-            }
-            if (e.code === "KeyM") {
-                e.preventDefault();
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                if (oViewModel && oViewModel.getProperty("/hasDiagram") && oViewModel.getProperty("/canShowMinimap")) {
-                    const bShow = !oViewModel.getProperty("/showMinimap");
-                    oViewModel.setProperty("/showMinimap", bShow);
-                    const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                    Renderer.toggleMinimap(this._getInstanceId(), sEngine, bShow);
-                }
-                return;
-            }
-            if (e.code === "KeyT") {
-                e.preventDefault();
-                const oUiModel = this._oView.getModel("ui") as JSONModel;
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                if (oViewModel && oUiModel && oViewModel.getProperty("/hasNodeSelected") && !oUiModel.getProperty("/formatCytoscape/enableFocusMode")) {
-                    const bCurrentFocus = oViewModel.getProperty("/tempFocusMode");
-                    oViewModel.setProperty("/tempFocusMode", !bCurrentFocus);
-                    const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                    Renderer.setTempFocusMode(this._getInstanceId(), sEngine, !bCurrentFocus);
-                }
-                return;
-            }
+        // If user is inside an input field, halt all canvas-specific shortcuts
+        if (bIsTyping) return;
+
+        // ========================================================================
+        // 2. MODIFIER: CTRL / CMD
+        // ========================================================================
+        if (bCtrl && !bShift && !e.altKey) {
+            if (sKey === "z") { e.preventDefault(); this._dispatch(DomEvents.UNDO_REQUEST); return; }
+            if (sKey === "a") { e.preventDefault(); this._selectAll(); return; }
         }
 
-        if (e.code === "Escape" && !bIsTyping) {
-            Renderer.clearSelection(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
-            return;
+        // ========================================================================
+        // 3. MODIFIER: SHIFT (Toolbar Actions)
+        // ========================================================================
+        if (bShift && !bCtrl && !e.altKey) {
+            if (sKey === "n") { e.preventDefault(); this._addNote(); return; }
+            if (sKey === "h") { e.preventDefault(); this._toggleHidden(); return; }
+            if (sKey === "m") { e.preventDefault(); this._toggleMinimap(); return; }
+            if (sKey === "t") { e.preventDefault(); this._toggleTempFocus(); return; }
         }
 
-        if (e.code === "Space" && !this._bSpaceLock && !bIsTyping) {
-            e.preventDefault();
-            this._bSpaceLock = true;
-            
-            const oViewModel = this._oView.getModel("view") as JSONModel;
-            this._bWasSelectMode = oViewModel.getProperty("/isSelectMode");
-            
-            if (this._bWasSelectMode) {
-                oViewModel.setProperty("/isSelectMode", false);
-                const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "pan");
-            }
-        }
-
-        if ((e.code === "Delete" || e.code === "Backspace") && !bIsTyping) {
-            e.preventDefault();
-            const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-            Renderer.deleteSelection(this._getInstanceId(), sEngine);
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.DELETE_SELECTION_REQUEST, { detail: { viewId: this._getInstanceId() } }));
+        // ========================================================================
+        // 4. BASE KEYS (Tools & Actions)
+        // ========================================================================
+        if (!bCtrl && !bShift && !e.altKey) {
+            if (sKey === "s" || sKey === "v") { e.preventDefault(); this._setMode("select"); return; }
+            if (sKey === "p" || sKey === "h") { e.preventDefault(); this._setMode("pan"); return; }
+            if (sRawKey === "Escape") { this._clearSelection(); return; }
+            if (sRawKey === "Delete" || sRawKey === "Backspace") { e.preventDefault(); this._deleteSelection(); return; }
         }
     }
 
     private _onKeyUp(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
         
-        if (e.code === "Space") {
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (oUiModel && oUiModel.getProperty("/isFetching")) return;
+        
+        if (e.key === " " || e.code === "Space") {
             this._bSpaceLock = false;
             if (this._bWasSelectMode) {
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                oViewModel.setProperty("/isSelectMode", true);
-                const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "select");
+                this._setMode("select");
+            }
+        }
+
+        if (e.key === "Shift" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
+            this._bShiftLock = false;
+            if (this._bWasPanMode) {
+                this._setMode("pan");
             }
         }
     }
@@ -154,11 +164,76 @@ export default class CanvasKeyboardHandler {
         if (this._bSpaceLock) {
             this._bSpaceLock = false;
             if (this._bWasSelectMode) {
-                const oViewModel = this._oView.getModel("view") as JSONModel;
-                if (oViewModel) oViewModel.setProperty("/isSelectMode", true);
-                const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
-                Renderer.setInteractionMode(this._getInstanceId(), sEngine, "select");
+                this._setMode("select");
             }
         }
+        if (this._bShiftLock) {
+            this._bShiftLock = false;
+            if (this._bWasPanMode) {
+                this._setMode("pan");
+            }
+        }
+    }
+
+    // ========================================================================
+    // DELEGATION HELPERS
+    // ========================================================================
+
+    private _setMode(sMode: "pan" | "select"): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel) oViewModel.setProperty("/isSelectMode", sMode === "select");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+        Renderer.setInteractionMode(this._getInstanceId(), sEngine, sMode);
+    }
+
+    private _dispatch(sEventId: string): void {
+        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(sEventId, { detail: { viewId: this._getInstanceId() } }));
+    }
+
+    private _selectAll(): void {
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+        Renderer.selectAll(this._getInstanceId(), sEngine);
+    }
+
+    private _addNote(): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel && !oViewModel.getProperty("/isDrillDown")) this._dispatch(DomEvents.PROMPT_ADD_NOTE_REQUEST);
+    }
+
+    private _toggleHidden(): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel && oViewModel.getProperty("/hasHiddenNodes")) (this._oView.byId("popHiddenNodes") as any)?.open();
+    }
+
+    private _toggleMinimap(): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel && oViewModel.getProperty("/hasDiagram") && oViewModel.getProperty("/canShowMinimap")) {
+            const bShow = !oViewModel.getProperty("/showMinimap");
+            oViewModel.setProperty("/showMinimap", bShow);
+            const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+            Renderer.toggleMinimap(this._getInstanceId(), sEngine, bShow);
+        }
+    }
+
+    private _toggleTempFocus(): void {
+        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel && oUiModel && oViewModel.getProperty("/hasNodeSelected") && !oUiModel.getProperty("/formatCytoscape/enableFocusMode")) {
+            const bCurrentFocus = oViewModel.getProperty("/tempFocusMode");
+            oViewModel.setProperty("/tempFocusMode", !bCurrentFocus);
+            const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+            Renderer.setTempFocusMode(this._getInstanceId(), sEngine, !bCurrentFocus);
+        }
+    }
+
+    private _clearSelection(): void {
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+        Renderer.clearSelection(this._getInstanceId(), sEngine);
+    }
+
+    private _deleteSelection(): void {
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine");
+        Renderer.deleteSelection(this._getInstanceId(), sEngine);
+        this._dispatch(DomEvents.DELETE_SELECTION_REQUEST);
     }
 }

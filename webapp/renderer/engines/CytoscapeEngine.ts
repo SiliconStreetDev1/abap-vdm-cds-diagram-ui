@@ -152,7 +152,6 @@ export default class CytoscapeEngine {
                         pixelRatio: typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2,
                         minZoom: 0.1,
                         maxZoom: 3.0,
-                        wheelSensitivity: 0.2,
                         userPanningEnabled: true, // Syncs with Fiori View Model default (Pan Mode)
                         boxSelectionEnabled: true,
                         selectionType: 'single'
@@ -293,6 +292,15 @@ export default class CytoscapeEngine {
     public static clearSelection(sViewId: string): void {
         const context = this._cyContexts.get(sViewId);
         if (context) CytoscapeInteractionManager.clearSelection(context.cy);
+    }
+
+    /**
+     * @public
+     * @description Selects all visible nodes on the graph.
+     */
+    public static selectAll(sViewId: string): void {
+        const context = this._cyContexts.get(sViewId);
+        if (context) CytoscapeInteractionManager.selectAll(context.cy);
     }
 
     /**

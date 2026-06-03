@@ -82,6 +82,12 @@ Beyond `dagre` and `cose`, the Cytoscape engine supports switching between disti
 
 ### 12. Power User Shortcuts
 The canvas supports several native keyboard shortcuts for rapid architecture modeling:
+* `V` or `S`: Switch to Select Mode (Box Selection).
+* `H` or `P`: Switch to Pan Mode (Move Canvas).
+* `Hold Spacebar`: Temporarily activate Pan Mode.
+* `Hold Shift`: Temporarily activate Box Select Mode.
+* `Ctrl / Cmd + Click`: Multi-select or unselect specific nodes.
+* `Ctrl + A`: Select all visible nodes.
 * `Ctrl + Z` (or UI Undo Button): Undo the last layout action or note deletion.
 * `Delete` / `Backspace`: Instantly hide selected CDS entities or delete selected sticky notes.
 * `Shift + N`: Add a new sticky note.
@@ -143,7 +149,7 @@ This repository acts as the **Frontend (UI)** component, utilizing the SAPUI5 fr
 The codebase is strictly engineered adhering to **SOLID** principles, ensuring high performance and memory safety across Fiori Launchpad environments:
 * **Strategy Pattern (`Renderer.ts`):** Decouples the UI from the rendering logic, allowing dynamic switching between Cytoscape, Graphviz, Mermaid, PlantUML, and D2.
 * **Template Method Pattern (`VideoRecorder.ts`):** Enforces strict execution mutex locks and memory cleanup for native browser video capture.
-* **Memento Pattern (`UndoHandler.ts`):** Provides a 15-step memory-safe undo/redo stack for physical layout changes.
+* **Memento Pattern (`UndoHandler.ts`):** Provides a 25-step global session memory-safe undo/redo stack for physical layout changes and navigation history.
 * **Pub/Sub Orchestration (`EventBus`):** Fiori Flexible Column Layout (FCL) panes communicate entirely asynchronously, preventing tight coupling.
 * **LRU Caching (`DiagramCache.ts`):** Repeated OData backend requests are intercepted and served from an immutable memory cache to eliminate network spam.
 
@@ -170,6 +176,28 @@ Manage external endpoints, CDN paths, and performance limits.
 2. **Configure Environment:** Add your internal SAP IP in `ui5.yaml`.
 3. **Run:** `npm start`
 4. **Deploy:** `npm run deploy`
+
+## Design Patterns Glossary
+
+### Pattern Definitions
+* **Strategy Pattern**: A "plug-and-play" system. Instead of hardcoding massive `if/else` blocks to handle different scenarios, you define a common interface and swap out the "engine" behind the scenes. The main app just presses "start", and the Strategy Pattern seamlessly routes the command to whichever engine is currently plugged in.
+* **Memento Pattern**: A "time machine" for data. It captures a lightweight, pure snapshot of an object's internal state at a specific moment (like taking a photograph). If a user makes a mistake, the application simply replaces the current state with the historical snapshot to instantly "undo" the action without needing to reverse-engineer the math.
+* **State Pattern**: A behavior manager that eliminates complex `if/else` logic. Instead of a single class trying to juggle multiple modes, it creates dedicated 'State' classes (e.g., Windowed vs Fullscreen). The application blindly says "execute", and the currently active State knows exactly how to behave.
+* **Template Method Pattern**: A strict execution blueprint. A parent class defines an unchangeable sequence of operations (e.g., 1. Lock memory, 2. Capture, 3. Clean up) to guarantee safety. However, it leaves specific steps blank so child classes can inject their own custom logic (e.g., recording a Canvas vs recording a Screen) without altering the master sequence.
+* **Portal Pattern**: A UI escape hatch. Elements in a web page are often trapped and clipped by their parent containers due to CSS boundaries. The Portal pattern uses JavaScript to literally teleport a DOM element to the absolute highest layer of the webpage, rendering it immune to being cut off or trapped behind other graphics.
+* **Pub/Sub (Publish/Subscribe)**: A radio broadcasting system for code. Instead of Component A talking directly to Component B (which tightly couples their memory together), Component A shouts a message into the void ("A node was dragged!"). Any component tuned into that specific channel hears the message and reacts independently.
+* **LRU (Least Recently Used) Cache**: A self-cleaning memory bank. Every time data is accessed, it is moved to the "front of the line". When the cache hits its maximum capacity, it automatically deletes the data at the very back of the line (the data that hasn't been used in the longest time) to prevent the browser from running out of RAM.
+
+### Applied Usage
+| Pattern | Applied In | Enterprise Purpose |
+| :--- | :--- | :--- |
+| **Strategy** | `Renderer.ts` | Decouples the UI from the rendering logic, allowing dynamic switching between visual engines (Cytoscape, Graphviz, Mermaid, etc.). |
+| **Memento** | `UndoHandler.ts` | Provides a 25-step global session memory-safe undo/redo timeline for physical layout changes and navigation history. |
+| **State** | `FullScreenHandler.ts` | Eliminates brittle `if/else` checks by encapsulating OS-level transitions and Fiori CSS injections into isolated state classes. |
+| **Template Method** | `VideoRecorder.ts` | Enforces strict execution mutex locks and memory cleanup invariants for native browser video capture. |
+| **Portal** | `MinimapManager.ts`, `ViewStateHelper.ts` | Dynamically reparents DOM elements to the HTML5 Fullscreen layer to defeat OS-level `z-index` trapping. |
+| **Pub/Sub** | `EventBus` | Ensures Fiori Flexible Column Layout (FCL) panes communicate asynchronously, preventing tight memory coupling. |
+| **LRU Cache** | `DiagramCache.ts` | Intercepts repeated OData backend requests and serves immutable memory caches to eliminate network spam. |
 
 ## 📄 License & Terms
 

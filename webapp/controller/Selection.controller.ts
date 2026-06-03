@@ -38,7 +38,7 @@ export default class Selection extends Controller {
     private _fnSliderUpdateBind!: EventListener;
     private _fnCanvasStateChangedBind!: EventListener;
     private _fnViewportChangedBind!: EventListener;
-    private _fnEventBusDrillDownBind!: (c: string, e: string, d: any) => void;
+    private _fnEventBusDrillDownBind!: (c: string, e: string, d: Object) => void;
 
     /**
      * @private
@@ -77,13 +77,13 @@ export default class Selection extends Controller {
 
         const sInstanceId = this.getOwnerComponent()?.getId() || oView.getId();
         this._fnNodeDrillDownRequestBind = ((e: globalThis.Event) => {
-            const oCustomEvent = e as unknown as CustomEvent;
+            const oCustomEvent = e as unknown as CustomEvent<{ viewId: string, viewName: string }>;
             if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== sInstanceId) return;
             this._processDrillDown(oCustomEvent.detail?.viewName as string);
         }) as EventListener;
         document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
 
-        this._fnEventBusDrillDownBind = (c: string, e: string, d: any) => this._processDrillDown(d?.viewName as string);
+        this._fnEventBusDrillDownBind = (c: string, e: string, d: Object) => this._processDrillDown((d as { viewName?: string })?.viewName);
         if (oEventBus) {
             oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._fnEventBusDrillDownBind, this);
         }
@@ -210,7 +210,7 @@ export default class Selection extends Controller {
         if (oUiModel) oUiModel.setProperty("/variantDirty", false);
 
         const sSelectedName = oVariantSelect ? oVariantSelect.getSelectedKey() : "";
-        this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false)); 
+        this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false, false, true)); 
     }
 
     /**
@@ -226,10 +226,22 @@ export default class Selection extends Controller {
             if (oUiModel) oUiModel.setProperty("/variantDirty", false);
 
             const sSelectedName = oVariantSelect.getSelectedKey();
-            this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false));
+            this._oVariantHandler.applyVariant(sSelectedName, () => this._oGenerationHandler.generate(false, false, true));
         }
     }
     
+    /**
+     * @private
+     * @description Reconstructs the full breadcrumb path to uniquely key the session cache.
+     */
+    private _getBreadcrumbPath(): string {
+        const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
+        if (!oDataModel) return "";
+        const aLinks = oDataModel.getProperty("/breadcrumbLinks") || [];
+        const sCurrent = oDataModel.getProperty("/currentBreadcrumb") || oDataModel.getProperty("/cdsName") || "";
+        return aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase()).join('|');
+    }
+
     /**
      * @private
      * @description Orchestrates drill-down requests. If navigating back to the root CDS of the 
@@ -244,14 +256,25 @@ export default class Selection extends Controller {
         const sCurrentCdsName = oInputField ? oInputField.getValue().trim().toUpperCase() : "";
         const sTargetCdsName = sViewName.toUpperCase();
 
+        const sCurrentPath = this._getBreadcrumbPath();
+        const oDataModel = this.getView()?.getModel("diagramData") as JSONModel;
+        const aLinks = oDataModel ? oDataModel.getProperty("/breadcrumbLinks") || [] : [];
+        const iIndex = aLinks.findIndex((l: any) => l.name.toUpperCase() === sTargetCdsName);
+        let sTargetPath = sTargetCdsName;
+        if (iIndex > -1) {
+            sTargetPath = aLinks.slice(0, iIndex + 1).map((l: any) => l.name.toUpperCase()).join('|');
+        } else {
+            sTargetPath = (sCurrentPath ? sCurrentPath + '|' : '') + sTargetCdsName;
+        }
+
         // 1. Snapshot the current view's layout and settings before leaving
         if (sCurrentCdsName && sCurrentCdsName !== sTargetCdsName) {
             const oCurrentState = VariantStateMapper.captureState(this.getView() as View, sCurrentCdsName, true);
-            SessionStateCache.set(this._getInstanceId(), sCurrentCdsName, oCurrentState);
+            SessionStateCache.set(this._getInstanceId(), sCurrentPath, oCurrentState);
         }
 
         // 2. Check if the target view has a cached session state (i.e., we are navigating BACK to it)
-        const oCachedState = SessionStateCache.get(this._getInstanceId(), sTargetCdsName);
+        const oCachedState = SessionStateCache.get(this._getInstanceId(), sTargetPath);
         if (oCachedState) {
             // Restore exact coordinates, zoom, pins, and hidden nodes without manual saves
             VariantStateMapper.applyState(this.getView() as View, oCachedState);

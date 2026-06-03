@@ -77,8 +77,9 @@ export default class ExportUtility {
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0);
                 
-                // ENTERPRISE FIX: Release the massive Base64 string from DOM memory instantly
-                img.src = "";
+                // ENTERPRISE FIX: Safely release the massive Base64 string from DOM memory 
+                // without triggering a false HTTP request in WebKit browsers.
+                img.removeAttribute("src");
 
                 try {
                     canvas.toBlob((blob) => {

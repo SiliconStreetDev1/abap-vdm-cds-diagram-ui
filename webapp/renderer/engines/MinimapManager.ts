@@ -57,12 +57,13 @@ export default class MinimapManager {
     public static destroy(sViewId: string): void {
         const navInstance = this._navInstances.get(sViewId);
         if (navInstance) {
+            navInstance.destroy(); // Let the plugin perform its native teardown first
+            
             const fnCleanup = this._fnMinimapCleanups.get(sViewId);
             if (fnCleanup) {
                 fnCleanup();
                 this._fnMinimapCleanups.delete(sViewId);
             }
-            navInstance.destroy();
             this._navInstances.delete(sViewId);
         }
     }
@@ -75,11 +76,28 @@ export default class MinimapManager {
      * @param {Core} cy - The active Cytoscape.js instance.
      * @returns {() => void} A teardown closure to safely destroy the event listeners.
      */
-    public static enhancePanel(sViewId: string, navElem: any, cy: Core): () => void {
+    public static enhancePanel(sViewId: string, navElem: unknown, cy: Core): () => void {
         this._ensureDefaultStyles();
 
         // cytoscape-navigator often returns a jQuery object. Extract the raw HTMLElement.
-        const domElem: HTMLElement = navElem instanceof HTMLElement ? navElem : (navElem[0] || navElem);
+        const domElem: HTMLElement = navElem instanceof HTMLElement ? navElem : ((navElem as { 0?: HTMLElement })[0] || navElem as HTMLElement);
+
+        // ENTERPRISE UX: Dynamically reparent the minimap to the Fullscreen element or Body.
+        // This guarantees it can be dragged anywhere on the screen without being clipped by the canvas,
+        // and guarantees it remains perfectly visible when entering or exiting Fullscreen mode.
+        const reparentMinimap = () => {
+            const targetContainer = document.fullscreenElement || (document as any).webkitFullscreenElement || document.body;
+            if (domElem.parentNode !== targetContainer) {
+                targetContainer.appendChild(domElem);
+            }
+        };
+        reparentMinimap();
+        
+        document.addEventListener("fullscreenchange", reparentMinimap);
+        document.addEventListener("webkitfullscreenchange", reparentMinimap);
+
+        const container = cy.container();
+        if (container) container.style.position = "";
 
         domElem.style.setProperty("width", `${this._minimapState.w}px`, "important");
         domElem.style.setProperty("height", `${this._minimapState.h}px`, "important");
@@ -117,11 +135,14 @@ export default class MinimapManager {
         const resizeObj = this._attachResizeLogic(trResizeHandle, domElem, cy);
 
         return () => {
+            document.removeEventListener("fullscreenchange", reparentMinimap);
+            document.removeEventListener("webkitfullscreenchange", reparentMinimap);
             dragCleanup();
             if (resizeObj) {
                 if (resizeObj.cleanup) resizeObj.cleanup();
                 if (resizeObj.ro) resizeObj.ro.disconnect();
             }
+            if (domElem && domElem.parentNode) domElem.parentNode.removeChild(domElem);
         };
     }
 

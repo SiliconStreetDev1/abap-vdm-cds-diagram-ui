@@ -11,14 +11,14 @@ participant "Diagram Panel\n(Right Handlers)" as Right
 participant "Active\nEngine" as Engine
 
 == 1. OData Render Pipeline ==
-Left -> Bus : publish("DiagramEngine", "RenderRequest")\n+ Payload DTO
-Bus -> Right : (DiagramController)
+Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)\n+ Payload DTO
+Bus -> Right : (DiagramRenderHandler)
 Right -> Engine : render()
 Engine -> DOM : dispatchEvent("CANVAS_READY")
 DOM -> Right : Commit to Undo Stack (UndoHandler)
 
 == 2. Live Format Updating ==
-Left -> Bus : publish("DiagramEngine", "LiveFormatUpdate")\n+ Config DTO
+Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE)\n+ Config DTO
 Bus -> Right : (DiagramRenderHandler)
 Right -> Engine : updateFormat()
 Left -> DOM : dispatchEvent("FORMAT_SLIDER_UPDATE")
@@ -26,10 +26,10 @@ DOM -> Right : Sync Spacing Slider UI (CanvasActionHandler)
 
 == 3. Interactive Drill-Down ==
 User -> Engine : Double-Clicks Node
-Engine -> Bus : publish("DiagramEngine", "NodeDrillDown")\n+ Target CDS Name
+Engine -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN)\n+ Target CDS Name
 Bus -> Left : (SelectionController)
 Left -> Left : Save Current State to SessionStateCache
-Left -> Bus : publish("DiagramEngine", "RenderRequest")
+Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)
 
 == 4. Canvas Interactivity (DOM Decoupling) ==
 User -> DOM : Presses Ctrl+Z
@@ -42,12 +42,12 @@ DOM -> Left : Mark UI Dirty (SelectionStateHandler)
 DOM -> Right : Snapshot State (UndoHandler)
 
 == 5. Video Engine Orchestration ==
-Left -> Bus : publish("VideoRecording", "AutoPause")\n[Triggered before OData Fetch]
+Left -> Bus : publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE)\n[Triggered before OData Fetch]
 Bus -> Right : VideoRecordHandler systemPause()
-Left -> Bus : publish("DiagramEngine", "RenderRequest")
+Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)
 Engine -> DOM : dispatchEvent("CANVAS_READY")
 DOM -> Right : _onCanvasReady listener
-Right -> Bus : publish("VideoRecording", "AutoResume")
+Right -> Bus : publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME)
 Bus -> Right : VideoRecordHandler systemResume()
 
 @enduml

@@ -39,16 +39,17 @@ node "Browser Environment (Client-Side Rendering)" {
         [DiagramRenderHandler] as RenderHand
         [CanvasActionHandler] as ActionHand
         [ExportHandler] as ExpHand
-        [UndoHandler (Memento)] as UndoHand
+        [UndoHandler (Global Memento)] as UndoHand
         [VideoRecordHandler] as VidHand
 
         EventBus -down-> DiagCtrl : Subscribes
-        DiagCtrl -down-> RenderHand : Delegates Render
         DiagCtrl -down-> ActionHand : Delegates UI/DOM
         DiagCtrl -down-> ExpHand : Delegates Export
         DiagCtrl -down-> UndoHand : Delegates Ctrl+Z
         DiagCtrl -down-> VidHand : Delegates Recording
         
+        EventBus -down-> RenderHand : RENDER_REQUEST
+        EventBus -down-> UndoHand : RENDER_REQUEST
         EventBus -down-> VidHand : AutoPause/Resume
     }
 

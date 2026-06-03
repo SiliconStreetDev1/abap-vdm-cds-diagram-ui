@@ -52,6 +52,7 @@ export interface IEngineFacade {
     setInteractionMode?(sViewId: string, sMode: "pan" | "select"): void;
     setTempFocusMode?(sViewId: string, bEnable: boolean): void;
     clearSelection?(sViewId: string): void;
+    selectAll?(sViewId: string): void;
     deleteSelection?(sViewId: string): void;
 
     /**

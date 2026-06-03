@@ -129,9 +129,11 @@ export default class CytoscapeEventHandler {
                 return;
             }
             
-            // Enterprise UX Toggle-Click: If the node is already selected and wasn't just selected 
-            // in this exact click cycle (300ms buffer), unselect it.
-            if (node.selected() && now - (node.data('_lastSelectTime') || 0) > 300) {
+            const bIsMulti = evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey);
+            
+            // Enterprise UX Toggle-Click: If holding a modifier key to multi-select, 
+            // clicking an already-selected node should manually unselect it.
+            if (bIsMulti && node.selected() && now - (node.data('_lastSelectTime') || 0) > 250) {
                 node.unselect();
             }
             

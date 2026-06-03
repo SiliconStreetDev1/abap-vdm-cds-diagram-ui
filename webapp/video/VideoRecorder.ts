@@ -31,6 +31,7 @@ export interface IRecordingConfig {
     onStop: (blob: Blob) => void;
     onError: (err: string) => void;
     onTick: (time: number) => void;
+    onWarning?: (msg: string) => void;
 }
 
 /**
@@ -77,7 +78,7 @@ export default abstract class VideoRecorder {
             if (this.isStarting) { 
                 this.isActive = true;
                 this.isStarting = false;
-                this.startTrackingTimer(config.onTick);
+                this.startTrackingTimer(config);
             }
         } catch (e: any) {
             this.isStarting = false;
@@ -193,11 +194,13 @@ export default abstract class VideoRecorder {
     /**
      * @protected
      * @description Starts the internal timer to track elapsed recording duration.
-     * @param {function} onTick - Callback executed every second with the total elapsed time.
+     * @param {IRecordingConfig} config - The active configuration to dispatch tick and warning events.
      */
-    protected startTrackingTimer(onTick: (time: number) => void): void {
+    protected startTrackingTimer(config: IRecordingConfig): void {
         this.totalElapsedMs = 0;
         this.lastTickTime = performance.now();
+        let bWarningShown = false;
+
         this.timeoutId = window.setInterval(() => {
             if (this.isPaused) {
                 // We no longer advance the tick time here, as pauseRecording() handles 
@@ -207,7 +210,18 @@ export default abstract class VideoRecorder {
             const now = performance.now();
             this.totalElapsedMs += (now - this.lastTickTime);
             this.lastTickTime = now;
-            onTick(this.totalElapsedMs);
+            config.onTick(this.totalElapsedMs);
+
+            const remainingMs = this.maxDurationMs - this.totalElapsedMs;
+            
+            // ENTERPRISE FIX: Provide a 10-second early warning before the system forcefully kills the recording
+            if (remainingMs <= 10000 && remainingMs > 0 && !bWarningShown) {
+                bWarningShown = true;
+                if (config.onWarning) {
+                    config.onWarning(`Maximum recording limit approaching. Auto-saving in ${Math.ceil(remainingMs / 1000)} seconds.`);
+                }
+            }
+
             if (this.totalElapsedMs >= this.maxDurationMs) this.stopRecording();
         }, 1000) as unknown as number;
     }

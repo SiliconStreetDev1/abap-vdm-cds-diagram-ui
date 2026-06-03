@@ -8,7 +8,6 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import EventBus from "sap/ui/core/EventBus";
 import MessageToast from "sap/m/MessageToast";
-import BusyIndicator from "sap/ui/core/BusyIndicator";
 import Input from "sap/m/Input";
 import Select from "sap/m/Select";
 
@@ -16,6 +15,7 @@ import DiagramRequestMapper from "../helpers/DiagramRequestMapper";
 import DiagramService from "../services/DiagramService";
 import VariantManager from "../helpers/VariantManager";
 import SessionStateCache from "../helpers/SessionStateCache";
+import ViewStateHelper from "../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
 import Renderer from "../renderer/Renderer";
@@ -50,7 +50,7 @@ export default class DiagramGenerationHandler {
      * @param {boolean} bIsRestore - Prevents wiping custom preset positions if restoring from a cached state.
      * @returns {Promise<void>}
      */
-    public async generate(bIsDrillDown: boolean, bIsRestore: boolean = false): Promise<void> {
+    public async generate(bIsDrillDown: boolean, bIsRestore: boolean = false, bIsVariantApply: boolean = false): Promise<void> {
         const oInputField = this._oView.byId("cmbCdsName") as Input;
         const sCdsName = oInputField.getValue().trim().toUpperCase();
 
@@ -64,7 +64,7 @@ export default class DiagramGenerationHandler {
         const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey() as EngineType;
         
         // Only wipe layout presets if we are navigating to a new view WITHOUT a cached restore state
-        if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore) {
+        if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore && !bIsVariantApply) {
             if (sEngine && Renderer.supportsStateCapture(sEngine)) {
                 const oModelData = oUiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
@@ -87,8 +87,10 @@ export default class DiagramGenerationHandler {
             const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
             if (iIndex > -1) {
                 // Enterprise Memory Management: Wipe children from the session cache when navigating up
-                const aOrphans = this._aBreadcrumbs.slice(iIndex + 1);
-                aOrphans.forEach(sOrphan => SessionStateCache.remove(this._getInstanceId(), sOrphan));
+                for (let k = iIndex + 1; k < this._aBreadcrumbs.length; k++) {
+                    const sOrphanPath = this._aBreadcrumbs.slice(0, k + 1).join('|');
+                    SessionStateCache.remove(this._getInstanceId(), sOrphanPath);
+                }
 
                 this._aBreadcrumbs = this._aBreadcrumbs.slice(0, iIndex + 1);
             } else {
@@ -104,10 +106,12 @@ export default class DiagramGenerationHandler {
         // ENTERPRISE FIX: Auto-pause the video recording before the network fetch begins 
         // so the "Busy Loading" wait time is not captured in the video timeline.
         if (this._oEventBus) {
-            this._oEventBus.publish("VideoRecording", "AutoPause");
+            this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
         }
 
-        BusyIndicator.show(0);
+        // ENTERPRISE FIX: Use the transparent Glass Pane and localized toolbar spinner 
+        // to block UI interactions without breaking HTML5 Fullscreen z-indexes.
+        ViewStateHelper.toggleGlassPane(true, this._oView);
 
         try {
             const oRequest = DiagramRequestMapper.buildRequest(this._oView, sCdsName, sEngine);
@@ -135,9 +139,9 @@ export default class DiagramGenerationHandler {
             // Restore the stale state if the diagram generation failed to complete
             oUiModel.setProperty("/isCanvasStale", true);
             MessageToast.show(this._fnGetText(oError.message) || oError.message);
-            if (this._oEventBus) this._oEventBus.publish("VideoRecording", "AutoResume");
+            if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
         } finally {
-            BusyIndicator.hide();
+            ViewStateHelper.toggleGlassPane(false, this._oView);
         }
     }
 

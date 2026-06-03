@@ -9,6 +9,7 @@ import EventBus from "sap/ui/core/EventBus";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import { DomEvents, EventChannels, EventIds } from "../constants/EventConstants";
 import Renderer from "../renderer/Renderer";
+import { IRenderRequestPayload } from "../types";
 
 export default class UndoHandler {
     private _oView: View;
@@ -122,7 +123,8 @@ export default class UndoHandler {
      * @private
      * @description Intercepts render requests to intelligently flush history only on brand new sessions.
      */
-    private _onRenderRequest(sChannel: string, sEvent: string, oData: any): void {
+    private _onRenderRequest(sChannel: string, sEvent: string, rawData: Object): void {
+        const oData = rawData as IRenderRequestPayload;
         if (oData && oData.engineConfig?.isRestore) {
             this._bIsRestoringCache = true;
         }
@@ -133,9 +135,14 @@ export default class UndoHandler {
             this.clearHistory();
         } else if (oData && oData.breadcrumbs) {
             // ENTERPRISE MEMORY MANAGEMENT: Purge orphaned child stacks when navigating up
-            const aActiveBreadcrumbs = oData.breadcrumbs.map((s: string) => s.toUpperCase());
+            const aValidKeys: string[] = [];
+            const currentPath: string[] = [];
+            oData.breadcrumbs.forEach((s: string) => {
+                currentPath.push(s.toUpperCase());
+                aValidKeys.push(currentPath.join('|'));
+            });
             Object.keys(this._mStacks).forEach(sKey => {
-                if (!aActiveBreadcrumbs.includes(sKey)) {
+                if (!aValidKeys.includes(sKey)) {
                     delete this._mStacks[sKey];
                 }
             });
@@ -148,11 +155,15 @@ export default class UndoHandler {
      */
     private _getStack(): string[] {
         const oDataModel = this._oView.getModel("diagramData") as JSONModel;
-        const sCdsName = oDataModel ? (oDataModel.getProperty("/cdsName") || "DEFAULT").toUpperCase() : "DEFAULT";
-        if (!this._mStacks[sCdsName]) {
-            this._mStacks[sCdsName] = [];
+        if (!oDataModel) return [];
+        const aLinks = oDataModel.getProperty("/breadcrumbLinks") || [];
+        const sCurrent = oDataModel.getProperty("/currentBreadcrumb") || oDataModel.getProperty("/cdsName") || "DEFAULT";
+        const aPath = aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase());
+        const sKey = aPath.join('|');
+        if (!this._mStacks[sKey]) {
+            this._mStacks[sKey] = [];
         }
-        return this._mStacks[sCdsName];
+        return this._mStacks[sKey];
     }
 
     /**
@@ -161,7 +172,7 @@ export default class UndoHandler {
      * to ensure we only capture the final placement snapshot to conserve history steps.
      */
     private _onStateChange(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent;
+        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         
         if (this._bIsRestoringCache) {
@@ -228,7 +239,7 @@ export default class UndoHandler {
      * @description Pops the latest state off the stack and physically restores the previous layout.
      */
     private _onUndoRequest(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent;
+        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         
         const aStack = this._getStack();

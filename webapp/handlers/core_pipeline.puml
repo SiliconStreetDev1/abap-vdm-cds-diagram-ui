@@ -1,0 +1,83 @@
+@startuml
+title VDM Diagrammer - Core Architecture & Rendering Pipeline
+
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 150
+skinparam handwritten false
+
+actor User
+
+box "Fiori Flexible Column Layout (Left Pane)" #eef7fa
+participant "Selection Controller" as SelCtrl
+participant "Generation Handler" as GenHandler
+participant "Diagram Service" as DiagService
+participant "LRU Cache" as Cache
+end box
+
+box "SAP ABAP Backend" #eaf8ea
+participant "OData V4 Service" as Backend
+end box
+
+box "Fiori Flexible Column Layout (Right Pane)" #fffdf2
+participant "EventBus" as Bus
+participant "Diagram Controller" as DiagCtrl
+participant "Render Handler" as RenderHandler
+participant "Renderer (Facade)" as Renderer
+participant "Active Engine" as Engine
+end box
+
+User -> SelCtrl : Clicks "Generate Diagram"
+activate SelCtrl
+
+SelCtrl -> GenHandler : generate(bIsDrillDown)
+activate GenHandler
+
+GenHandler -> DiagService : fetchDiagram(requestDTO)
+activate DiagService
+
+DiagService -> Cache : get(requestDTO)
+activate Cache
+
+alt Cache Hit
+    Cache --> DiagService : Cached Result
+else Cache Miss
+    Cache --> DiagService : null
+    DiagService -> Backend : GET /Diagram (OData V4)
+    activate Backend
+    Backend --> DiagService : JSON Payload
+    deactivate Backend
+    DiagService -> Cache : set(requestDTO, Result)
+end
+deactivate Cache
+
+DiagService --> GenHandler : IDiagramResult
+deactivate DiagService
+
+GenHandler -> Bus : publish(EventIds.RENDER_REQUEST, payload)
+deactivate GenHandler
+deactivate SelCtrl
+
+note over Bus : Asynchronous Decoupling across Fiori Views
+
+Bus -> DiagCtrl : _onRenderRequest()
+activate DiagCtrl
+
+DiagCtrl -> RenderHandler : handleRenderRequest(payload)
+activate RenderHandler
+
+RenderHandler -> Renderer : renderDiagram(engineType, payload)
+activate Renderer
+
+Renderer -> Engine : render()
+activate Engine
+
+Engine -> Engine : Parse Configuration\n& Process Data
+Engine -> Engine : Draw to WebGL / SVG
+
+Engine --> User : Display Interactive Diagram
+deactivate Engine
+deactivate Renderer
+deactivate RenderHandler
+deactivate DiagCtrl
+
+@enduml

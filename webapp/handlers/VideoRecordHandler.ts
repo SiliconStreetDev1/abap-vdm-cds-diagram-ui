@@ -11,6 +11,7 @@ import EventBus from "sap/ui/core/EventBus";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import FileDownloadUtility from "../helpers/FileDownloadUtility";
 import VideoRecorder, { IRecordingConfig } from "../video/VideoRecorder";
+import { EventChannels, EventIds } from "../constants/EventConstants";
 import ScreenRecorder from "../video/ScreenRecorder";
 import CanvasRecorder from "../video/CanvasRecorder";
 
@@ -26,7 +27,7 @@ export default class VideoRecordHandler {
     private pauseBind: () => void;
     private resumeBind: () => void;
     private startBind: () => void;
-    private hotkeyBind: EventListener;
+    private toggleStealthBind: () => void;
     private _bIsAttached: boolean = false;
     private _autoPauseTimer: number | null = null;
 
@@ -47,7 +48,7 @@ export default class VideoRecordHandler {
         this.pauseBind = this.pauseRecording.bind(this);
         this.resumeBind = this.resumeRecording.bind(this);
         this.startBind = this.startRecording.bind(this);
-        this.hotkeyBind = this.handleGlobalHotkey.bind(this) as EventListener;
+        this.toggleStealthBind = this.handleToggleStealth.bind(this);
     }
 
     /**
@@ -58,17 +59,15 @@ export default class VideoRecordHandler {
         if (this._bIsAttached) return;
 
         if (this.eventBus) {
-            this.eventBus.subscribe("VideoRecording", "AutoPause", this.autoPauseBind, this);
-            this.eventBus.subscribe("VideoRecording", "AutoResume", this.autoResumeBind, this);
-            this.eventBus.subscribe("VideoRecording", "Stop", this.stopBind, this);
-            this.eventBus.subscribe("VideoRecording", "Pause", this.pauseBind, this);
-            this.eventBus.subscribe("VideoRecording", "Resume", this.resumeBind, this);
-            this.eventBus.subscribe("VideoRecording", "Start", this.startBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE, this.autoPauseBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME, this.autoResumeBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_STOP, this.stopBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_PAUSE, this.pauseBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_RESUME, this.resumeBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_START, this.startBind, this);
+            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH, this.toggleStealthBind, this);
         }
         
-        if (typeof document !== "undefined") {
-            document.addEventListener("keydown", this.hotkeyBind);
-        }
         this._bIsAttached = true;
     }
 
@@ -80,17 +79,15 @@ export default class VideoRecordHandler {
         if (!this._bIsAttached) return;
 
         if (this.eventBus) {
-            this.eventBus.unsubscribe("VideoRecording", "AutoPause", this.autoPauseBind, this);
-            this.eventBus.unsubscribe("VideoRecording", "AutoResume", this.autoResumeBind, this);
-            this.eventBus.unsubscribe("VideoRecording", "Stop", this.stopBind, this);
-            this.eventBus.unsubscribe("VideoRecording", "Pause", this.pauseBind, this);
-            this.eventBus.unsubscribe("VideoRecording", "Resume", this.resumeBind, this);
-            this.eventBus.unsubscribe("VideoRecording", "Start", this.startBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE, this.autoPauseBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME, this.autoResumeBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_STOP, this.stopBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_PAUSE, this.pauseBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_RESUME, this.resumeBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_START, this.startBind, this);
+            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH, this.toggleStealthBind, this);
         }
         
-        if (typeof document !== "undefined") {
-            document.removeEventListener("keydown", this.hotkeyBind);
-        }
         this._bIsAttached = false;
     }
 
@@ -165,7 +162,8 @@ export default class VideoRecordHandler {
             onStart: () => this.updateUIState({ isWaitingForPermission: false, isCountingDown: false, isRecording: true }),
             onStop: (blob: Blob) => this.handleRecordingStop(blob),
             onError: (err: string) => this.handleRecordingError(err),
-            onTick: (ms: number) => this.handleRecordingTick(ms)
+            onTick: (ms: number) => this.handleRecordingTick(ms),
+            onWarning: (msg: string) => MessageToast.show(msg, { duration: 5000 })
         };
 
         // 3. True Polymorphic Execution
@@ -303,26 +301,16 @@ export default class VideoRecordHandler {
 
     /**
      * @private
-     * @description Intercepts global hotkeys to silently start/stop the recording.
-     * @param {KeyboardEvent} e - The keyboard event.
      */
-    private handleGlobalHotkey(e: KeyboardEvent): void {
-        // Listen for Ctrl + Shift + X (or Cmd + Shift + X on Mac)
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "X" || e.key === "x" || e.code === "KeyX")) {
-            // Enterprise UX: Ignore if view is hidden in the Fiori Launchpad background
-            if (!ViewStateHelper.isViewVisible(this.view)) return;
-            
-            const uiModel = this.view.getModel("ui") as JSONModel;
-            if (!uiModel || !uiModel.getProperty("/enableVideoRecording")) return;
-            
-            e.preventDefault();
-            e.stopPropagation();
-            
-            if (uiModel.getProperty("/isRecording") || uiModel.getProperty("/isCountingDown") || uiModel.getProperty("/isWaitingForPermission")) {
-                this.stopRecording();
-            } else {
-                this.startRecording();
-            }
+    private handleToggleStealth(): void {
+        if (!ViewStateHelper.isViewVisible(this.view)) return;
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        if (!uiModel || !uiModel.getProperty("/enableVideoRecording")) return;
+        
+        if (uiModel.getProperty("/isRecording") || uiModel.getProperty("/isCountingDown") || uiModel.getProperty("/isWaitingForPermission")) {
+            this.stopRecording();
+        } else {
+            this.startRecording();
         }
     }
 

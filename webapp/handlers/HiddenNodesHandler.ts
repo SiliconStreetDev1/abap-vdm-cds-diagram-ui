@@ -85,7 +85,7 @@ export default class HiddenNodesHandler {
      * @description Updates standard visual indicators dynamically based on node exposure changes.
      */
     private _onVisibilityChanged(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent;
+        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string, hasHidden: boolean, hiddenNodes: { id: string, label: string }[] }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         const bHasHidden = oCustomEvent.detail?.hasHidden || false;
         const aHiddenNodes = oCustomEvent.detail?.hiddenNodes || [];

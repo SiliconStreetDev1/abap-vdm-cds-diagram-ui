@@ -43,12 +43,12 @@ export default class NoteDialogHandler {
      */
     public attachEvents(): void {
         this._fnPromptAddNoteBind = ((oEvent: Event) => {
-            if ((oEvent as CustomEvent).detail?.viewId && (oEvent as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
+            if ((oEvent as CustomEvent<{ viewId: string }>).detail?.viewId && (oEvent as CustomEvent<{ viewId: string }>).detail?.viewId !== this._getInstanceId()) return;
             this.promptAddNote();
         }) as EventListener;
         
         this._fnPromptEditNoteBind = ((oEvent: Event) => {
-            if ((oEvent as CustomEvent).detail?.viewId && (oEvent as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
+            if ((oEvent as CustomEvent<{ viewId: string }>).detail?.viewId && (oEvent as CustomEvent<{ viewId: string }>).detail?.viewId !== this._getInstanceId()) return;
             this.promptEditNote(oEvent);
         }) as EventListener;
 
@@ -90,7 +90,7 @@ export default class NoteDialogHandler {
      * @returns {void}
      */
     public promptEditNote(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent;
+        const oCustomEvent = oEvent as CustomEvent<{ id: string, text: string, fontFamily: string }>;
         const sId = oCustomEvent.detail?.id;
         const sCurrentText = oCustomEvent.detail?.text || "";
         const sCurrentFont = oCustomEvent.detail?.fontFamily || "Marker";

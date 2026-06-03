@@ -20,12 +20,19 @@ export default class CytoscapeInteractionManager {
         } else {
             cyInstance.userPanningEnabled(true);
             cyInstance.boxSelectionEnabled(true); // Shift+Drag fallback
+            cyInstance.autoungrabify(false);
         }
     }
 
     public static clearSelection(cyInstance: Core): void {
         if (cyInstance) {
             cyInstance.elements().unselect();
+        }
+    }
+
+    public static selectAll(cyInstance: Core): void {
+        if (cyInstance) {
+            cyInstance.elements('node:visible').select();
         }
     }
 }

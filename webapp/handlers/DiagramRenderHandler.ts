@@ -6,20 +6,79 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import HTML from "sap/ui/core/HTML";
+import EventBus from "sap/ui/core/EventBus";
 import Renderer from "../renderer/Renderer";
 import { EngineType, IRenderRequestPayload } from "../types";
+import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 
 export default class DiagramRenderHandler {
     private _oView: View;
+    private _oEventBus?: EventBus;
     private _fnGetText: (k: string, args?: any[]) => string;
+    private _fnCanvasReadyBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
-    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
+    constructor(oView: View, oEventBus: EventBus | undefined, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
+        this._oEventBus = oEventBus;
         this._fnGetText = fnGetText;
+    }
+
+    public attachEvents(): void {
+        if (this._bIsAttached) return;
+        if (this._oEventBus) {
+            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
+        }
+        this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as EventListener;
+        if (typeof document !== "undefined") {
+            document.addEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
+        }
+        this._bIsAttached = true;
+    }
+
+    public detachEvents(): void {
+        if (!this._bIsAttached) return;
+        if (this._oEventBus) {
+            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
+        }
+        if (typeof document !== "undefined") {
+            document.removeEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
+        }
+        this._bIsAttached = false;
     }
 
     private _getInstanceId(): string {
         return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    }
+
+    private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
+        this.handleLiveFormatUpdate(oData);
+    }
+
+    private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
+        // ENTERPRISE UX: Auto-pause the video loop during a Drill-Down network request
+        if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
+
+        const oHtml = this._oView.byId("htmlRenderer") as HTML;
+        this.handleRenderRequest(oEventData as IRenderRequestPayload, oHtml);
+
+        // Non-Cytoscape engines do not run asynchronous physics layouts or emit CANVAS_READY.
+        // We safely resume the recording after a short deferral to allow the DOM to paint.
+        if (oEventData.engine !== "CYTOSCAPE") {
+            setTimeout(() => {
+                if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
+            }, 500);
+        }
+    }
+
+    private _onCanvasReady(oEvent: globalThis.Event): void {
+        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
+        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
+        
+        // Seamlessly auto-resume the video feed directly on the new diagram!
+        if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
     }
 
     public handleLiveFormatUpdate(oData: any): void {
