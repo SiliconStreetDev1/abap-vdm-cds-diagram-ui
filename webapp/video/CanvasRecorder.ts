@@ -43,6 +43,8 @@ export default class CanvasRecorder extends VideoRecorder {
      * @param {IRecordingConfig} config - The unified polymorphic configuration payload.
      */
     protected async performCapture(config: IRecordingConfig): Promise<void> {
+        this.lastViewId = config.viewId;
+
         if (config.onPermissionGranted) config.onPermissionGranted();
 
         const container = document.getElementById(this.containerId);
@@ -56,7 +58,7 @@ export default class CanvasRecorder extends VideoRecorder {
         }
 
         if (config.delaySeconds > 0) {
-            const completed = await this.delayLoop(config.delaySeconds, config.onCountdown);
+            const completed = await this.delayLoop(config.delaySeconds, config.viewId, config.onCountdown);
             if (!completed) throw new Error("ABORT");
         }
         

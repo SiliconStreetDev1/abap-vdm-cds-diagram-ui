@@ -59,6 +59,7 @@
                     <core:Item key="{variants>name}" text="{variants>name}" />
                 </Select>
                 <Button id="btnRevertVariant" icon="sap-icon://undo" tooltip="Revert to Saved Variant" press="onRevertVariant" type="Transparent" visible="{= ${ui>/variantDirty} === true }" enabled="{= !${ui>/isDrillDown} }" />
+                <Button id="btnClearVariant" icon="sap-icon://decline" tooltip="Clear Variant Selection" press="onClearVariant" type="Transparent" visible="{= ${variants>/items}.length > 0 }" enabled="{= !${ui>/isDrillDown} }" />
                 <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" enabled="{= !${ui>/isDrillDown} }" />
                 <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent"  visible="{= ${variants>/items}.length > 0 }" enabled="{= !${ui>/isDrillDown} }" />
             </HBox>

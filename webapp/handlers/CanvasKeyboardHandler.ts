@@ -5,6 +5,7 @@
  */
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
+import Dialog from "sap/m/Dialog";
 import EventBus from "sap/ui/core/EventBus";
 import Renderer from "../renderer/Renderer";
 import { DomEvents, EventChannels, EventIds } from "../constants/EventConstants";
@@ -202,7 +203,10 @@ export default class CanvasKeyboardHandler {
 
     private _toggleHidden(): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        if (oViewModel && oViewModel.getProperty("/hasHiddenNodes")) (this._oView.byId("popHiddenNodes") as any)?.open();
+        if (oViewModel && oViewModel.getProperty("/hasHiddenNodes")) {
+            const oDialog = this._oView.byId("popHiddenNodes") as Dialog;
+            if (oDialog) oDialog.open();
+        }
     }
 
     private _toggleMinimap(): void {

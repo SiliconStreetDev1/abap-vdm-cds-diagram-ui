@@ -1,5 +1,4 @@
 /**
- * @namespace nz.co.siliconstreet.vdmdiagrammer.handlers
  * @fileoverview Encapsulates backend generation logic and breadcrumb state tracking.
  * @description Relieves the controller of OData filtering orchestration and EventBus payload creation.
  */
@@ -13,7 +12,8 @@ import Select from "sap/m/Select";
 
 import DiagramRequestMapper from "../helpers/DiagramRequestMapper";
 import DiagramService from "../services/DiagramService";
-import VariantManager from "../helpers/VariantManager";
+import VariantService from "../services/VariantService";
+import SearchHistoryService from "../services/SearchHistoryService";
 import SessionStateCache from "../helpers/SessionStateCache";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../types";
@@ -21,16 +21,22 @@ import { EventChannels, EventIds } from "../constants/EventConstants";
 import Renderer from "../renderer/Renderer";
 
 export default class DiagramGenerationHandler {
-    private _oView: View;
-    private _oEventBus?: EventBus;
-    private _fnGetText: (k: string, args?: any[]) => string;
-    private _sRootCdsName: string = "";
-    private _aBreadcrumbs: string[] = [];
+    private view: View;
+    private eventBus?: EventBus;
+    private getText: (key: string, args?: any[]) => string;
+    private rootCdsName: string = "";
+    private breadcrumbs: string[] = [];
 
-    constructor(oView: View, oEventBus: EventBus | undefined, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
-        this._oEventBus = oEventBus;
-        this._fnGetText = fnGetText;
+    /**
+     * @public
+     * @param {View} view - The active SAPUI5 view.
+     * @param {EventBus | undefined} eventBus - The application event bus for decoupled messaging.
+     * @param {Function} getText - Translation string delegate.
+     */
+    constructor(view: View, eventBus: EventBus | undefined, getText: (key: string, args?: any[]) => string) {
+        this.view = view;
+        this.eventBus = eventBus;
+        this.getText = getText;
     }
 
     /**
@@ -38,124 +44,126 @@ export default class DiagramGenerationHandler {
      * @description Resolves the overarching Component ID to group Views in the same FCL.
      * @returns {string} Unique Instance ID.
      */
-    private _getInstanceId(): string {
-        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    private getInstanceId(): string {
+        return this.view.getController()?.getOwnerComponent()?.getId() || this.view.getId();
     }
 
     /**
      * @public
-     * @description Performs the entire cycle of validating parameters, querying the ABAP backend,
+     * Performs the entire cycle of validating parameters, querying the ABAP backend,
      * and submitting the processed response payload to the application EventBus.
-     * @param {boolean} bIsDrillDown - Prevents root CDS mutation if this execution is a nested drill-down.
-     * @param {boolean} bIsRestore - Prevents wiping custom preset positions if restoring from a cached state.
+     * @param {boolean} isDrillDown - Prevents root CDS mutation if this execution is a nested drill-down.
+     * @param {boolean} [isRestore=false] - Prevents wiping custom preset positions if restoring from a cached state.
+     * @param {boolean} [isVariantApply=false] - Suppresses stale state alerts during variant hydration.
      * @returns {Promise<void>}
      */
-    public async generate(bIsDrillDown: boolean, bIsRestore: boolean = false, bIsVariantApply: boolean = false): Promise<void> {
-        const oInputField = this._oView.byId("cmbCdsName") as Input;
-        const sCdsName = oInputField.getValue().trim().toUpperCase();
+    public async generate(isDrillDown: boolean, isRestore: boolean = false, isVariantApply: boolean = false): Promise<void> {
+        const inputField = this.view.byId("cmbCdsName") as Input;
+        const cdsName = inputField.getValue().trim().toUpperCase();
 
-        if (!sCdsName) {
-            MessageToast.show(this._fnGetText("msgEnterCds"));
+        if (!cdsName) {
+            MessageToast.show(this.getText("msgEnterCds"));
             return;
         }
 
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const sLastCdsName = oUiModel.getProperty("/lastGeneratedCdsName");
-        const sEngine = (this._oView.byId("selEngine") as Select).getSelectedKey() as EngineType;
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        const lastCdsName = uiModel.getProperty("/lastGeneratedCdsName");
+        const engine = ((this.view.byId("selEngine") as Select)?.getSelectedKey() || Renderer.getDefaultEngine()) as EngineType;
         
-        // Only wipe layout presets if we are navigating to a new view WITHOUT a cached restore state
-        if (sLastCdsName && sLastCdsName !== sCdsName && !bIsRestore && !bIsVariantApply) {
-            if (sEngine && Renderer.supportsStateCapture(sEngine)) {
-                const oModelData = oUiModel.getData();
-                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
-                if (sFormatKey) {
-                    oUiModel.setProperty(`/${sFormatKey}/presetPositions`, null);
-                    oUiModel.setProperty(`/${sFormatKey}/camera`, null);
-                    if (oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
-                        oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
+        if (lastCdsName && lastCdsName !== cdsName && !isRestore && !isVariantApply) {
+            if (engine && Renderer.supportsStateCapture(engine)) {
+                const modelData = uiModel.getData();
+                const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
+                if (formatKey) {
+                    uiModel.setProperty(`/${formatKey}/presetPositions`, null);
+                    uiModel.setProperty(`/${formatKey}/camera`, null);
+                    if (uiModel.getProperty(`/${formatKey}/layout_algorithm`) === "preset") {
+                        uiModel.setProperty(`/${formatKey}/layout_algorithm`, "dagre");
                     }
                 }
             }
         }
-        oUiModel.setProperty("/lastGeneratedCdsName", sCdsName);
+        uiModel.setProperty("/lastGeneratedCdsName", cdsName);
 
-        if (!bIsDrillDown) {
-            this._sRootCdsName = sCdsName;
-            this._aBreadcrumbs = [sCdsName];
-            SessionStateCache.clear(this._getInstanceId()); // Reset the snapshot memory on completely new searches
+        if (!isDrillDown) {
+            this.rootCdsName = cdsName;
+            this.breadcrumbs = [cdsName];
+            SessionStateCache.clear(this.getInstanceId()); 
         } else {
-            const iIndex = this._aBreadcrumbs.indexOf(sCdsName);
-            if (iIndex > -1) {
-                // Enterprise Memory Management: Wipe children from the session cache when navigating up
-                for (let k = iIndex + 1; k < this._aBreadcrumbs.length; k++) {
-                    const sOrphanPath = this._aBreadcrumbs.slice(0, k + 1).join('|');
-                    SessionStateCache.remove(this._getInstanceId(), sOrphanPath);
+            const index = this.breadcrumbs.indexOf(cdsName);
+            if (index > -1) {
+                for (let k = index + 1; k < this.breadcrumbs.length; k++) {
+                    const orphanPath = this.breadcrumbs.slice(0, k + 1).join('|');
+                    SessionStateCache.remove(this.getInstanceId(), orphanPath);
                 }
-
-                this._aBreadcrumbs = this._aBreadcrumbs.slice(0, iIndex + 1);
+                this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
             } else {
-                this._aBreadcrumbs.push(sCdsName);
+                this.breadcrumbs.push(cdsName);
             }
         }
 
-        const oModel = this._oView.getModel() as ODataModel;
-
-        // Eagerly drop the stale state so the UI doesn't flash yellow behind the BusyIndicator
-        oUiModel.setProperty("/isCanvasStale", false);
-
-        // ENTERPRISE FIX: Auto-pause the video recording before the network fetch begins 
-        // so the "Busy Loading" wait time is not captured in the video timeline.
-        if (this._oEventBus) {
-            this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
+        // ENTERPRISE FIX: Aggressively resolve the OData V4 model. 
+        // Fiori occasionally delays downward model propagation during direct URL access.
+        const odataModel = (this.view.getModel() || this.view.getController()?.getOwnerComponent()?.getModel()) as ODataModel;
+        if (!odataModel) {
+            MessageToast.show(this.getText("msgReqFailed", ["OData connection not established."]));
+            return;
         }
 
-        // ENTERPRISE FIX: Use the transparent Glass Pane and localized toolbar spinner 
-        // to block UI interactions without breaking HTML5 Fullscreen z-indexes.
-        ViewStateHelper.toggleGlassPane(true, this._oView);
+        uiModel.setProperty("/isCanvasStale", false);
+
+        if (this.eventBus) {
+            this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
+        }
+
+        ViewStateHelper.setAppBusy(true, this.view);
 
         try {
-            const oRequest = DiagramRequestMapper.buildRequest(this._oView, sCdsName, sEngine);
-            const oResult = await DiagramService.fetchDiagram(oModel, oRequest);
+            const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
+            const result = await DiagramService.fetchDiagram(odataModel, request);
 
-            VariantManager.updateHistory(oResult.CdsName);
-            (this._oView.getModel("history") as JSONModel).setProperty("/items", VariantManager.getHistory());
+            SearchHistoryService.updateHistory(result.CdsName);
+            (this.view.getModel("history") as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
 
-            if (this._oEventBus) {
-                const oPayload: IRenderRequestPayload = {
-                    payload: oResult.DiagramPayload, extension: oResult.FileExtension, cdsName: oResult.CdsName,
-                    engine: sEngine, rootCdsName: this._sRootCdsName, breadcrumbs: this._aBreadcrumbs
+            if (this.eventBus) {
+                const payload: IRenderRequestPayload = {
+                    payload: result.DiagramPayload, 
+                    extension: result.FileExtension, 
+                    cdsName: result.CdsName,
+                    engine: engine, 
+                    rootCdsName: this.rootCdsName, 
+                    breadcrumbs: this.breadcrumbs
                 };
                 
-                const oModelData = oUiModel.getData();
-                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
-                if (sFormatKey) {
-                    oPayload.engineConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
-                    oPayload.engineConfig.isRestore = bIsRestore;
+                const modelData = uiModel.getData();
+                const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
+                if (formatKey) {
+                    payload.engineConfig = Object.assign({}, uiModel.getProperty(`/${formatKey}`));
+                    payload.engineConfig.isRestore = isRestore;
                 }
-                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, oPayload);
+                this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, payload);
             }
             
-        } catch (oError: any) {
-            // Restore the stale state if the diagram generation failed to complete
-            oUiModel.setProperty("/isCanvasStale", true);
-            MessageToast.show(this._fnGetText(oError.message) || oError.message);
-            if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
+        } catch (error: any) {
+            uiModel.setProperty("/isCanvasStale", true);
+            MessageToast.show(this.getText(error.message) || error.message);
+            if (this.eventBus) this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
         } finally {
-            ViewStateHelper.toggleGlassPane(false, this._oView);
+            ViewStateHelper.setAppBusy(false, this.view);
         }
     }
 
     /**
      * @public
      * @description Updates the contextual CDS field and reroutes to the standard diagram generator.
-     * @param {string} [sViewName] - The entity name specified during a drill down attempt.
-     * @param {boolean} [bIsRestore=false] - Whether this navigation is restoring a previously cached state.
+     * @param {string} [viewName] - The entity name specified during a drill down attempt.
+     * @param {boolean} [isRestore=false] - Whether this navigation is restoring a previously cached layout state.
      * @returns {void}
      */
-    public handleDrillDown(sViewName?: string, bIsRestore: boolean = false): void {
-        if (sViewName) {
-            (this._oView.byId("cmbCdsName") as Input).setValue(sViewName);
-            this.generate(true, bIsRestore);
+    public handleDrillDown(viewName?: string, isRestore: boolean = false): void {
+        if (viewName) {
+            (this.view.byId("cmbCdsName") as Input).setValue(viewName);
+            this.generate(true, isRestore);
         }
     }
 }

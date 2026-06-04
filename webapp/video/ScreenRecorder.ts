@@ -7,6 +7,8 @@ export default class ScreenRecorder extends VideoRecorder {
      * @param {IRecordingConfig} config - The unified polymorphic configuration payload.
      */
     protected async performCapture(config: IRecordingConfig): Promise<void> {
+        this.lastViewId = config.viewId;
+
         if (config.onWaitingForPermission) config.onWaitingForPermission();
 
         let videoConstraints: boolean | MediaTrackConstraints = { frameRate: { ideal: config.fps } };
@@ -20,7 +22,7 @@ export default class ScreenRecorder extends VideoRecorder {
         if (!this.isStarting) throw new Error("ABORT");
         
         if (config.delaySeconds > 0) {
-            const completed = await this.delayLoop(config.delaySeconds, config.onCountdown);
+            const completed = await this.delayLoop(config.delaySeconds, config.viewId, config.onCountdown);
             if (!completed) throw new Error("ABORT");
         }
         

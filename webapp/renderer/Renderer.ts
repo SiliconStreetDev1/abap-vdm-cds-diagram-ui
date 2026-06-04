@@ -21,6 +21,15 @@ import { IEngineFacade } from "./engines/IEngineFacade";
 export default class Renderer {
     private static _aEngines: IEngineFacade[] = [MermaidEngine, GraphvizEngine, PlantUmlEngine, CytoscapeEngine, D2Engine];
 
+    /**
+     * @public
+     * @static
+     * @description Single source of truth for the default rendering engine.
+     */
+    public static getDefaultEngine(): string {
+        return "CYTOSCAPE";
+    }
+
     private static _getEngine(sEngine: string): IEngineFacade | null {
         const sNormalizedEngine = String(sEngine).toUpperCase();
         switch (sNormalizedEngine) {

@@ -13,17 +13,17 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Rendering Engines
 This application utilizes four distinct visual engines to render CDS relationships:
 
-* **Cytoscape.js [EXPERIMENTAL]:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. Features deep interactivity including double-click drill-down capabilities, breadcrumb navigation, and a minimap.
+* **Cytoscape.js:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. Features deep interactivity including double-click drill-down capabilities, breadcrumb navigation, and a minimap.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
 > [!WARNING]
->* **PlantUML:** By default, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`).
->    * **Data Privacy Note:** metadata is sent over the public internet. 
->    * **Enterprise Recommendation:** Host a local PlantUML instance and update `config.json`.
+> **PlantUML:** If selected, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`).
+> * **Data Privacy Note:** SAP metadata is sent over the public internet. 
+> * **Enterprise Recommendation:** Host a local PlantUML instance and update `config.json` before enabling this engine.
 
 ---
 
-## [EXPERIMENTAL] Cytoscape Interactivity
+## Cytoscape Interactivity
 The Cytoscape engine transforms the diagram from a static map into a "Discovery Environment."
 <img width="1500" height="815" alt="image" src="https://github.com/user-attachments/assets/ad8bafb6-8bb9-4414-a7ab-487a48d52aa7" />
 
@@ -58,7 +58,7 @@ When exploring massive enterprise models, use the **Minimap Toggle** in the tool
 
 ### 7. Custom Layouts & Variant Persistence
 * **Drag and Drop Positioning:** Entities can now be freely dragged and positioned anywhere on the canvas.
-* **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved to local storage as View Variants.
+* **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved directly to the SAP Backend as View Variants.
 * **Undo/Redo Stack:** Integrated `Ctrl+Z` support (and a dedicated UI toolbar button) utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
 * **Grid Snapping:** Toggleable alignment guides and strict snap-to-grid constraints for precise architectural mapping.
 
@@ -96,21 +96,22 @@ The canvas supports several native keyboard shortcuts for rapid architecture mod
 * `Shift + M`: Toggle the Bird's-Eye Minimap.
 
 ### 13. How Variants Work (State Persistence)
-The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session directly into local storage. 
+The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session and saves it to the SAP ABAP Backend via an OData V4 API. 
 
-> **Note:** Variants are currently saved to your browser's **local storage** for now. They are specific to your machine/browser and are not yet synced globally to the SAP backend.
+> **Architecture Note (JSON CLOB Pattern):** The backend leverages SAP RAP. To accommodate the highly dynamic nature of physical canvas coordinates and layout settings, standard database columns handle metadata and security (Authorizations), while the actual diagram configuration is serialized into a single JSON String payload.
 
 When you save a Variant, it captures:
 * **Context & Filters:** The root CDS view, expansion level, and any include/exclude search tokens.
 * **UI Settings:** All active toggles (Keys, Fields, Associations, Relational Modes) and the currently selected rendering engine.
 * **Visual Formatting:** Real-time layout configurations (e.g., node spacing, algorithms, theme, line styles).
-* **Physical Canvas State (Cytoscape):** If "Save exact node positions" is checked, the system records the precise X/Y coordinates of every entity, the camera's zoom/pan level, pinned/hidden node states, and any custom Sticky Notes linked to the diagram.
+* **Physical Canvas State (Cytoscape):** The precise X/Y coordinates of every entity, the camera's zoom/pan level, pinned/hidden node states, and custom Sticky Notes.
 
 **Usage:**
 1. Adjust your diagram (filter properties, move nodes, hide entities, add sticky notes).
 2. Click the **Save (Disk Icon)** in the Variants toolbar.
-3. Provide a name. If you have manually dragged nodes, you will be given the option to save the exact "Custom Layout" positions. *(Note: Variant saving is strictly disabled during Drill-Down mode to protect your root architectural layouts).*
-4. Restore this exact architectural state at any time by selecting the variant from the dropdown. You can also instantly wipe away any accidental or unsaved canvas changes by clicking the **Revert (Undo Icon)** next to the variant selector.
+3. Provide a name. You can opt to save the exact "Custom Layout" positions and choose whether to make the variant **Global (Public)**. Public variants can be viewed and updated by other architects, but their public status cannot be revoked to prevent workflow disruption.
+4. Restore this exact architectural state at any time by selecting the variant from the dropdown. 
+5. Instantly detach from a variant or wipe away any accidental canvas changes by clicking the **Clear** or **Revert** icons next to the variant selector.
 
 ---
 ---
@@ -160,7 +161,7 @@ Detailed PlantUML architectural diagrams mapping the system's execution flows, c
 * `event_choreography.puml` - EventBus & DOM Pub/Sub flows.
 * `engine_facade_classes.puml` - Rendering Engine Class Diagram.
 * `video_recorder_classes.puml` & `video_state_machine.puml` - Video Engine logic.
-* `variant_persistence_pipeline.puml` - LocalStorage serialization flow.
+* `variant_persistence_pipeline.puml` - OData V4 Backend serialization flow.
 * `undo_memento_sequence.puml` - State hydration pipeline.
 
 ## Configuration Overrides (`config.json`)

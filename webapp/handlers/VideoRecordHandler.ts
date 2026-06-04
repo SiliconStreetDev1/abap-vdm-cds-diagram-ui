@@ -152,6 +152,7 @@ export default class VideoRecordHandler {
 
         // 2. Build Unified Execution Payload
         const config: IRecordingConfig = {
+            viewId: this.view.getId(),
             resolutionStr: resolution,
             fps: fps,
             videoQuality: videoQuality,

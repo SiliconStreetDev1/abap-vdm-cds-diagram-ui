@@ -59,10 +59,16 @@ export default class CanvasCompositor {
         this.compositeCanvas.style.pointerEvents = "none";
         this.compositeCanvas.style.opacity = "0.01";
         this.compositeCanvas.style.zIndex = "-9999";
-        document.body.appendChild(this.compositeCanvas);
 
         this.isActive = true;
         this.updateTarget(containerId);
+        
+        const liveContainer = document.getElementById(containerId);
+        if (liveContainer) {
+            liveContainer.appendChild(this.compositeCanvas);
+        } else {
+            document.body.appendChild(this.compositeCanvas);
+        }
 
         let lastDrawTime = 0;
         const frameInterval = 1000 / fps; // Target dynamic FPS for compositor

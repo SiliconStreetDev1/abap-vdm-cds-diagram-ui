@@ -20,6 +20,7 @@ export interface IMediaRecorder {
  * @description Unified configuration payload for polymorphic recording execution.
  */
 export interface IRecordingConfig {
+    viewId: string;
     resolutionStr: string;
     fps: number;
     videoQuality?: string;
@@ -48,6 +49,7 @@ export default abstract class VideoRecorder {
     protected isPaused: boolean = false;
     protected isStarting: boolean = false;
     protected isCountingDown: boolean = false;
+    protected lastViewId: string = "";
     
     protected subtitleTitle: string = "";
     protected subtitleDesc: string = "";
@@ -130,15 +132,15 @@ export default abstract class VideoRecorder {
      * @private
      * @description Executes a strictly bound asynchronous delay loop. Allows cancellation mid-tick.
      */
-    protected async delayLoop(seconds: number, onCountdownTick: (s: number) => void): Promise<boolean> {
+    protected async delayLoop(seconds: number, viewId: string, onCountdownTick: (s: number) => void): Promise<boolean> {
         this.isCountingDown = true;
         for (let i = seconds; i > 0; i--) {
             if (!this.isCountingDown) {
-                CountdownOverlay.hide();
+                CountdownOverlay.hide(viewId);
                 return false;
             }
             onCountdownTick(i);
-            CountdownOverlay.show(i);
+            CountdownOverlay.show(i, viewId);
             await new Promise<void>(resolve => {
                 let timer = window.setTimeout(resolve, 1000);
                 this.cancelDelayCallback = () => {
@@ -147,7 +149,7 @@ export default abstract class VideoRecorder {
                 };
             });
         }
-        CountdownOverlay.hide();
+        CountdownOverlay.hide(viewId);
         this.isCountingDown = false;
         return true;
     }
@@ -280,11 +282,15 @@ export default abstract class VideoRecorder {
      */
     public stopRecording(): void {
         this.isStarting = false; // Immediately release the lock if the user cancels
+        
+        // Try to retrieve the active View ID safely to cleanup any UI popups
+        const viewId = this.lastViewId;
+        
         if (this.isCountingDown) {
             this.isCountingDown = false;
             if (this.cancelDelayCallback) this.cancelDelayCallback();
         }
-        CountdownOverlay.hide();
+        if (viewId) CountdownOverlay.hide(viewId);
         if (this.mediaRecorder && (this.mediaRecorder.state === "recording" || this.mediaRecorder.state === "paused")) {
             this.mediaRecorder.stop();
         }
@@ -348,7 +354,8 @@ export default abstract class VideoRecorder {
      */
     protected cleanupMemory(): void {
         this.isStarting = false;
-        CountdownOverlay.hide();
+        const viewId = this.lastViewId;
+        if (viewId) CountdownOverlay.hide(viewId);
         
         // Release MediaRecorder event listeners to break closure memory rings
         if (this.mediaRecorder) {

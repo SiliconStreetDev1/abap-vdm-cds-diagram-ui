@@ -56,7 +56,7 @@ export default class ExportHandler {
             return;
         }
 
-        ViewStateHelper.toggleGlassPane(true, this._oView);
+        ViewStateHelper.setAppBusy(true, this._oView);
 
         try {
             if (Renderer.supportsNativePngExport(oData.engine)) {
@@ -77,7 +77,7 @@ export default class ExportHandler {
         } catch (oError: any) {
             this._fnShowError("PNG Export Failed: " + (oError.message || oError));
         } finally {
-            ViewStateHelper.toggleGlassPane(false, this._oView);
+            ViewStateHelper.setAppBusy(false, this._oView);
         }
     }
 
@@ -95,7 +95,7 @@ export default class ExportHandler {
             return;
         }
 
-        ViewStateHelper.toggleGlassPane(true, this._oView);
+        ViewStateHelper.setAppBusy(true, this._oView);
 
         try {
             // Request a brand new, clean SVG string from the isolated headless engine
@@ -109,7 +109,7 @@ export default class ExportHandler {
         } catch (oError: any) {
             this._fnShowError("SVG Export Failed: " + (oError.message || oError));
         } finally {
-            ViewStateHelper.toggleGlassPane(false, this._oView);
+            ViewStateHelper.setAppBusy(false, this._oView);
         }
     }
 

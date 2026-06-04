@@ -45,20 +45,24 @@ export default class CdsValueHelpHandler {
      */
     public async open(): Promise<void> {
         // Only load the fragment from the server if it hasn't been instantiated yet
-        if (!this._oDialog) {
-            this._oDialog = await Fragment.load({
-                id: this._oParentView.getId(),
-                name: "nz.co.siliconstreet.vdmdiagrammer.view.fragments.CdsValueHelp", 
-                controller: this 
-            }) as SelectDialog;
+        try {
+            if (!this._oDialog) {
+                this._oDialog = await Fragment.load({
+                    id: this._oParentView.getId(),
+                    name: "nz.co.siliconstreet.vdmdiagrammer.view.fragments.CdsValueHelp", 
+                    controller: this 
+                }) as SelectDialog;
+                
+                // Add dependent ensures the dialog inherits the view's models (OData/i18n)
+                this._oParentView.addDependent(this._oDialog);
+            }
             
-            // Add dependent ensures the dialog inherits the view's models (OData/i18n)
-            this._oParentView.addDependent(this._oDialog);
+            // Block data loading immediately upon opening
+            this._applyEmptyState();
+            this._oDialog.open(""); // Satisfies Expected 1 Argument
+        } catch (oError: any) {
+            MessageToast.show("Failed to load Search Dialog: " + (oError.message || "Network Error"));
         }
-        
-        // Block data loading immediately upon opening
-        this._applyEmptyState();
-        this._oDialog.open(""); // Satisfies Expected 1 Argument
     }
 
     /**

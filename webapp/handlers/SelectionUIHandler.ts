@@ -7,7 +7,6 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import EventBus from "sap/ui/core/EventBus";
 import Control from "sap/ui/core/Control";
-import Icon from "sap/ui/core/Icon";
 import VBox from "sap/m/VBox";
 import Input from "sap/m/Input";
 import ComboBox from "sap/m/ComboBox";
@@ -18,6 +17,8 @@ import ViewStateHelper from "../helpers/ViewStateHelper";
 import SelectionStateHandler from "./SelectionStateHandler";
 import CdsValueHelpHandler from "./CdsValueHelpHandler";
 import ContextHelpManager from "../helpers/ContextHelpManager";
+import ResponsivePopover from "sap/m/ResponsivePopover";
+import Slider from "sap/m/Slider";
 import Renderer from "../renderer/Renderer";
 import { EngineType } from "../types";
 import { EventChannels, EventIds } from "../constants/EventConstants";
@@ -29,6 +30,7 @@ export default class SelectionUIHandler {
     private _fnGetText: (k: string, args?: any[]) => string;
     private _oCdsValueHelpHandler?: CdsValueHelpHandler;
     private _oActiveSearchField?: Control;
+    private _oSpacingPopover?: ResponsivePopover;
 
     constructor(oView: View, oEventBus: EventBus | undefined, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
@@ -102,8 +104,14 @@ export default class SelectionUIHandler {
         const oCustomEvent = oEvent as unknown as CustomEvent;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
         if (oCustomEvent.detail?.node_spacing) {
-            (this._oView.getModel("ui") as JSONModel)?.setProperty("/formatCytoscape/node_spacing", oCustomEvent.detail.node_spacing);
-            this._oStateHandler.markDirtyState(false);
+            const oUiModel = this._oView.getModel("ui") as JSONModel;
+            if (oUiModel) {
+                const sEngine = oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine();
+                const oModelData = oUiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
+                oUiModel.setProperty(`/${sFormatKey}/node_spacing`, oCustomEvent.detail.node_spacing);
+                this._oStateHandler.markDirtyState(false);
+            }
         }
     }
 
@@ -136,7 +144,6 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     private _processValueHelpSelection(sSelectedCds: string): void {
-        // ENTERPRISE FIX: Drop the 'any' cast and rely on the native UI5 Control class mapping
         const oActiveField = this._oActiveSearchField;
         if (!oActiveField) return;
         
@@ -156,5 +163,39 @@ export default class SelectionUIHandler {
             this._oStateHandler.onCdsNameChange();
         }
         this._oActiveSearchField = undefined;
+    }
+
+    /**
+     * @public
+     * @description Displays the Node Spacing slider in a localized Fiori Popover.
+     * @param {Event} oEvent - Button press event.
+     * @returns {void}
+     */
+    public showSpacingPopover(oEvent: Event): void {
+        if (!this._oSpacingPopover) {
+            const oUiModel = this._oView.getModel("ui") as JSONModel;
+            const sEngine = oUiModel ? (oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine()) : Renderer.getDefaultEngine();
+            const oModelData = oUiModel ? oUiModel.getData() : {};
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
+
+            this._oSpacingPopover = new ResponsivePopover({
+                showHeader: false,
+                placement: "Top",
+                contentWidth: "300px",
+                verticalScrolling: false,
+                horizontalScrolling: false,
+                content: [
+                    new Slider({ 
+                        width: "260px",
+                        value: `{ui>/${sFormatKey}/node_spacing}`, 
+                        min: 50, max: 250, step: 25, enableTickmarks: true, 
+                        change: this.onLiveFormatChange.bind(this),
+                        enabled: `{= \${ui>/${sFormatKey}/layout_algorithm} !== 'preset' }`
+                    }).addStyleClass("sapUiSmallMargin")
+                ]
+            });
+            this._oView.addDependent(this._oSpacingPopover);
+        }
+        this._oSpacingPopover.openBy(oEvent.getSource() as Control);
     }
 }

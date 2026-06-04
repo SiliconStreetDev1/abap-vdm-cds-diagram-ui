@@ -28,7 +28,7 @@ export default class VariantStateMapper {
         const aExcTokens = (oView.byId("inpExclude") as MultiInput).getTokens();
         
         const oUiModel = oView.getModel("ui") as JSONModel;
-        const sEngine = (oView.byId("selEngine") as Select).getSelectedKey();
+        const sEngine = (oView.byId("selEngine") as Select)?.getSelectedKey() || Renderer.getDefaultEngine();
         
         const sInstanceId = oView.getController()?.getOwnerComponent()?.getId() || oView.getId();
 
@@ -54,6 +54,7 @@ export default class VariantStateMapper {
             
             includeCds: aIncTokens.map(t => t.getText()).join(","),
             excludeCds: aExcTokens.map(t => t.getText()).join(","),
+            savePositions: bSavePositions
         };
 
         const oModelData = oUiModel.getData();
@@ -86,8 +87,10 @@ export default class VariantStateMapper {
         (oView.byId("cmbCdsName") as Input).setValue(sVariantCdsName);
         oUiModel.setProperty("/lastGeneratedCdsName", sVariantCdsName); 
 
+        const sDefaultEngine = Renderer.getDefaultEngine();
+
         // ENTERPRISE SAFETY: Coerce missing properties to prevent UI5 fatal crashes on older variants
-        (oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine || "PLANTUML");
+        (oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine || sDefaultEngine);
         (oView.byId("stepMaxLevel") as StepInput).setValue(oVariant.maxLevel || 1);
         (oView.byId("swKeys") as Switch).setState(!!oVariant.keys);
         (oView.byId("swFields") as Switch).setState(!!oVariant.fields);
@@ -95,7 +98,7 @@ export default class VariantStateMapper {
         (oView.byId("swBase") as Switch).setState(!!oVariant.base);
         (oView.byId("swCustomOnly") as Switch).setState(!!oVariant.customOnly);
         
-        oUiModel.setProperty("/activeEngine", oVariant.engine || "PLANTUML");
+        oUiModel.setProperty("/activeEngine", oVariant.engine || sDefaultEngine);
         
         const oVariantMap = oVariant as Record<string, any>;
 

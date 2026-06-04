@@ -11,19 +11,24 @@ export default class CountdownOverlay {
      * @static
      * @description Injects and animates the cinematic countdown overlay into the Fiori DOM.
      * @param {number} sec - The current countdown second to display.
+     * @param {string} viewId - The localized Fiori view ID to scope the overlay to.
      */
-    public static show(sec: number): void {
-        let overlay = document.getElementById("vdm-video-countdown-overlay");
+    public static show(sec: number, viewId: string): void {
+        const overlayId = `vdm-video-countdown-${viewId}`;
+        let overlay = document.getElementById(overlayId);
         if (!overlay) {
             overlay = document.createElement("div");
-            overlay.id = "vdm-video-countdown-overlay";
+            overlay.id = overlayId;
             Object.assign(overlay.style, {
                 position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
                 fontSize: "15rem", fontWeight: "bold", color: "#ffffff",
                 textShadow: "0px 0px 30px rgba(0,0,0,0.8), 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000",
                 zIndex: "99999", pointerEvents: "none", fontFamily: "Impact, Charcoal, sans-serif", opacity: "0"
             });
-            document.body.appendChild(overlay);
+            
+            // Scope to the Fiori View to prevent Launchpad bleeding
+            const container = document.getElementById(viewId) || document.body;
+            container.appendChild(overlay);
 
             if (!document.getElementById("vdm-countdown-styles")) {
                 const style = document.createElement("style");
@@ -49,9 +54,10 @@ export default class CountdownOverlay {
      * @public
      * @static
      * @description Safely removes the cinematic countdown overlay from the DOM.
+     * @param {string} viewId - The localized Fiori view ID.
      */
-    public static hide(): void {
-        const overlay = document.getElementById("vdm-video-countdown-overlay");
+    public static hide(viewId: string): void {
+        const overlay = document.getElementById(`vdm-video-countdown-${viewId}`);
         if (overlay) overlay.remove();
     }
 }

@@ -44,9 +44,12 @@ export default class ConfigManager {
                 const oExternalConfig = await oOverrideResponse.json();
                 this._merge(this._oActiveConfig, oExternalConfig);
             }
-            } catch (oError) {
-                // A 404 on the optional config.json will naturally fall into this catch block.
-                // We swallow the error silently as the baseline config is already safely loaded.
+            } catch (oError: any) {
+                // A 404 on the optional config.json will naturally fall into this catch block,
+                // but we should log explicit JSON parsing errors for developer visibility.
+                if (oError instanceof SyntaxError) {
+                    console.error("VDM Diagrammer: Syntax error in configuration JSON.", oError);
+                }
             }
             return this._oActiveConfig;
         })();

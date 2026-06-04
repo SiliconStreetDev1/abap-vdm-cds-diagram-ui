@@ -11,13 +11,10 @@ import Button from "sap/m/Button";
 import SplitterLayoutData from "sap/ui/layout/SplitterLayoutData";
 import VBox from "sap/m/VBox";
 import Event from "sap/ui/base/Event";
-import BusyDialog from "sap/m/BusyDialog";
 import Renderer from "../renderer/Renderer";
+import UIComponent from "sap/ui/core/UIComponent";
 
 export default class ViewStateHelper {
-
-    private static _oBusyDialog?: BusyDialog;
-    private static _iBusyTimer?: ReturnType<typeof setTimeout>;
 
     /**
      * @public
@@ -27,7 +24,7 @@ export default class ViewStateHelper {
     public static initializeUiModel(): JSONModel {
         const oDefaults = {
             showHelp: false,
-            activeEngine: "CYTOSCAPE",
+            activeEngine: Renderer.getDefaultEngine(),
             isCanvasStale: false,
             isDrillDown: false,
             isRecording: false,
@@ -38,6 +35,7 @@ export default class ViewStateHelper {
             recordingTime: "00:00",
             videoResolution: "SCREEN",
             videoFps: "30",
+            videoQuality: "HIGH",
             videoDelay: 5,
             videoMaxLength: 150,
             videoTitle: "",
@@ -108,51 +106,6 @@ export default class ViewStateHelper {
     /**
      * @public
      * @static
-     * @description Injects an invisible Glass Pane to swallow interactions during async fetches,
-     * while surfacing a sleek, localized loading spinner that survives HTML5 Fullscreen layer promotions.
-     */
-    public static toggleGlassPane(bShow: boolean, oView: View): void {
-        const oUiModel = oView.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/isFetching", bShow);
-
-        if (!this._oBusyDialog) {
-            this._oBusyDialog = new BusyDialog({ text: "Processing..." });
-            oView.addDependent(this._oBusyDialog);
-        }
-
-        const doc = document as any;
-        const bIsFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
-
-        let oGlassPane = document.getElementById(`vdm-glass-pane-${oView.getId()}`);
-        if (bShow) {
-            if (!oGlassPane) {
-                oGlassPane = document.createElement("div");
-                oGlassPane.id = `vdm-glass-pane-${oView.getId()}`;
-                Object.assign(oGlassPane.style, {
-                    position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-                    zIndex: "999999", backgroundColor: "transparent", cursor: "wait"
-                });
-                const target = document.fullscreenElement || (document as any).webkitFullscreenElement || document.body;
-                target.appendChild(oGlassPane);
-            }
-
-            // ENTERPRISE UX: Display the proper SAPUI5 Busy Dialog when in standard windowed mode
-            if (!bIsFullScreen) {
-                clearTimeout(this._iBusyTimer);
-                this._iBusyTimer = setTimeout(() => {
-                    this._oBusyDialog?.open();
-                }, 300);
-            }
-        } else {
-            if (oGlassPane) oGlassPane.remove();
-            clearTimeout(this._iBusyTimer);
-            this._oBusyDialog?.close();
-        }
-    }
-
-    /**
-     * @public
-     * @static
      * @description Checks if the View's DOM element is physically painted and visible.
      * Protects global event listeners from firing when the Fiori Launchpad suspends the app in the background.
      * @param {View} oView - The active UI5 view.
@@ -163,5 +116,21 @@ export default class ViewStateHelper {
         const oDomRef = oView.getDomRef() as HTMLElement;
         // Ensure the element is actually painted and takes up physical space
         return !!oDomRef && oDomRef.offsetWidth > 0 && oDomRef.offsetHeight > 0;
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Locks the entire Fiori application tile (both panes) instead of just the local view.
+     * @param {boolean} bBusy - True to show the busy indicator, false to hide it.
+     * @param {View} oView - The active view used to resolve the Root Component.
+     */
+    public static setAppBusy(bBusy: boolean, oView: View): void {
+        const oRootControl = (oView.getController()?.getOwnerComponent() as UIComponent)?.getRootControl();
+        if (oRootControl && typeof (oRootControl as any).setBusy === "function") {
+            (oRootControl as any).setBusy(bBusy);
+        } else {
+            oView.setBusy(bBusy);
+        }
     }
 }

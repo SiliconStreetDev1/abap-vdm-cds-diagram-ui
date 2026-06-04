@@ -67,7 +67,9 @@ export default class CytoscapeEngine {
     public static applyStateToConfig(oConfig: Record<string, any>, oState: any): Record<string, any> {
         const oFormatCy = Object.assign({}, oConfig);
         oFormatCy.presetPositions = oState || null;
-        oFormatCy.layout_algorithm = "preset";
+        if (oState) {
+            oFormatCy.layout_algorithm = "preset";
+        }
         return oFormatCy;
     }
 
@@ -77,6 +79,9 @@ export default class CytoscapeEngine {
             oFormatCy.presetPositions = oCanvasState;
         } else {
             oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
+            if (oFormatCy.layout_algorithm === "preset") {
+                oFormatCy.layout_algorithm = "dagre"; // ENTERPRISE FIX: Reset layout if positions are explicitly dropped
+            }
         }
         if (oCanvasState && oCanvasState.__camera) {
             oFormatCy.camera = oCanvasState.__camera;

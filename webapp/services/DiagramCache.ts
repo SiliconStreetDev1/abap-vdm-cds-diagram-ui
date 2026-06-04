@@ -21,7 +21,11 @@ export default class DiagramCache {
             // Enterprise Fix: Re-insert the key to promote it to "Most Recently Used" in the JS Map iteration order
             this._responseCache.delete(sRequestHash);
             this._responseCache.set(sRequestHash, sCachedResponse);
-            return JSON.parse(sCachedResponse) as IDiagramResult;
+            try {
+                return JSON.parse(sCachedResponse) as IDiagramResult;
+            } catch (e) {
+                this._responseCache.delete(sRequestHash);
+            }
         }
         return null;
     }
