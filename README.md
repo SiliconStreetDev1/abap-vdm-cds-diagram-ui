@@ -13,7 +13,7 @@ A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. I
 ## Rendering Engines
 This application utilizes four distinct visual engines to render CDS relationships:
 
-* **Cytoscape.js:** A high-performance, interactive Canvas engine. It is built for discovery and "un-tangling" massive VDM models where standard SVG rendering becomes cluttered. Features deep interactivity including double-click drill-down capabilities, breadcrumb navigation, and a minimap.
+* **Cytoscape.js:** An interactive Canvas engine. It is built for navigating large VDM models where standard SVG rendering becomes cluttered. Features include double-click drill-down capabilities, breadcrumb navigation, and a minimap.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
 > [!WARNING]
@@ -27,33 +27,33 @@ This application utilizes four distinct visual engines to render CDS relationshi
 The Cytoscape engine transforms the diagram from a static map into a "Discovery Environment."
 <img width="1500" height="815" alt="image" src="https://github.com/user-attachments/assets/ad8bafb6-8bb9-4414-a7ab-487a48d52aa7" />
 
-### 1. Neighborhood Highlighting (Focus Mode)
-Tired of the "Spaghetti" effect? Click any Entity (Node) to instantly isolate its logic.
-* **The Effect:** Every unrelated table and association fades to **15% opacity**.
-* **The Focus:** The selected table and its direct neighborhood (Compositions and Associations) remain at **100% opacity**.
-* **Visual Pop:** Connected lines thicken and "glow" while maintaining their semantic ABAP colors (e.g., Green for Associations, Blue for Compositions).
+### 1. Focus Mode
+Select an Entity (Node) to isolate its dependencies.
+- **Effect:** Unrelated tables and associations fade to **15% opacity**.
+- **Focus:** The selected table and its direct neighborhood (Compositions and Associations) remain at **100% opacity**.
+- **Highlighting:** Connected lines thicken while maintaining their semantic ABAP colors (e.g., Green for Associations, Blue for Compositions).
 
 <img width="1510" height="815" alt="image" src="https://github.com/user-attachments/assets/a55baae8-cf56-4dd9-ba65-3c599f51b7c5" />
 
 ### 2. "Springs & Magnets" Physics (`cose`)
-Unlike static row-based layouts, Cytoscape treats the VDM as a physical system.
+Cytoscape uses a physics-based layout for the VDM.
 * **Elasticity:** Association lines act like springs, pulling related entities closer together.
-* **Live Untangling:** Moving the **Node Spacing** slider in the UI physically recalculates these forces in real-time, wiggling the graph into the most readable state.
+* **Live Updates:** Moving the **Node Spacing** slider in the UI recalculates these forces in real-time to adjust the graph layout.
 
 ### 3. Hierarchical Routing (`dagre`)
-By default, the engine uses the **Dagre** layout algorithm to present a strict, hierarchical view of your CDS architecture.
+The engine uses the **Dagre** layout algorithm to present a hierarchical view of the CDS architecture.
 * **Structured Flow:** Organizes views into logical tiers (e.g., Base, Composite, Consumption) flowing from top-to-bottom or left-to-right.
-* **Minimized Crossings:** Automatically calculates edge routing to reduce visual clutter and overlapping lines.
+* **Minimized Crossings:** Calculates edge routing to reduce visual clutter and overlapping lines.
 
-### 4. Smart Association Edge Labels
-To maximize space inside the entity boxes, association names (e.g., `_Items`) are moved onto the **Bezier curved lines** next to the cardinality. This eliminates redundancy and makes the data flow obvious at a glance.
+### 4. Association Edge Labels
+To conserve space inside the entity boxes, association names (e.g., `_Items`) are placed on the **Bezier curved lines** next to the cardinality. This reduces redundancy and clarifies the data flow.
 
-### 5. Deep Drill-Down & Breadcrumbs
-* **Double-Click to Drill:** Double-clicking any entity (Node) will instantly execute a new backend fetch, pivoting the entire diagram around that selected entity as the new root. This allows you to fluidly navigate through the VDM hierarchy. *(Note: Drill-down automatically enforces a hierarchical layout to ensure newly discovered child entities route cleanly without overlapping).*
+### 5. Drill-Down & Breadcrumbs
+* **Double-Click to Drill:** Double-clicking any entity (Node) executes a backend fetch, setting that entity as the new root. This allows you to navigate through the VDM hierarchy. *(Note: Drill-down enforces a hierarchical layout to ensure newly discovered child entities route without overlapping).*
 * **Breadcrumb Trail:** As you navigate deeper into the VDM hierarchy using the drill-down feature, a breadcrumb navigation trail dynamically builds at the top of the canvas. You can click any previous node in the trail to instantly jump back up the architecture.
 
-### 6. Bird's-Eye Minimap
-When exploring massive enterprise models, use the **Minimap Toggle** in the toolbar to open a draggable, resizable Navigator window in the corner. This provides a high-level overview of the entire graph and allows for rapid panning across complex landscapes without losing your bearings.
+### 6. Minimap
+When exploring large models, use the **Minimap Toggle** in the toolbar to open a draggable, resizable Navigator window. This provides a high-level overview of the entire graph and allows for panning across complex diagrams.
 
 
 ### 7. Custom Layouts & Variant Persistence
@@ -72,16 +72,16 @@ When exploring massive enterprise models, use the **Minimap Toggle** in the tool
 * **Hidden Node Manager:** Hide irrelevant CDS views via the context menu (or the `Delete`/`Backspace` keys), and use the dedicated manager Dialog to review and selectively restore hidden entities. Hiding a node will automatically cascade and hide any sticky notes specifically linked to it.
 
 ### 10. Search & Export
-* **Graph Search:** A dedicated search bar allows you to quickly locate, zoom, and highlight specific entities within massive, complex architectures.
+* **Graph Search:** A dedicated search bar allows you to locate, zoom, and highlight specific entities within large architectures.
 * **High-Res Export:** Native support for exporting the current viewport or the entire graph as a high-resolution PNG or a scalable SVG (with built-in zoom/pan browser support).
 
-### 11. Multi-Algorithm Layouts
-Beyond `dagre` and `cose`, the Cytoscape engine supports switching between distinct mathematical layout algorithms in real-time:
+### 11. Layout Algorithms
+The Cytoscape engine supports switching between distinct layout algorithms in real-time:
 * **ELK (Eclipse Layout Kernel):** Advanced orthogonal and layered routing.
 * **Grid & Circular:** Structured topology generation for strict alignment.
 * **Breadthfirst:** Interactive tree expansion representations.
 
-### 12. Power User Shortcuts
+### 12. Keyboard Shortcuts
 The canvas supports several native keyboard shortcuts for rapid architecture modeling:
 * `V` or `S`: Switch to Select Mode (Box Selection).
 * `H` or `P`: Switch to Pan Mode (Move Canvas).
@@ -97,7 +97,7 @@ The canvas supports several native keyboard shortcuts for rapid architecture mod
 * `Shift + M`: Toggle the Bird's-Eye Minimap.
 
 ### 13. Variants, Sharing & Cloning (State Persistence)
-The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session and saves it to the SAP ABAP Backend via an OData V4 API. 
+The Variant system persists your current session state and saves it to the SAP ABAP Backend via an OData V4 API. 
 
 > **Architecture Note (JSON CLOB Pattern):** The backend leverages SAP RAP. To accommodate the highly dynamic nature of physical canvas coordinates and layout settings, standard database columns handle metadata and security (Authorizations), while the actual diagram configuration is serialized into a single JSON String payload.
 
@@ -116,7 +116,7 @@ When you save a Variant, it captures:
 6. **Revoke Share:** Click the **Unlink** icon to instantly revoke share access, reverting the variant strictly to private.
 
 **Viewer Mode & Cloning:**
-When a colleague opens your Share Link, the application automatically boots into **Viewer Mode**. The UI panels are completely hidden to maximize canvas real estate, and all destructive actions (dragging, hiding, deleting) are locked down. 
+When a user opens a Share Link, the application loads into **Viewer Mode**. The UI panels are hidden to maximize canvas space, and destructive actions (dragging, hiding, deleting) are locked down. 
 
 If the recipient wishes to modify the architecture or use it as a starting point, they can click the **Clone to Workspace** button. This instantly detaches the diagram from your shared UUID, restores the interactive builder UI panels, and allows them to freely modify the canvas and save it as their own private variant.
 
@@ -135,10 +135,10 @@ The application features a built-in, native HTML5 Video Recording engine that ex
 
 * **Canvas Only (Clean) Mode:** Directly captures the WebGL pixel buffer of the Cytoscape graph. The resulting video is completely clean, hiding the SAP Fiori UI, your mouse cursor, and any system notifications.
 * **Entire Screen Mode:** Captures the full SAP Fiori UI, useful for training or tutorial videos.
-* **Stealth Mode:** For 100% invisible diagram capture, enable Stealth Mode to hide all UI recording indicators and control the engine strictly via the `Ctrl + Shift + X` global hotkey.
-* **Dynamic Encoding & Quality Control:** Automatically calculates optimal bitrates based on the user's selected resolution (720p to 4K) and Framerate (30-60 FPS). Users can further fine-tune the output using the Quality dropdown (Low, Medium, High, Ultra) to prioritize file size or visual fidelity.
+* **Stealth Mode:** For background diagram capture, enable Stealth Mode to hide UI recording indicators and control the engine via the `Ctrl + Shift + X` hotkey.
+* **Encoding & Quality Control:** Calculates bitrates based on the selected resolution (720p to 4K) and Framerate (30-60 FPS). Users can adjust the output using the Quality dropdown (Low, Medium, High, Ultra).
 * **Burned-In Subtitles:** Add professional lower-third titles and descriptions to your Canvas recordings to provide context during architectural presentations.
-* **Native Buffered Mode:** The recording engine utilizes the browser's lowest-level C++ hardware muxer by capturing frames entirely in RAM. This zero-hack approach guarantees mathematically perfect, seekable WebM/MP4 videos without requiring heavy WebAssembly libraries or backend FFmpeg servers.
+* **Native Buffered Mode:** Captures frames in RAM, generating seekable WebM/MP4 videos without requiring WebAssembly libraries or FFmpeg.
 
 ### How to Record
 1. Expand the **Video Recording** panel in the configuration sidebar.
@@ -154,12 +154,12 @@ The application features a built-in, native HTML5 Video Recording engine that ex
 This repository acts as the **Frontend (UI)** component, utilizing the SAPUI5 framework. It requires the **Backend (ABAP)** component found here: abap-vdm-cds-diagram
 
 ### Patterns
-The codebase is strictly engineered adhering to **SOLID** principles, ensuring high performance and memory safety across Fiori Launchpad environments:
+The codebase adheres to **SOLID** principles, ensuring performance and memory safety across Fiori Launchpad environments:
 * **Strategy Pattern (`Renderer.ts`):** Decouples the UI from the rendering logic, allowing dynamic switching between Cytoscape, Graphviz, Mermaid, PlantUML, and D2.
 * **Template Method Pattern (`VideoRecorder.ts`):** Enforces strict execution mutex locks and memory cleanup for native browser video capture.
-* **Memento Pattern (`UndoHandler.ts`):** Provides a 25-step global session memory-safe undo/redo stack for physical layout changes and navigation history.
+* **Memento Pattern (`UndoHandler.ts`):** Provides a 25-step undo/redo stack for layout changes and navigation history.
 * **Pub/Sub Orchestration (`EventBus`):** Fiori Flexible Column Layout (FCL) panes communicate entirely asynchronously, preventing tight coupling.
-* **LRU Caching (`DiagramCache.ts`):** Repeated OData backend requests are intercepted and served from an immutable memory cache to eliminate network spam.
+* **LRU Caching (`DiagramCache.ts`):** Repeated OData backend requests are served from a memory cache to reduce network requests.
 
 ### Design Diagrams
 Detailed PlantUML architectural diagrams mapping the system's execution flows, class hierarchies, and state machines can be found in the `/design` directory:

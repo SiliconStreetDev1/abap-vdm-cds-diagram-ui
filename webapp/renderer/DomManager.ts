@@ -33,6 +33,22 @@ export default class DomManager {
             this._bIsMountPending = false;
             const oParentDiv = document.getElementById(sParentId);
             if (oParentDiv) {
+                // ENTERPRISE MEMORY FIX: Explicitly release WebGL and GPU contexts 
+                // before wiping the DOM to prevent hitting the browser's 16-context limit.
+                const aCanvases = oParentDiv.getElementsByTagName("canvas");
+                for (let i = 0; i < aCanvases.length; i++) {
+                    const oCanvas = aCanvases[i];
+                    
+                    const gl = oCanvas.getContext("webgl") || oCanvas.getContext("experimental-webgl");
+                    if (gl) {
+                        const ext = (gl as any).getExtension("WEBGL_lose_context");
+                        if (ext) ext.loseContext();
+                    }
+                    // Zero out dimensions to instantly free GPU backing store
+                    oCanvas.width = 0;
+                    oCanvas.height = 0;
+                }
+
                 oParentDiv.innerHTML = "";
                 
                 // Random alphanumeric salt prevents WebGL ID collisions during rapid re-renders

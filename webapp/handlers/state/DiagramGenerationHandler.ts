@@ -9,6 +9,8 @@ import EventBus from "sap/ui/core/EventBus";
 import MessageToast from "sap/m/MessageToast";
 import Input from "sap/m/Input";
 import Select from "sap/m/Select";
+import Filter from "sap/ui/model/Filter";
+import FilterOperator from "sap/ui/model/FilterOperator";
 
 import DiagramRequestMapper from "../../helpers/DiagramRequestMapper";
 import DiagramService from "../../services/DiagramService";
@@ -119,6 +121,17 @@ export default class DiagramGenerationHandler {
         ViewStateHelper.setAppBusy(true, this.view, true);
 
         try {
+            // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
+            const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
+                new Filter("CdsName", FilterOperator.EQ, cdsName)
+            ]);
+            const searchContexts = await searchBinding.requestContexts(0, 1);
+            searchBinding.destroy();
+            
+            if (searchContexts.length === 0) {
+                throw new Error("msgNoMeta");
+            }
+
             const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
             const result = await DiagramService.fetchDiagram(odataModel, request);
 
@@ -146,8 +159,13 @@ export default class DiagramGenerationHandler {
             
         } catch (error: any) {
             uiModel.setProperty(UiState.IS_CANVAS_STALE, true);
+            
+            if (this.eventBus) {
+                this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, { message: error.message });
+                this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
+            }
+            
             MessageToast.show(this.getText(error.message) || error.message);
-            if (this.eventBus) this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
         } finally {
             ViewStateHelper.setAppBusy(false, this.view);
         }

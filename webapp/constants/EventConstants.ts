@@ -10,6 +10,7 @@ export const EventChannels = {
 
 export const EventIds = {
     RENDER_REQUEST: "RenderRequest",
+    RENDER_FAILED: "RenderFailed",
     LIVE_FORMAT_UPDATE: "LiveFormatUpdate",
     NODE_DRILL_DOWN: "NodeDrillDownRequest",
     VIEWER_LOADING: "ViewerLoading",

@@ -1,5 +1,5 @@
 @startuml
-title VDM Diagrammer - Full System Architecture (AI Context Map)
+title VDM Diagrammer - Full System Architecture
 
 skinparam componentStyle uml2
 skinparam handwritten false

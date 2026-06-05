@@ -15,6 +15,8 @@ import { UiState, ModelNames } from "../constants/StateConstants";
 
 export default class Main extends Controller {
     
+    private _routeManager?: RouteManager;
+    
     /**
      * @public
      * @description Lifecycle hook. Injects the global UI state model.
@@ -35,9 +37,29 @@ export default class Main extends Controller {
         if (component) {
             // ENTERPRISE FIX: Hoist the UI model to the Component level so RouteManager can access it safely
             component.setModel(oUiModel, ModelNames.UI);
-            new RouteManager(component).attachRoutes();
+
+            // Load the Animations JSON Dictionary into global memory
+            const oAnimModel = new JSONModel();
+            oAnimModel.loadData(sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/animations.json"));
+            component.setModel(oAnimModel, "animations");
+
+            // Load the Messages JSON Dictionary into global memory
+            const oMsgModel = new JSONModel();
+            oMsgModel.loadData(sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/messages.json"));
+            component.setModel(oMsgModel, "messages");
+
+            this._routeManager = new RouteManager(component);
+            this._routeManager.attachRoutes();
         } else {
             oView.setModel(oUiModel, ModelNames.UI);
         }
+    }
+
+    /**
+     * @public
+     * @description Lifecycle teardown. Severs global event listeners to prevent Ghost Events.
+     */
+    public onExit(): void {
+        if (this._routeManager) this._routeManager.detachRoutes();
     }
 }

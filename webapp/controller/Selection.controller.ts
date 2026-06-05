@@ -331,7 +331,7 @@ export default class Selection extends Controller {
      * @param {Event} e - Select control event.
      * @returns {void}
      */
-    public onVariantChange(e: Event): void { 
+    public async onVariantChange(e: Event): Promise<void> { 
         const variantSelect = e.getSource() as Select;
         if (variantSelect) variantSelect.setValueState("None");
 
@@ -340,7 +340,7 @@ export default class Selection extends Controller {
 
         const selectedId = variantSelect ? variantSelect.getSelectedKey() : "";
         if (!selectedId) return;
-        this.applyVariant(selectedId);
+        await this.applyVariant(selectedId);
         this.updateShareStateUI();
     }
 
@@ -349,7 +349,7 @@ export default class Selection extends Controller {
      * @description Resets the canvas to the pristine state of the currently selected variant.
      * @returns {void}
      */
-    public onRevertVariant(): void {
+    public async onRevertVariant(): Promise<void> {
         const variantSelect = this.byId("selVariant") as Select;
         if (variantSelect && variantSelect.getSelectedKey()) {
             variantSelect.setValueState("None");
@@ -357,7 +357,7 @@ export default class Selection extends Controller {
             if (uiModel) uiModel.setProperty(UiState.VARIANT_DIRTY, false);
 
             const selectedId = variantSelect.getSelectedKey();
-            this.applyVariant(selectedId);
+            await this.applyVariant(selectedId);
         }
     }
 
@@ -386,33 +386,39 @@ export default class Selection extends Controller {
      * @private
      * @description Internal logic to deeply apply a selected variant to the current canvas session.
      * @param {string} selectedId - The target variant ID.
-     * @returns {void}
+     * @returns {Promise<void>}
      */
-    private applyVariant(selectedId: string): void {
+    private async applyVariant(selectedId: string): Promise<void> {
         if (!selectedId) return;
         
-        const variantsModel = this.getView()?.getModel("variants") as JSONModel;
-        const variants: IVariantState[] = variantsModel?.getProperty("/items") || [];
-        const variant = variants.find((v: any) => v.VariantId === selectedId);
+        ViewStateHelper.setAppBusy(true, this.getView() as View);
+        try {
+            const odataModel = (this.getView()?.getModel() || this.getOwnerComponent()?.getModel()) as ODataModel;
+            const variant = await VariantService.getVariantById(odataModel, selectedId);
 
-        if (variant) {
-            VariantStateMapper.applyState(this.getView() as View, variant);
-            MessageToast.show(this.getText("msgVariantApplied", [variant.name]));
-            
-            const uiModel = this.getView()?.getModel("ui") as JSONModel;
-            if (uiModel) {
-                uiModel.setProperty(UiState.VARIANT_DIRTY, false);
-                uiModel.setProperty(UiState.NODES_DRAGGED, false);
-            }
+            if (variant) {
+                VariantStateMapper.applyState(this.getView() as View, variant);
+                MessageToast.show(this.getText("msgVariantApplied", [variant.name]));
+                
+                const uiModel = this.getView()?.getModel("ui") as JSONModel;
+                if (uiModel) {
+                    uiModel.setProperty(UiState.VARIANT_DIRTY, false);
+                    uiModel.setProperty(UiState.NODES_DRAGGED, false);
+                }
 
-            const selectControl = this.byId("selVariant") as Select;
-            if (selectControl) {
-                selectControl.setValueState("None");
-                selectControl.setValueStateText("");
+                const selectControl = this.byId("selVariant") as Select;
+                if (selectControl) {
+                    selectControl.setValueState("None");
+                    selectControl.setValueStateText("");
+                }
+                
+                this.generationHandler.generate(false, false, true); 
+                this.updateShareStateUI();
             }
-            
-            this.generationHandler.generate(false, false, true); 
-            this.updateShareStateUI();
+        } catch (error: any) {
+            MessageBox.error(error.message || "Failed to load variant configuration.");
+        } finally {
+            ViewStateHelper.setAppBusy(false, this.getView() as View);
         }
     }
 

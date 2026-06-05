@@ -25,11 +25,10 @@ Paused --> BlobCompiling : Clicks Stop
 BlobCompiling --> Idle : FileDownloadUtility triggers OS Save
 
 note right of BlobCompiling
-  Executes entirely natively via 
-  Chrome's Buffered Mode. RAM is
-  flushed, and the browser's C++
-  encoder generates a mathematically
-  flawless 'Cues' timeline index.
+  Executes via the browser's Buffered 
+  Mode. RAM is flushed, and the 
+  encoder generates a 'Cues' 
+  timeline index.
 end note
 
 @enduml

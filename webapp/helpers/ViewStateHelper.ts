@@ -144,24 +144,54 @@ export default class ViewStateHelper {
         if (bBusy) {
             let sDisplayText = typeof sTextOptions === "string" ? sTextOptions : undefined;
             if (sTextOptions === true) {
-                const aFunMessages = [
+                let aFunMessages = [
                     "Your diagram is on its way! Please wait...",
                     "Untangling the architecture...",
                     "Summoning your CDS models...",
                     "Calculating spatial physics...",
                     "Routing relationships..."
                 ];
+
+                const oMsgModel = oComponent?.getModel("messages") as JSONModel;
+                if (oMsgModel) {
+                    const messages = oMsgModel.getProperty("/messages");
+                    if (messages && Array.isArray(messages) && messages.length > 0) {
+                        aFunMessages = messages;
+                    }
+                }
+
                 sDisplayText = aFunMessages[Math.floor(Math.random() * aFunMessages.length)];
             }
 
             if (sDisplayText) {
-                if (!this._busyDialog) {
-                    this._busyDialog = new BusyDialog();
+                if (this._busyDialog) {
+                    this._busyDialog.destroy();
                 }
+
+                let sIcon = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzA4NTRhMCIgZD0iTTIwLDNINHYxMGMwLDIuMjEsMS43OSw0LDQsNGg2YzIuMjEsMCw0LTEuNzksNC00di0zaDJjMS4xLDAsMi0wLjksMi0yVjVDMjIsMy45LDIxLjEsMywyMCwzeiBNMTgsOGgtMlY1aDJWOHogTTQsMTloMTZ2Mkg0VjE5eiIvPjwvc3ZnPg==";
+                let iSpeed = 1000;
+                
+                const oAnimModel = oComponent?.getModel("animations") as JSONModel;
+                if (oAnimModel) {
+                    const animations = oAnimModel.getProperty("/animations");
+                    if (animations && Array.isArray(animations) && animations.length > 0) {
+                        const randomAnim = animations[Math.floor(Math.random() * animations.length)];
+                        sIcon = randomAnim.icon;
+                        iSpeed = randomAnim.speed;
+                    }
+                }
+
+                this._busyDialog = new BusyDialog({
+                    customIcon: sIcon,
+                    customIconRotationSpeed: iSpeed,
+                    customIconWidth: "44px",
+                    customIconHeight: "44px",
+                    text: sDisplayText
+                });
+
                 if (typeof (oContext as any).addDependent === "function") {
                     (oContext as View).addDependent(this._busyDialog);
                 }
-                this._busyDialog.setText(sDisplayText);
                 this._busyDialog.open();
             } else {
                 if (oRootControl && typeof (oRootControl as any).setBusy === "function") {

@@ -38,16 +38,13 @@ export default class VariantService {
             filters.push(new Filter("isUnlisted", FilterOperator.EQ, false));
         }
         
-        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, filters);
+        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, filters, {
+            $select: "VariantId,VariantName,CdsName,IsGlobal,isUnlisted"
+        });
         const contexts = await listBinding.requestContexts(0, 500); 
         const variants = contexts.map(context => {
             const data = context.getObject();
             let state: any = {};
-            try { 
-                state = JSON.parse(data.Configuration); 
-            } catch (error) { 
-                console.error(`VDM Diagrammer: Failed to parse JSON configuration for Variant ${data.VariantId}`, error);
-            }
             state.VariantId = data.VariantId;
             state.IsGlobal = data.IsGlobal;
             state.isUnlisted = data.isUnlisted;

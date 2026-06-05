@@ -1,7 +1,7 @@
 @startuml
 title Renderer Facade Architecture (Strategy Pattern)
 
-skinparam handwritten false
+
 
 class Renderer {
   {static} - _aEngines: IEngineFacade[]

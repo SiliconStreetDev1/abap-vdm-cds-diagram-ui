@@ -29,6 +29,7 @@ export default class DiagramRenderHandler {
         if (this._bIsAttached) return;
         if (this._oEventBus) {
             this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, this._onRenderFailed, this);
             this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
             this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
         }
@@ -43,6 +44,7 @@ export default class DiagramRenderHandler {
         if (!this._bIsAttached) return;
         if (this._oEventBus) {
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
+            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, this._onRenderFailed, this);
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
         }
@@ -58,6 +60,10 @@ export default class DiagramRenderHandler {
 
     private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
         this.handleLiveFormatUpdate(oData);
+    }
+
+    private _onRenderFailed(sChannel: string, sEvent: string, oData: any): void {
+        this.showError(oData.message || "Rendering failed.");
     }
 
     private _onViewerLoading(): void {

@@ -19,6 +19,7 @@ import ViewStateHelper from "../helpers/ViewStateHelper";
 export default class RouteManager {
     private _component: UIComponent;
     private _eventBus: EventBus;
+    private _fnHashChangeBind!: EventListener;
 
     constructor(component: UIComponent) {
         this._component = component;
@@ -38,7 +39,16 @@ export default class RouteManager {
         }
 
         this._checkHashFallback();
-        window.addEventListener("hashchange", this._checkHashFallback.bind(this));
+        this._fnHashChangeBind = this._checkHashFallback.bind(this) as EventListener;
+        window.addEventListener("hashchange", this._fnHashChangeBind);
+    }
+
+    /**
+     * @public
+     * @description Explicitly detaches global window listeners to prevent SPA memory leaks.
+     */
+    public detachRoutes(): void {
+        if (this._fnHashChangeBind) window.removeEventListener("hashchange", this._fnHashChangeBind);
     }
 
     private _checkHashFallback(): void {
@@ -53,11 +63,6 @@ export default class RouteManager {
     }
 
     private async _executeViewerMode(variantId: string): Promise<void> {
-        // ENTERPRISE UX: Immediately lock the UI and suppress the "No Diagram" empty state
-        // before evaluating deferred models to guarantee zero UI flashing.
-        ViewStateHelper.setAppBusy(true, this._component, true);
-        this._eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, {});
-
         const uiModel = this._component.getModel(ModelNames.UI) as JSONModel;
         const odataModel = this._component.getModel() as ODataModel;
 
@@ -68,9 +73,30 @@ export default class RouteManager {
             return;
         }
 
-        // 1. Force Fullscreen FCL Layout (Hide Selection Pane completely)
+        // 1. Force Fullscreen FCL Layout IMMEDIATELY to prevent Cytoscape from reading mid-animation DOM sizes
         uiModel.setProperty(UiState.FCL_LAYOUT, "MidColumnFullScreen");
         uiModel.setProperty(UiState.IS_VIEWER_MODE, true);
+
+        // ENTERPRISE FIX: Ensure cosmetic JSON dictionaries are fully loaded into memory
+        // before spawning the busy dialog, otherwise it falls back to the default icon and text.
+        const animModel = this._component.getModel("animations") as JSONModel;
+        const msgModel = this._component.getModel("messages") as JSONModel;
+
+        const waitForModel = (model: JSONModel) => new Promise<void>(resolve => {
+            if (!model || (model.getData() && Object.keys(model.getData()).length > 0)) {
+                resolve();
+            } else {
+                model.attachEventOnce("requestCompleted", () => resolve());
+                model.attachEventOnce("requestFailed", () => resolve());
+            }
+        });
+
+        await Promise.all([waitForModel(animModel), waitForModel(msgModel)]);
+
+        // ENTERPRISE UX: Immediately lock the UI and suppress the "No Diagram" empty state
+        // before evaluating deferred models to guarantee zero UI flashing.
+        ViewStateHelper.setAppBusy(true, this._component, true);
+        this._eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, {});
 
         try {
             // 2. Fetch the specific UUID payload (bypassing dropdown filters)
