@@ -111,9 +111,7 @@ export default class Selection extends Controller {
         this.eventBusDrillDownBind = (channel: string, event: string, data: Object) => this.processDrillDown((data as { viewName?: string })?.viewName);
         if (eventBus) {
             eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this.eventBusDrillDownBind, this);
-            eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, (c: string, e: string, state: any) => {
-                VariantStateMapper.applyState(view as View, state as IVariantState);
-            }, this);
+            eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, this._restoreWorkspaceState, this);
         }
 
         this.sliderUpdateBind = this.uiHandler.onSliderUpdate.bind(this.uiHandler) as EventListener;
@@ -669,5 +667,26 @@ export default class Selection extends Controller {
         const model = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
         const bundle = model?.getResourceBundle() as ResourceBundle;
         return bundle ? bundle.getText(key, args) || key : key;
+    }
+
+    /**
+     * @private
+     * @description EventBus listener for workspace clone and variant restoration events.
+     * Safely injects the targeted CDS name, binds the saved configuration to the Fiori UI Model,
+     * and executes the diagram generation cycle. Relies on the standard rendering pipeline 
+     * to safely consume and apply layout coordinates only after the physical nodes exist.
+     * @param {string} sChannel - EventBus channel.
+     * @param {string} sEvent - Event identifier.
+     * @param {any} oState - The raw variant payload containing metadata and coordinate mappings.
+     * @returns {Promise<void>}
+     */
+    private async _restoreWorkspaceState(sChannel: string, sEvent: string, oState: any): Promise<void> {
+        const variantState = oState as IVariantState;
+        if (variantState.cdsName) {
+            (this.byId("cmbCdsName") as Input).setValue(variantState.cdsName);
+        }
+        
+        VariantStateMapper.applyState(this.getView() as View, variantState);
+        await this.generationHandler.generate(false, true, true);
     }
 }

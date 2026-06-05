@@ -36,7 +36,7 @@ export default class CytoscapeEngine {
      * @description Groups the Cytoscape instance and its specific state rules 
      * together into a single contextual map to prevent disconnected memory references.
      */
-    private static _cyContexts: Map<string, { cy: Core, layout: string, snapGuides: boolean }> = new Map();
+    private static _cyContexts: Map<string, { cy: Core, layout: string, snapGuides: boolean, isViewerMode: boolean, isDrillDown: boolean }> = new Map();
 
     public static configPath = "/formatCytoscape";
     public static supportsLiveUpdate = true;
@@ -162,7 +162,9 @@ export default class CytoscapeEngine {
                     this._cyContexts.set(sViewId, {
                         cy: cyInstance,
                         layout: parsedConfig.layout,
-                        snapGuides: parsedConfig.snapGuides
+                        snapGuides: parsedConfig.snapGuides,
+                        isViewerMode: !!parsedConfig.isViewerMode,
+                        isDrillDown: !!parsedConfig.isDrillDown
                     });
                     cyInstance.scratch('_enableFocusMode', !!oFormat.enableFocusMode);
 
@@ -171,9 +173,9 @@ export default class CytoscapeEngine {
 
                     CytoscapeLayoutManager.applyGridGuide(cyInstance, parsedConfig);
                     
-                    CytoscapeEventHandler.attachEvents(sViewId, cyInstance, parsedConfig.isDrillDown, !!parsedConfig.isViewerMode);
+                    CytoscapeEventHandler.attachEvents(sViewId, cyInstance, () => this._cyContexts.get(sViewId)?.isDrillDown || false, () => this._cyContexts.get(sViewId)?.isViewerMode || false);
                     CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
-                    CytoscapeContextMenu.attach(sViewId, cyInstance, parsedConfig.isDrillDown, !!parsedConfig.isViewerMode);
+                    CytoscapeContextMenu.attach(sViewId, cyInstance, () => this._cyContexts.get(sViewId)?.isDrillDown || false, () => this._cyContexts.get(sViewId)?.isViewerMode || false);
 
                     if (!parsedConfig.isViewerMode) {
                         CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
@@ -208,6 +210,14 @@ export default class CytoscapeEngine {
             const bIsLayoutChange = parsedConfig.layout !== context.layout;
             context.layout = parsedConfig.layout;
             context.snapGuides = parsedConfig.snapGuides;
+            context.isViewerMode = !!parsedConfig.isViewerMode;
+            context.isDrillDown = !!parsedConfig.isDrillDown;
+            
+            if (!parsedConfig.isViewerMode) {
+                CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
+            } else {
+                CytoscapeNoteManager.detachEvents(sViewId);
+            }
             
             const bFocusModeChanged = cyInstance.scratch('_enableFocusMode') !== !!oConfig.enableFocusMode;
             cyInstance.scratch('_enableFocusMode', !!oConfig.enableFocusMode);

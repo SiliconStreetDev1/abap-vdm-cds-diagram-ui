@@ -23,6 +23,7 @@ import { EngineType, IRenderRequestPayload } from "../../types";
 import { EventChannels, EventIds } from "../../constants/EventConstants";
 import { UiState, ModelNames } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
+import VariantStateMapper from "../../helpers/VariantStateMapper";
 
 export default class DiagramGenerationHandler {
     private view: View;
@@ -71,40 +72,10 @@ export default class DiagramGenerationHandler {
             return;
         }
 
-        const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
-        const lastCdsName = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
         const engine = ((this.view.byId("selEngine") as Select)?.getSelectedKey() || Renderer.getDefaultEngine()) as EngineType;
         
-        if (lastCdsName && lastCdsName !== cdsName && !isRestore && !isVariantApply) {
-            if (engine && Renderer.supportsStateCapture(engine)) {
-                const modelData = uiModel.getData();
-                const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
-                if (formatKey) {
-                    uiModel.setProperty(`/${formatKey}/presetPositions`, null);
-                    if (uiModel.getProperty(`/${formatKey}/layout_algorithm`) === "preset") {
-                        uiModel.setProperty(`/${formatKey}/layout_algorithm`, "dagre");
-                    }
-                }
-            }
-        }
-        uiModel.setProperty(UiState.LAST_GENERATED_CDS, cdsName);
-
-        if (!isDrillDown) {
-            this.rootCdsName = cdsName;
-            this.breadcrumbs = [cdsName];
-            SessionStateCache.clear(this.getInstanceId()); 
-        } else {
-            const index = this.breadcrumbs.indexOf(cdsName);
-            if (index > -1) {
-                for (let k = index + 1; k < this.breadcrumbs.length; k++) {
-                    const orphanPath = this.breadcrumbs.slice(0, k + 1).join('|');
-                    SessionStateCache.remove(this.getInstanceId(), orphanPath);
-                }
-                this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
-            } else {
-                this.breadcrumbs.push(cdsName);
-            }
-        }
+        this._updateUiStateBeforeGeneration(cdsName, engine, isRestore, isVariantApply);
+        this._manageBreadcrumbHierarchy(cdsName, isDrillDown);
 
         // ENTERPRISE FIX: Aggressively resolve the OData V4 model. 
         // Fiori occasionally delays downward model propagation during direct URL access.
@@ -113,8 +84,6 @@ export default class DiagramGenerationHandler {
             MessageToast.show(this.getText("msgReqFailed", ["OData connection not established."]));
             return;
         }
-
-        uiModel.setProperty(UiState.IS_CANVAS_STALE, false);
 
         if (this.eventBus) {
             this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
@@ -129,48 +98,15 @@ export default class DiagramGenerationHandler {
         }
 
         try {
-            let result;
-            if (cachedResult) {
-                result = cachedResult;
-            } else {
-                // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
-                const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
-                    new Filter("CdsName", FilterOperator.EQ, cdsName)
-                ]);
-                const searchContexts = await searchBinding.requestContexts(0, 1);
-                searchBinding.destroy();
-                
-                if (searchContexts.length === 0) {
-                    throw new Error("msgNoMeta");
-                }
-
-                result = await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
-            }
+            const result = await this._fetchDiagramData(odataModel, request, cdsName, forceRefresh, cachedResult);
 
             SearchHistoryService.updateHistory(result.CdsName);
             (this.view.getModel(ModelNames.HISTORY) as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
 
-            if (this.eventBus) {
-                const payload: IRenderRequestPayload = {
-                    payload: result.DiagramPayload, 
-                    extension: result.FileExtension, 
-                    cdsName: result.CdsName,
-                    engine: engine, 
-                    rootCdsName: this.rootCdsName, 
-                    breadcrumbs: this.breadcrumbs
-                };
-                
-                const modelData = uiModel.getData();
-                const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
-                if (formatKey) {
-                    payload.engineConfig = Object.assign({}, uiModel.getProperty(`/${formatKey}`));
-                    payload.engineConfig.isRestore = isRestore;
-                }
-                this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, payload);
-            }
+            this._publishRenderEvent(result, engine, isRestore);
             
         } catch (error: any) {
-            uiModel.setProperty(UiState.IS_CANVAS_STALE, true);
+            (this.view.getModel(ModelNames.UI) as JSONModel).setProperty(UiState.IS_CANVAS_STALE, true);
             
             if (this.eventBus) {
                 this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, { message: error.message });
@@ -183,6 +119,86 @@ export default class DiagramGenerationHandler {
         }
     }
 
+    private _updateUiStateBeforeGeneration(cdsName: string, engine: EngineType, isRestore: boolean, isVariantApply: boolean): void {
+        const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
+        const lastCdsName = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
+        
+        if (lastCdsName && lastCdsName !== cdsName && !isRestore && !isVariantApply) {
+            if (engine && Renderer.supportsStateCapture(engine)) {
+                const modelData = uiModel.getData();
+                const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
+                if (formatKey) {
+                    uiModel.setProperty(`/${formatKey}/presetPositions`, null);
+                    if (uiModel.getProperty(`/${formatKey}/layout_algorithm`) === "preset") {
+                        uiModel.setProperty(`/${formatKey}/layout_algorithm`, "dagre");
+                    }
+                }
+            }
+        }
+        uiModel.setProperty(UiState.LAST_GENERATED_CDS, cdsName);
+        uiModel.setProperty(UiState.IS_CANVAS_STALE, false);
+    }
+
+    private _manageBreadcrumbHierarchy(cdsName: string, isDrillDown: boolean): void {
+        if (!isDrillDown) {
+            this.rootCdsName = cdsName;
+            this.breadcrumbs = [cdsName];
+            SessionStateCache.clear(this.getInstanceId()); 
+        } else {
+            const index = this.breadcrumbs.indexOf(cdsName);
+            if (index > -1) {
+                for (let k = index + 1; k < this.breadcrumbs.length; k++) {
+                    const orphanCds = this.breadcrumbs[k];
+                    SessionStateCache.remove(this.getInstanceId(), orphanCds);
+                }
+                this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
+            } else {
+                this.breadcrumbs.push(cdsName);
+            }
+        }
+    }
+
+    private async _fetchDiagramData(odataModel: ODataModel, request: any, cdsName: string, forceRefresh: boolean, cachedResult: any): Promise<any> {
+        if (cachedResult) {
+            return cachedResult;
+        }
+
+        // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
+        const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
+            new Filter("CdsName", FilterOperator.EQ, cdsName)
+        ]);
+        const searchContexts = await searchBinding.requestContexts(0, 1);
+        searchBinding.destroy();
+        
+        if (searchContexts.length === 0) {
+            throw new Error("msgNoMeta");
+        }
+
+        return await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
+    }
+
+    private _publishRenderEvent(result: any, engine: EngineType, isRestore: boolean): void {
+        if (!this.eventBus) return;
+        
+        const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
+        const payload: IRenderRequestPayload = {
+            payload: result.DiagramPayload, 
+            extension: result.FileExtension, 
+            cdsName: result.CdsName,
+            engine: engine, 
+            rootCdsName: this.rootCdsName, 
+            breadcrumbs: this.breadcrumbs
+        };
+        
+        const modelData = uiModel.getData();
+        const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
+        if (formatKey) {
+            payload.engineConfig = Object.assign({}, uiModel.getProperty(`/${formatKey}`));
+            payload.engineConfig.isRestore = isRestore;
+        }
+        this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, payload);
+    }
+
     /**
      * @public
      * @description Updates the contextual CDS field and reroutes to the standard diagram generator.
@@ -192,6 +208,21 @@ export default class DiagramGenerationHandler {
      */
     public handleDrillDown(viewName?: string, isRestore: boolean = false): void {
         if (viewName) {
+            const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
+            const currentCds = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
+            
+            if (currentCds && !isRestore) {
+                const currentState = VariantStateMapper.captureState(this.view, currentCds, true);
+                SessionStateCache.set(this.getInstanceId(), currentCds, currentState);
+            }
+
+            if (isRestore) {
+                const cachedState = SessionStateCache.get(this.getInstanceId(), viewName);
+                if (cachedState) {
+                    VariantStateMapper.applyState(this.view, cachedState);
+                }
+            }
+
             (this.view.byId("cmbCdsName") as Input).setValue(viewName);
             this.generate(true, isRestore, false, false);
         }

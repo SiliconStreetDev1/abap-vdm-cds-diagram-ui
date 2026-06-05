@@ -13,13 +13,14 @@ export default class CytoscapeEventHandler {
      * @static
      * @description Attaches standard interaction events to the given Cytoscape instance.
      * @param {Core} cyInstance - The active Cytoscape.js instance.
-     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
+     * @param {() => boolean} getIsDrillDown - Callback to evaluate if the canvas is in a read-only drill down state.
+     * @param {() => boolean} getIsViewerMode - Callback to evaluate if the canvas is in viewer mode.
      * @returns {void}
      */
-    public static attachEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean = false): void {
+    public static attachEvents(sViewId: string, cyInstance: Core, getIsDrillDown: () => boolean, getIsViewerMode: () => boolean): void {
         this._attachLayoutEvents(sViewId, cyInstance);
         this._attachSelectionEvents(sViewId, cyInstance);
-        this._attachInteractionEvents(sViewId, cyInstance, bIsDrillDown, bIsViewerMode);
+        this._attachInteractionEvents(sViewId, cyInstance, getIsDrillDown, getIsViewerMode);
         this._attachDragEvents(sViewId, cyInstance);
     }
 
@@ -96,9 +97,10 @@ export default class CytoscapeEventHandler {
      * @static
      * @description Attaches click and double-click interaction events.
      * @param {Core} cyInstance - The active Cytoscape.js instance.
-     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
+     * @param {() => boolean} getIsDrillDown - Callback to evaluate if the current canvas is in a drill down state.
+     * @param {() => boolean} getIsViewerMode - Callback to evaluate if the current canvas is in viewer mode.
      */
-    private static _attachInteractionEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean): void {
+    private static _attachInteractionEvents(sViewId: string, cyInstance: Core, getIsDrillDown: () => boolean, getIsViewerMode: () => boolean): void {
 
         // Enterprise UX: Clicking the background canvas instantly drops any active selections
         cyInstance.on('tap', (evt: EventObject) => {
@@ -120,13 +122,13 @@ export default class CytoscapeEventHandler {
 
             if (timeDiff > 0 && timeDiff < 400) {
                 if (node.hasClass('annotation-note')) {
-                    if (!bIsDrillDown && !bIsViewerMode) {
+                    if (!getIsDrillDown() && !getIsViewerMode()) {
                         if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { viewId: sViewId, id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
                     }
                     return;
                 }
                 
-                if (bIsViewerMode) return; // Completely enforce read-only presentation lockdown
+                if (getIsViewerMode()) return; // Completely enforce read-only presentation lockdown
                 
                 document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewId: sViewId, viewName: node.data('id') } }));
                 return;

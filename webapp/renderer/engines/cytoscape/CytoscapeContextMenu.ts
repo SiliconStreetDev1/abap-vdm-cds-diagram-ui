@@ -29,10 +29,11 @@ export default class CytoscapeContextMenu {
      * @static
      * @description Intercepts right-clicks on the active graph and builds a floating DOM context menu.
      * @param {Core} cyInstance - Cytoscape Core instance.
-     * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
+     * @param {() => boolean} getIsDrillDown - Callback to evaluate if the canvas is in a drill down state.
+     * @param {() => boolean} getIsViewerMode - Callback to evaluate if the canvas is in viewer mode.
      * @returns {void}
      */
-    public static attach(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean): void {
+    public static attach(sViewId: string, cyInstance: Core, getIsDrillDown: () => boolean, getIsViewerMode: () => boolean): void {
         cyInstance.on('tap zoom pan', () => this.removeAll(sViewId));
 
         cyInstance.on('cxttap', 'node', (evt: EventObject) => {
@@ -92,11 +93,11 @@ export default class CytoscapeContextMenu {
             const suffix = totalCount > 1 ? ` (${totalCount})` : "";
 
             let strategy: BaseMenuStrategy;
-            if (bIsViewerMode) {
+            if (getIsViewerMode()) {
                 strategy = new ViewerMenuStrategy(sViewId);
             } else if (bIsNote) {
                 strategy = new BuilderNoteMenuStrategy(sViewId);
-            } else if (bIsDrillDown) {
+            } else if (getIsDrillDown()) {
                 strategy = new DrillDownMenuStrategy(sViewId);
             } else {
                 strategy = new BuilderEntityMenuStrategy(sViewId);

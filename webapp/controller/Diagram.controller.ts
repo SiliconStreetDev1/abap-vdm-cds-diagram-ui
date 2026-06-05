@@ -30,7 +30,7 @@ import VideoRecordHandler from "../handlers/state/VideoRecordHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
-import { ViewState, UiState, ModelNames } from "../constants/StateConstants";
+import { ViewState, UiState, ModelNames, DiagramData } from "../constants/StateConstants";
 import SoundscapeManager from "../services/SoundscapeManager";
 
 export default class Diagram extends Controller {
@@ -169,6 +169,19 @@ export default class Diagram extends Controller {
         // Re-hydrate the Selection pane with the cloned variant's state
         const variantState = oUiModel.getProperty("/loadedVariantState");
         if (variantState) {
+            
+            // ENTERPRISE FIX: Capture LIVE viewer changes (pins, hidden nodes, pan/zoom) before cloning
+            const oDataModel = this.getView()?.getModel(ModelNames.DIAGRAM_DATA) as JSONModel;
+            if (oDataModel) {
+                const sEngine = oDataModel.getProperty(DiagramData.ENGINE);
+                if (sEngine && Renderer.supportsStateCapture(sEngine)) {
+                    const liveState = Renderer.getCanvasState(this._getInstanceId(), sEngine);
+                    if (liveState) {
+                        variantState.canvasState = liveState;
+                    }
+                }
+            }
+
             oUiModel.setProperty("/clonedVariantName", variantState.name ? `Copy of ${variantState.name}` : "");
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
