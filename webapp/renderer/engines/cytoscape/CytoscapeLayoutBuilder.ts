@@ -5,6 +5,7 @@
  */
 import type { EdgeSingular, NodeSingular } from "cytoscape";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
+import { AppConstants } from "../../../constants/StateConstants";
 
 export interface ICytoscapeLayoutConfig {
     name: string;
@@ -53,7 +54,7 @@ export default class CytoscapeLayoutBuilder {
                 oBaseConfig.rankDir = config.rankDir;
                 oBaseConfig.rankSep = config.nodeSpacing * 1.5;
                 oBaseConfig.nodeSep = config.nodeSpacing / 1.5;
-                oBaseConfig.edgeSep = Math.max(35, (config.nodeSpacing / 3) * 1.15);
+                oBaseConfig.edgeSep = Math.max(AppConstants.NODE_SPACING_MIN, (config.nodeSpacing / 3) * 1.15);
                 oBaseConfig.ranker = 'network-simplex';
                 oBaseConfig.acyclicer = 'greedy';
                 oBaseConfig.spacingFactor = 1.0;
@@ -83,7 +84,7 @@ export default class CytoscapeLayoutBuilder {
                 // Mathematically calculate the radius using the circumference formula (C = 2 * PI * r)
                 const iEffectiveNodes = Math.max(nodeCount, 10); // Prevent tiny rings for small diagrams
                 const iCircumference = iEffectiveNodes * (config.nodeSpacing + 50); // Arc length per node
-                oBaseConfig.radius = Math.max(iCircumference / (2 * Math.PI), 100);
+                oBaseConfig.radius = Math.max(iCircumference / (2 * Math.PI), AppConstants.NODE_SPACING_MIN);
                 break;
         }
         return oBaseConfig;

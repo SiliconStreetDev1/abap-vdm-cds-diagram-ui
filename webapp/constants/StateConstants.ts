@@ -13,6 +13,11 @@ export const ModelNames = {
     I18N: "i18n"
 } as const;
 
+export const AppConstants = {
+    NODE_SPACING_MIN: 25,
+    NODE_SPACING_MAX: 500
+} as const;
+
 export const UiState = {
     ACTIVE_ENGINE: "/activeEngine",
     IS_CANVAS_STALE: "/isCanvasStale",

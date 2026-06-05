@@ -29,7 +29,7 @@ import SearchHistoryService from "../services/SearchHistoryService";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 import Renderer from "../renderer/Renderer";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
-import { UiState, DiagramData } from "../constants/StateConstants";
+import { UiState, DiagramData, ModelNames } from "../constants/StateConstants";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { IVariantState } from "../types/IVariantState";
 
@@ -176,7 +176,11 @@ export default class Selection extends Controller {
      * @description Event handler for the Generate Diagram button.
      * @returns {void}
      */
-    public onGenerate(): void { this.generationHandler.generate(false); }
+    public onGenerate(): void { 
+        // ENTERPRISE FIX: The manual 'Generate' button should ALWAYS bypass the LRU cache.
+        // This allows users to explicitly fetch fresh backend metadata if the ABAP dictionary changed.
+        this.generationHandler.generate(false, false, false, true); 
+    }
 
     /**
      * @public
@@ -412,7 +416,7 @@ export default class Selection extends Controller {
                     selectControl.setValueStateText("");
                 }
                 
-                this.generationHandler.generate(false, false, true); 
+                await this.generationHandler.generate(false, false, true); 
                 this.updateShareStateUI();
             }
         } catch (error: any) {

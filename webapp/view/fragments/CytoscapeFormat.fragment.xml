@@ -39,7 +39,7 @@
         </HBox>
     <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Node Spacing" design="Bold"/>
-        <Slider width="240px" value="{ui>/formatCytoscape/node_spacing}" min="10" max="250" step="5" change=".onLiveFormatChange" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
+        <Slider width="240px" value="{ui>/formatCytoscape/node_spacing}" min="{ui>/nodeSpacingMin}" max="{ui>/nodeSpacingMax}" step="5" change=".onLiveFormatChange" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
     </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Animate Physics" />

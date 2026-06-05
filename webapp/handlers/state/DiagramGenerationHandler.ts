@@ -17,6 +17,7 @@ import DiagramService from "../../services/DiagramService";
 import VariantService from "../../services/VariantService";
 import SearchHistoryService from "../../services/SearchHistoryService";
 import SessionStateCache from "../../helpers/SessionStateCache";
+import DiagramCache from "../../services/DiagramCache";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
 import { EventChannels, EventIds } from "../../constants/EventConstants";
@@ -58,9 +59,10 @@ export default class DiagramGenerationHandler {
      * @param {boolean} isDrillDown - Prevents root CDS mutation if this execution is a nested drill-down.
      * @param {boolean} [isRestore=false] - Prevents wiping custom preset positions if restoring from a cached state.
      * @param {boolean} [isVariantApply=false] - Suppresses stale state alerts during variant hydration.
+     * @param {boolean} [forceRefresh=false] - Explicitly bypasses the DiagramCache to fetch fresh data from the backend.
      * @returns {Promise<void>}
      */
-    public async generate(isDrillDown: boolean, isRestore: boolean = false, isVariantApply: boolean = false): Promise<void> {
+    public async generate(isDrillDown: boolean, isRestore: boolean = false, isVariantApply: boolean = false, forceRefresh: boolean = false): Promise<void> {
         const inputField = this.view.byId("cmbCdsName") as Input;
         const cdsName = inputField.getValue().trim().toUpperCase();
 
@@ -118,22 +120,32 @@ export default class DiagramGenerationHandler {
             this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
         }
 
-        ViewStateHelper.setAppBusy(true, this.view, true);
+        const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
+        const cachedResult = forceRefresh ? null : DiagramCache.get(request);
+
+        // ENTERPRISE UX: Suppress the busy dialog and Fiori blocking if the payload is already in RAM.
+        if (!cachedResult) {
+            ViewStateHelper.setAppBusy(true, this.view, true);
+        }
 
         try {
-            // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
-            const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
-                new Filter("CdsName", FilterOperator.EQ, cdsName)
-            ]);
-            const searchContexts = await searchBinding.requestContexts(0, 1);
-            searchBinding.destroy();
-            
-            if (searchContexts.length === 0) {
-                throw new Error("msgNoMeta");
-            }
+            let result;
+            if (cachedResult) {
+                result = cachedResult;
+            } else {
+                // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
+                const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
+                    new Filter("CdsName", FilterOperator.EQ, cdsName)
+                ]);
+                const searchContexts = await searchBinding.requestContexts(0, 1);
+                searchBinding.destroy();
+                
+                if (searchContexts.length === 0) {
+                    throw new Error("msgNoMeta");
+                }
 
-            const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
-            const result = await DiagramService.fetchDiagram(odataModel, request);
+                result = await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
+            }
 
             SearchHistoryService.updateHistory(result.CdsName);
             (this.view.getModel(ModelNames.HISTORY) as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
@@ -181,7 +193,7 @@ export default class DiagramGenerationHandler {
     public handleDrillDown(viewName?: string, isRestore: boolean = false): void {
         if (viewName) {
             (this.view.byId("cmbCdsName") as Input).setValue(viewName);
-            this.generate(true, isRestore);
+            this.generate(true, isRestore, false, false);
         }
     }
 }

@@ -133,9 +133,15 @@ export default class CytoscapeContextMenu {
         menu.style.padding = "0.25rem 0";
         menu.style.minWidth = "120px";
         menu.style.fontFamily = '"72", Arial, Helvetica, sans-serif';
+        
+        // Retain standard pointer blocking
         menu.onmousedown = (e) => e.stopPropagation();
         menu.ontouchstart = (e) => e.stopPropagation();
         menu.oncontextmenu = (e) => e.preventDefault();
+        
+        // FIX: Ensure the menu destroys itself after any valid click action inside of it.
+        menu.onclick = () => this.removeAll(sViewId);
+
         return menu;
     }
 }

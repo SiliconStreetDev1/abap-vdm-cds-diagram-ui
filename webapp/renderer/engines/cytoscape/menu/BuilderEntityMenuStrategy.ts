@@ -8,14 +8,23 @@ import BaseMenuStrategy from "./BaseMenuStrategy";
 import { DomEvents } from "../../../../constants/EventConstants";
 
 export default class BuilderEntityMenuStrategy extends BaseMenuStrategy {
+
+   
+
     public build(menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string, totalCount: number): void {
         menu.appendChild(this._createMenuItem("📝", `Add Linked Note${suffix}`, "#f57c00", () => {
+            // FIX: Instantly destroy the menu and glass pane before firing the background event
+            this._closeMenu();
+
             cyInstance.elements().unselect();
             targetNodes.select();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: this._sViewId } }));
+            if (typeof document !== "undefined") {
+                document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: this._sViewId } }));
+            }
         }));
 
         // Compose standard Pin/Hide commands
+        // Note: If the buttons inside this method also hang, you will need to add this._closeMenu() to their click handlers inside BaseMenuStrategy as well.
         this._buildExplorationTools(menu, targetNodes, cyInstance, suffix, totalCount);
     }
 }

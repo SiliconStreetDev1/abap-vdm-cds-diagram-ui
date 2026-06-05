@@ -14,6 +14,7 @@ import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import UIComponent from "sap/ui/core/UIComponent";
 import BusyDialog from "sap/m/BusyDialog";
+import { AppConstants } from "../constants/StateConstants";
 
 export default class ViewStateHelper {
     private static _busyDialog?: BusyDialog;
@@ -52,6 +53,8 @@ export default class ViewStateHelper {
             enableVideoRecording: false,
             stealthMode: false,
             enableAudio: localStorage.getItem("vdmAudioEnabled") !== "false",
+            nodeSpacingMin: AppConstants.NODE_SPACING_MIN,
+            nodeSpacingMax: AppConstants.NODE_SPACING_MAX,
             ...Renderer.getEngineDefaults()
         };
         return new JSONModel(oDefaults);

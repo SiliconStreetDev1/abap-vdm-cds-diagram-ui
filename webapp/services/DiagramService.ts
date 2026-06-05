@@ -48,10 +48,11 @@ export default class DiagramService {
      * Encapsulates all OData filter logic internally to decouple the UI from the protocol.
      * @param {ODataModel} oModel - The active OData V4 model instance.
      * @param {IDiagramRequest} oRequest - The standardized DTO containing request parameters.
+     * @param {boolean} [bForceRefresh=false] - Bypasses the LRU cache to fetch fresh data from the backend.
      * @returns {Promise<IDiagramResult>} A promise resolving to the validated backend payload.
      * @throws {Error} Throws normalized error strings suitable for UI display.
      */
-    public static async fetchDiagram(oModel: ODataModel, oRequest: IDiagramRequest): Promise<IDiagramResult> {
+    public static async fetchDiagram(oModel: ODataModel, oRequest: IDiagramRequest, bForceRefresh: boolean = false): Promise<IDiagramResult> {
         const aFilters = [
             new Filter("CdsName", FilterOperator.EQ, oRequest.cdsName),
             new Filter("RendererEngine", FilterOperator.EQ, oRequest.engine),
@@ -74,7 +75,7 @@ export default class DiagramService {
         if (oRequest.excludeCds) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, oRequest.excludeCds));
 
         // 1. Check LRU Cache before hitting the network
-        const oCachedResult = DiagramCache.get(oRequest);
+        const oCachedResult = bForceRefresh ? null : DiagramCache.get(oRequest);
         if (oCachedResult) {
             return oCachedResult;
         }

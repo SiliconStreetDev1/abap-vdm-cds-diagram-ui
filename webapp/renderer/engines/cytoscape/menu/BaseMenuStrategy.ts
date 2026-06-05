@@ -16,6 +16,13 @@ export default abstract class BaseMenuStrategy {
 
     public abstract build(menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string, totalCount: number): void;
 
+    protected _closeMenu(): void {
+        const menu = document.getElementById(`vdm-cy-context-menu-${this._sViewId}`);
+        if (menu) menu.remove();
+        const glass = document.getElementById(`vdm-cy-glass-pane-${this._sViewId}`);
+        if (glass) glass.remove();
+    }
+
     protected _createMenuItem(icon: string, text: string, color: string, onClick: () => void): HTMLDivElement {
         const item = document.createElement("div");
         item.style.padding = "0.5rem 1rem";
