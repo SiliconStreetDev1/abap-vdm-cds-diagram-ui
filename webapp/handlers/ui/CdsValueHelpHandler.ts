@@ -94,7 +94,10 @@ export default class CdsValueHelpHandler {
 
         // Input is valid; execute the backend search
         this._oDialog?.setNoDataText("No results.");
-        oBinding.filter([new Filter("CdsName", FilterOperator.Contains, sValue)]);
+        if (typeof oBinding.isSuspended === "function" && oBinding.isSuspended()) {
+            oBinding.resume();
+        }
+        oBinding.filter([new Filter("CdsName", FilterOperator.Contains, sValue.toUpperCase())]);
     }
 
     /**
@@ -123,8 +126,10 @@ export default class CdsValueHelpHandler {
             this._oDialog.setNoDataText(`Enter ${this.MIN_SEARCH_LEN} characters...`);
             const oBinding = this._oDialog.getBinding("items") as ListBinding;
             
-            // "___EMPTY___" is guaranteed to not exist, forcing a fast 0-result return
-            if (oBinding) oBinding.filter([new Filter("CdsName", FilterOperator.EQ, "___EMPTY___")]);
+            if (oBinding) {
+                oBinding.filter([]);
+                if (typeof oBinding.suspend === "function") oBinding.suspend();
+            }
         }
     }
 }

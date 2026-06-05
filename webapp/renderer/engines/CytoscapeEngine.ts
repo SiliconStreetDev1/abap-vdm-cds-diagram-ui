@@ -83,9 +83,6 @@ export default class CytoscapeEngine {
                 oFormatCy.layout_algorithm = "dagre"; // ENTERPRISE FIX: Reset layout if positions are explicitly dropped
             }
         }
-        if (oCanvasState && oCanvasState.__camera) {
-            oFormatCy.camera = oCanvasState.__camera;
-        }
         return oFormatCy;
     }
 
@@ -99,7 +96,6 @@ export default class CytoscapeEngine {
         // ARCHITECTURE FIX: Strip heavy frontend-only data (like massive X/Y coordinate dictionaries)
         // to ensure the OData GET URL string remains tiny and never hits the 2048-character limit.
         delete oFormatConfig.presetPositions;
-        delete oFormatConfig.camera;
         return oFormatConfig;
     }
 
@@ -158,7 +154,8 @@ export default class CytoscapeEngine {
                         minZoom: 0.1,
                         maxZoom: 3.0,
                         userPanningEnabled: true, // Syncs with Fiori View Model default (Pan Mode)
-                        boxSelectionEnabled: true,
+                        boxSelectionEnabled: !parsedConfig.isViewerMode,
+                        autoungrabify: false, 
                         selectionType: 'single'
                     });
                     
@@ -174,16 +171,13 @@ export default class CytoscapeEngine {
 
                     CytoscapeLayoutManager.applyGridGuide(cyInstance, parsedConfig);
                     
-                    if (parsedConfig.camera) {
-                        cyInstance.viewport(parsedConfig.camera);
-                    }
-
-                    CytoscapeEventHandler.attachEvents(sViewId, cyInstance, parsedConfig.isDrillDown);
+                    CytoscapeEventHandler.attachEvents(sViewId, cyInstance, parsedConfig.isDrillDown, !!parsedConfig.isViewerMode);
                     CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
-                    CytoscapeContextMenu.attach(sViewId, cyInstance, parsedConfig.isDrillDown);
+                    CytoscapeContextMenu.attach(sViewId, cyInstance, parsedConfig.isDrillDown, !!parsedConfig.isViewerMode);
 
-                    // Delegate note lifecycle to specialized manager
-                    CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
+                    if (!parsedConfig.isViewerMode) {
+                        CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
+                    }
 
                     MinimapManager.toggle(sViewId, cyInstance, MinimapManager.getShowState(sViewId));
 
@@ -225,7 +219,6 @@ export default class CytoscapeEngine {
             
             if (bIsLayoutChange) {
                 cyInstance.nodes().unlock();
-                parsedConfig.camera = null; // Drop camera to allow auto-fit on layout change
             }
 
             // 1. Update visual styles dynamically

@@ -13,15 +13,16 @@ import ComboBox from "sap/m/ComboBox";
 import MultiInput from "sap/m/MultiInput";
 import Token from "sap/m/Token";
 import Button from "sap/m/Button";
-import ViewStateHelper from "../helpers/ViewStateHelper";
-import SelectionStateHandler from "./SelectionStateHandler";
+import ViewStateHelper from "../../helpers/ViewStateHelper";
+import SelectionStateHandler from "../state/SelectionStateHandler";
 import CdsValueHelpHandler from "./CdsValueHelpHandler";
-import ContextHelpManager from "../helpers/ContextHelpManager";
+import ContextHelpManager from "../../helpers/ContextHelpManager";
 import ResponsivePopover from "sap/m/ResponsivePopover";
 import Slider from "sap/m/Slider";
-import Renderer from "../renderer/Renderer";
-import { EngineType } from "../types";
-import { EventChannels, EventIds } from "../constants/EventConstants";
+import Renderer from "../../renderer/Renderer";
+import { EngineType } from "../../types";
+import { EventChannels, EventIds } from "../../constants/EventConstants";
+import { UiState, ModelNames } from "../../constants/StateConstants";
 
 export default class SelectionUIHandler {
     private _oView: View;
@@ -55,7 +56,7 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     public onEngineChange(oEvent: Event): void {
-        ViewStateHelper.handleEngineChange(oEvent, this._oView.getModel("ui") as JSONModel);
+        ViewStateHelper.handleEngineChange(oEvent, this._oView.getModel(ModelNames.UI) as JSONModel);
         this._oStateHandler.onFormChange();
     }
 
@@ -66,8 +67,8 @@ export default class SelectionUIHandler {
      */
     public onLiveFormatChange(): void {
         this._oStateHandler.markDirtyState(false);
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const sEngine = oUiModel.getProperty("/activeEngine") || "";
+        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        const sEngine = oUiModel.getProperty(UiState.ACTIVE_ENGINE) || "";
 
         if (Renderer.supportsLiveUpdate(sEngine)) {
             const oModelData = oUiModel.getData();
@@ -104,7 +105,7 @@ export default class SelectionUIHandler {
         const oCustomEvent = oEvent as unknown as CustomEvent;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
         if (oCustomEvent.detail?.node_spacing) {
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
+            const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
             if (oUiModel) {
                 const sEngine = oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine();
                 const oModelData = oUiModel.getData();
@@ -173,8 +174,8 @@ export default class SelectionUIHandler {
      */
     public showSpacingPopover(oEvent: Event): void {
         if (!this._oSpacingPopover) {
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
-            const sEngine = oUiModel ? (oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine()) : Renderer.getDefaultEngine();
+            const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+            const sEngine = oUiModel ? (oUiModel.getProperty(UiState.ACTIVE_ENGINE) || Renderer.getDefaultEngine()) : Renderer.getDefaultEngine();
             const oModelData = oUiModel ? oUiModel.getData() : {};
             const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
 

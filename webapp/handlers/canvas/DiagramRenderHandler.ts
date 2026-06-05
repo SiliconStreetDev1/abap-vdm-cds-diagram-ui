@@ -7,9 +7,10 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import HTML from "sap/ui/core/HTML";
 import EventBus from "sap/ui/core/EventBus";
-import Renderer from "../renderer/Renderer";
-import { EngineType, IRenderRequestPayload } from "../types";
-import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
+import Renderer from "../../renderer/Renderer";
+import { EngineType, IRenderRequestPayload } from "../../types";
+import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
+import { UiState, ViewState } from "../../constants/StateConstants";
 
 export default class DiagramRenderHandler {
     private _oView: View;
@@ -29,6 +30,7 @@ export default class DiagramRenderHandler {
         if (this._oEventBus) {
             this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
             this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
+            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
         }
         this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as EventListener;
         if (typeof document !== "undefined") {
@@ -42,6 +44,7 @@ export default class DiagramRenderHandler {
         if (this._oEventBus) {
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
             this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
+            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
         }
         if (typeof document !== "undefined") {
             document.removeEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
@@ -55,6 +58,14 @@ export default class DiagramRenderHandler {
 
     private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
         this.handleLiveFormatUpdate(oData);
+    }
+
+    private _onViewerLoading(): void {
+        const oViewModel = this._oView.getModel("view") as JSONModel;
+        if (oViewModel) {
+            oViewModel.setProperty(ViewState.HAS_DIAGRAM, true);
+            oViewModel.setProperty(ViewState.HAS_ERROR, false);
+        }
     }
 
     private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
@@ -83,7 +94,7 @@ export default class DiagramRenderHandler {
 
     public handleLiveFormatUpdate(oData: any): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        if (oViewModel && oViewModel.getProperty("/hasDiagram")) {
+        if (oViewModel && oViewModel.getProperty(ViewState.HAS_DIAGRAM)) {
             try {
                 Renderer.updateLiveFormat(this._getInstanceId(), oData.engine, oData.format);
             } catch (oError: any) {
@@ -100,11 +111,11 @@ export default class DiagramRenderHandler {
 
         const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
         if (!bSupportsMinimap) {
-            oViewModel.setProperty("/showMinimap", false);
+            oViewModel.setProperty(ViewState.SHOW_MINIMAP, false);
             Renderer.toggleMinimap(this._getInstanceId(), oData.engine, false);
         }
-        oViewModel.setProperty("/canShowMinimap", bSupportsMinimap);
-        oViewModel.setProperty("/canSearch", Renderer.supportsSearch(oData.engine));
+        oViewModel.setProperty(ViewState.CAN_SHOW_MINIMAP, bSupportsMinimap);
+        oViewModel.setProperty(ViewState.CAN_SEARCH, Renderer.supportsSearch(oData.engine));
 
         this.resetState();
 
@@ -121,17 +132,18 @@ export default class DiagramRenderHandler {
         });
 
         // 2. Extract specific export capabilities from the active Engine architecture
-        oViewModel.setProperty("/canExportImg", Renderer.supportsImageExport(oData.engine));
-        oViewModel.setProperty("/canExportSource", Renderer.supportsSourceExport(oData.engine));
+        oViewModel.setProperty(ViewState.CAN_EXPORT_IMG, Renderer.supportsImageExport(oData.engine));
+        oViewModel.setProperty(ViewState.CAN_EXPORT_SOURCE, Renderer.supportsSourceExport(oData.engine));
 
         // 3. Prepare the general canvas UI state 
-        oViewModel.setProperty("/hasDiagram", true);
+        oViewModel.setProperty(ViewState.HAS_DIAGRAM, true);
         
         const bIsDrillDown = !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName);
-        oViewModel.setProperty("/isDrillDown", bIsDrillDown);
+        oViewModel.setProperty(ViewState.IS_SELECT_MODE, false); // Re-enforce default tool on new renders
+
         const oUiModel = this._oView.getModel("ui") as JSONModel;
         if (oUiModel) {
-            oUiModel.setProperty("/isDrillDown", bIsDrillDown);
+            oUiModel.setProperty(UiState.IS_DRILL_DOWN, bIsDrillDown);
             
             if (Renderer.supportsStateCapture(oData.engine)) {
                 const oModelData = oUiModel.getData();
@@ -146,8 +158,6 @@ export default class DiagramRenderHandler {
             }
         }
         
-        oViewModel.setProperty("/isSelectMode", false); // Re-enforce default tool on new renders
-
         if (oData.engineConfig) {
             oData.engineConfig.isDrillDown = bIsDrillDown;
         }
@@ -164,20 +174,20 @@ export default class DiagramRenderHandler {
     public showError(sMessage: string): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/hasError", true);
-            oViewModel.setProperty("/errorText", this._fnGetText(sMessage) || sMessage);
+            oViewModel.setProperty(ViewState.HAS_ERROR, true);
+            oViewModel.setProperty(ViewState.ERROR_TEXT, this._fnGetText(sMessage) || sMessage);
         }
     }
 
     public resetState(): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/hasError", false);
-            oViewModel.setProperty("/hasDiagram", false);
-            oViewModel.setProperty("/isFocusMode", false);
-            oViewModel.setProperty("/focusNodeName", "");
-            oViewModel.setProperty("/hasNodeSelected", false);
-            oViewModel.setProperty("/tempFocusMode", false);
+            oViewModel.setProperty(ViewState.HAS_ERROR, false);
+            oViewModel.setProperty(ViewState.HAS_DIAGRAM, false);
+            oViewModel.setProperty(ViewState.IS_FOCUS_MODE, false);
+            oViewModel.setProperty(ViewState.FOCUS_NODE_NAME, "");
+            oViewModel.setProperty(ViewState.HAS_NODE_SELECTED, false);
+            oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, false);
         }
     }
 }

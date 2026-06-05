@@ -8,12 +8,13 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
 import EventBus from "sap/ui/core/EventBus";
-import ViewStateHelper from "../helpers/ViewStateHelper";
-import FileDownloadUtility from "../helpers/FileDownloadUtility";
-import VideoRecorder, { IRecordingConfig } from "../video/VideoRecorder";
-import { EventChannels, EventIds } from "../constants/EventConstants";
-import ScreenRecorder from "../video/ScreenRecorder";
-import CanvasRecorder from "../video/CanvasRecorder";
+import ViewStateHelper from "../../helpers/ViewStateHelper";
+import FileDownloadUtility from "../../helpers/FileDownloadUtility";
+import VideoRecorder, { IRecordingConfig } from "../../video/VideoRecorder";
+import { EventChannels, EventIds } from "../../constants/EventConstants";
+import ScreenRecorder from "../../video/ScreenRecorder";
+import CanvasRecorder from "../../video/CanvasRecorder";
+import { UiState, DiagramData } from "../../constants/StateConstants";
 
 export default class VideoRecordHandler {
     private view: View;
@@ -102,24 +103,24 @@ export default class VideoRecordHandler {
 
         // ENTERPRISE FIX: Strict Concurrency Mutex Lock. 
         // Prevents rapid UI clicks from spawning overlapping OS prompts or ghost streams.
-        if (uiModel.getProperty("/isRecording") || uiModel.getProperty("/isCountingDown") || uiModel.getProperty("/isWaitingForPermission")) {
+        if (uiModel.getProperty(UiState.IS_RECORDING) || uiModel.getProperty(UiState.IS_COUNTING_DOWN) || uiModel.getProperty(UiState.IS_WAITING_FOR_PERMISSION)) {
             return;
         }
 
-        const mode = uiModel.getProperty("/recordingModeInput") || "SCREEN";
-        const resolution = uiModel.getProperty("/videoResolution") || "SCREEN";
-        const fps = parseInt(uiModel.getProperty("/videoFps") as string, 10) || 30;
-        const videoQuality = uiModel.getProperty("/videoQuality") || "HIGH";
+        const mode = uiModel.getProperty(UiState.RECORDING_MODE_INPUT) || "SCREEN";
+        const resolution = uiModel.getProperty(UiState.VIDEO_RESOLUTION) || "SCREEN";
+        const fps = parseInt(uiModel.getProperty(UiState.VIDEO_FPS) as string, 10) || 30;
+        const videoQuality = uiModel.getProperty(UiState.VIDEO_QUALITY) || "HIGH";
         
-        const delaySeconds = uiModel.getProperty("/videoDelay") || 0;
-        const maxLengthSeconds = uiModel.getProperty("/videoMaxLength") || 150;
-        const videoTitle = uiModel.getProperty("/videoTitle") || "";
-        const videoSubtitle = uiModel.getProperty("/videoSubtitle") || "";
+        const delaySeconds = uiModel.getProperty(UiState.VIDEO_DELAY) || 0;
+        const maxLengthSeconds = uiModel.getProperty(UiState.VIDEO_MAX_LENGTH) || 150;
+        const videoTitle = uiModel.getProperty(UiState.VIDEO_TITLE) || "";
+        const videoSubtitle = uiModel.getProperty(UiState.VIDEO_SUBTITLE) || "";
 
         // 1. Polymorphic Factory Instantiation
         if (mode === "CANVAS") {
             const diagramModel = this.view.getModel("diagramData") as JSONModel;
-            const sEngine = diagramModel ? diagramModel.getProperty("/engine") : "";
+            const sEngine = diagramModel ? diagramModel.getProperty(DiagramData.ENGINE) : "";
             if (sEngine !== "CYTOSCAPE") {
                 this.handleRecordingError("Diagram Only mode is only supported for the interactive Cytoscape engine. Please use Entire Screen mode for SVG diagrams.");
                 return;
@@ -142,12 +143,12 @@ export default class VideoRecordHandler {
 
         // Reset base UI state; lifecycle management is now fully delegated to the engines
         this.updateUIState({
-            isRecording: false,
-            isCountingDown: false,
-            isWaitingForPermission: false, 
-            recordingTime: "00:00",
-            isVideoPaused: false,
-            recordingMode: mode
+            [UiState.IS_RECORDING]: false,
+            [UiState.IS_COUNTING_DOWN]: false,
+            [UiState.IS_WAITING_FOR_PERMISSION]: false, 
+            [UiState.RECORDING_TIME]: "00:00",
+            [UiState.IS_VIDEO_PAUSED]: false,
+            [UiState.RECORDING_MODE]: mode
         });
 
         // 2. Build Unified Execution Payload
@@ -157,10 +158,10 @@ export default class VideoRecordHandler {
             fps: fps,
             videoQuality: videoQuality,
             delaySeconds: delaySeconds,
-            onWaitingForPermission: () => this.updateUIState({ isWaitingForPermission: true }),
-            onPermissionGranted: () => this.updateUIState({ isWaitingForPermission: false }),
-            onCountdown: (sec: number) => this.updateUIState({ isWaitingForPermission: false, isCountingDown: true, countdownTime: sec }),
-            onStart: () => this.updateUIState({ isWaitingForPermission: false, isCountingDown: false, isRecording: true }),
+            onWaitingForPermission: () => this.updateUIState({ [UiState.IS_WAITING_FOR_PERMISSION]: true }),
+            onPermissionGranted: () => this.updateUIState({ [UiState.IS_WAITING_FOR_PERMISSION]: false }),
+            onCountdown: (sec: number) => this.updateUIState({ [UiState.IS_WAITING_FOR_PERMISSION]: false, [UiState.IS_COUNTING_DOWN]: true, [UiState.COUNTDOWN_TIME]: sec }),
+            onStart: () => this.updateUIState({ [UiState.IS_WAITING_FOR_PERMISSION]: false, [UiState.IS_COUNTING_DOWN]: false, [UiState.IS_RECORDING]: true }),
             onStop: (blob: Blob) => this.handleRecordingStop(blob),
             onError: (err: string) => this.handleRecordingError(err),
             onTick: (ms: number) => this.handleRecordingTick(ms),
@@ -185,12 +186,12 @@ export default class VideoRecordHandler {
 
         if (this.recorder) this.recorder.stopRecording();
         
-        if (uiModel && (uiModel.getProperty("/isCountingDown") || uiModel.getProperty("/isWaitingForPermission"))) {
+        if (uiModel && (uiModel.getProperty(UiState.IS_COUNTING_DOWN) || uiModel.getProperty(UiState.IS_WAITING_FOR_PERMISSION))) {
             this.updateUIState({ 
-                isCountingDown: false, 
-                isRecording: false, 
-                isWaitingForPermission: false, 
-                recordingTime: "00:00"
+                [UiState.IS_COUNTING_DOWN]: false, 
+                [UiState.IS_RECORDING]: false, 
+                [UiState.IS_WAITING_FOR_PERMISSION]: false, 
+                [UiState.RECORDING_TIME]: "00:00"
             });
         }
     }
@@ -201,7 +202,7 @@ export default class VideoRecordHandler {
      */
     public pauseRecording(): void {
         if (this.recorder) this.recorder.pauseRecording();
-        this.updateUIState({ isVideoPaused: true });
+        this.updateUIState({ [UiState.IS_VIDEO_PAUSED]: true });
     }
 
     /**
@@ -210,7 +211,7 @@ export default class VideoRecordHandler {
      */
     public resumeRecording(): void {
         if (this.recorder) this.recorder.resumeRecording();
-        this.updateUIState({ isVideoPaused: false });
+        this.updateUIState({ [UiState.IS_VIDEO_PAUSED]: false });
     }
 
     /**
@@ -219,11 +220,11 @@ export default class VideoRecordHandler {
      */
     private handleAutoPause(): void {
         const uiModel = this.view.getModel("ui") as JSONModel;
-        if (uiModel && uiModel.getProperty("/isRecording") && !uiModel.getProperty("/isVideoPaused") && !uiModel.getProperty("/_autoPaused")) {
+        if (uiModel && uiModel.getProperty(UiState.IS_RECORDING) && !uiModel.getProperty(UiState.IS_VIDEO_PAUSED) && !uiModel.getProperty(UiState.AUTO_PAUSED)) {
             if (this._autoPauseTimer === null) {
                 this._autoPauseTimer = window.setTimeout(() => {
                     if (this.recorder) this.recorder.systemPause();
-                    this.updateUIState({ _autoPaused: true });
+                    this.updateUIState({ [UiState.AUTO_PAUSED]: true });
                     this._autoPauseTimer = null;
                 }, 250) as unknown as number;
             }
@@ -241,8 +242,8 @@ export default class VideoRecordHandler {
         }
 
         const uiModel = this.view.getModel("ui") as JSONModel;
-        if (uiModel && uiModel.getProperty("/isRecording") && uiModel.getProperty("/_autoPaused")) {
-            this.updateUIState({ _autoPaused: false });
+        if (uiModel && uiModel.getProperty(UiState.IS_RECORDING) && uiModel.getProperty(UiState.AUTO_PAUSED)) {
+            this.updateUIState({ [UiState.AUTO_PAUSED]: false });
             if (this.recorder) this.recorder.systemResume();
         }
     }
@@ -253,11 +254,11 @@ export default class VideoRecordHandler {
      */
     private handleRecordingStop(blob: Blob): void {
         this.updateUIState({ 
-            isRecording: false, 
-            isCountingDown: false, 
-            isWaitingForPermission: false, 
-            recordingTime: "00:00", 
-            isVideoPaused: false
+            [UiState.IS_RECORDING]: false, 
+            [UiState.IS_COUNTING_DOWN]: false, 
+            [UiState.IS_WAITING_FOR_PERMISSION]: false, 
+            [UiState.RECORDING_TIME]: "00:00", 
+            [UiState.IS_VIDEO_PAUSED]: false
         });
 
         // ENTERPRISE FIX: Guard against 0-byte blobs caused by browser occlusion culling
@@ -281,11 +282,11 @@ export default class VideoRecordHandler {
      */
     private handleRecordingError(errorMsg: string): void {
         this.updateUIState({ 
-            isRecording: false, 
-            isCountingDown: false, 
-            isWaitingForPermission: false, 
-            recordingTime: "00:00", 
-            isVideoPaused: false
+            [UiState.IS_RECORDING]: false, 
+            [UiState.IS_COUNTING_DOWN]: false, 
+            [UiState.IS_WAITING_FOR_PERMISSION]: false, 
+            [UiState.RECORDING_TIME]: "00:00", 
+            [UiState.IS_VIDEO_PAUSED]: false
         });
         MessageToast.show(`${this.textFormatter("msgRecordingFailed")}: ${errorMsg}`);
     }
@@ -297,7 +298,7 @@ export default class VideoRecordHandler {
         const totalSeconds = Math.floor(elapsedMs / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        this.updateUIState({ recordingTime: `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}` });
+        this.updateUIState({ [UiState.RECORDING_TIME]: `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}` });
     }
 
     /**
@@ -306,9 +307,9 @@ export default class VideoRecordHandler {
     private handleToggleStealth(): void {
         if (!ViewStateHelper.isViewVisible(this.view)) return;
         const uiModel = this.view.getModel("ui") as JSONModel;
-        if (!uiModel || !uiModel.getProperty("/enableVideoRecording")) return;
+        if (!uiModel || !uiModel.getProperty(UiState.ENABLE_VIDEO_RECORDING)) return;
         
-        if (uiModel.getProperty("/isRecording") || uiModel.getProperty("/isCountingDown") || uiModel.getProperty("/isWaitingForPermission")) {
+        if (uiModel.getProperty(UiState.IS_RECORDING) || uiModel.getProperty(UiState.IS_COUNTING_DOWN) || uiModel.getProperty(UiState.IS_WAITING_FOR_PERMISSION)) {
             this.stopRecording();
         } else {
             this.startRecording();
@@ -325,6 +326,6 @@ export default class VideoRecordHandler {
         
         const uiModel = this.view.getModel("ui") as JSONModel;
         if (!uiModel) return;
-        Object.keys(state).forEach(key => uiModel.setProperty(`/${key}`, state[key]));
+        Object.keys(state).forEach(path => uiModel.setProperty(path, state[path]));
     }
 }

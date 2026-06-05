@@ -10,13 +10,13 @@ actor "SAP Fiori User" as User
 node "Browser Environment (Client-Side Rendering)" {
     
     database "Browser LocalStorage" as LS {
-        [Variant Configs (5MB Quota)]
         [Search History]
     }
 
     package "SAPUI5 EventBus (Asynchronous Bridge)" as EventBus <<Node>> #FFF9C4
 
     package "Flexible Column Layout: Left Pane" #E3F2FD {
+        [RouteManager (Deep Links)] as Router
         [Selection.controller] as SelCtrl
         [DiagramService] as DiagSvc
         [DiagramCache (LRU)] as LRU
@@ -24,14 +24,17 @@ node "Browser Environment (Client-Side Rendering)" {
         [SelectionStateHandler] as StateHand
         [DiagramGenerationHandler] as GenHand
         [SessionStateCache] as Session
+        [VariantService] as VarSvc
 
+        Router -down-> VarSvc : Hydrates Viewer Link
         SelCtrl -down-> GenHand : Generates
-        SelCtrl -down-> VarHand : Manages Config
-        VarHand -left-> LS : Saves/Loads
+        SelCtrl -down-> VarHand : Prompts User Intent
+        SelCtrl -down-> VarSvc : Persists/Shares via Backend
         GenHand -right-> Session : Saves Breadcrumb State
         GenHand -down-> DiagSvc : Fetches Data
         DiagSvc <--> LRU : Caches Payloads (Immutability)
         GenHand -right-> EventBus : Publishes (RENDER_REQUEST)
+        Router -right-> EventBus : Publishes (RENDER_REQUEST)
     }
 
     package "Flexible Column Layout: Right Pane" #FBE9E7 {
@@ -103,7 +106,9 @@ cloud "Public Internet" as PublicNet {
 
 User -down-> SelCtrl : Form Input
 User -down-> DiagCtrl : Canvas Interaction
+User -down-> Router : URL Hash (#/viewer/..)
 DiagSvc <--> OData : HTTP GET (JSON)
+VarSvc <--> OData : HTTP GET/POST/PATCH
 PumlEngine <--> PumlServer : HTTP GET (Deflated Base64)
 CyEngine ..> CDN : Fetches Plugins (Fallback)
 GvEngine ..> CDN : Fetches WASM (Fallback)

@@ -95,6 +95,13 @@
       },
       "routes": [
         {
+          "name": "RouteViewer",
+          "pattern": "viewer/{variantId}",
+          "target": [
+            "TargetMain"
+          ]
+        },
+        {
           "name": "RouteMain",
           "pattern": ":?query:",
           "target": [

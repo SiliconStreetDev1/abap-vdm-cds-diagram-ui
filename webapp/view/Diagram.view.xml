@@ -11,6 +11,7 @@
 
             <ToolbarSpacer />
             
+            <Button id="btnCloneToWorkspace" icon="sap-icon://duplicate" text="{i18n>btnClone}" type="Emphasized" press="onCloneToWorkspace" visible="{ui>/isViewerMode}" class="sapUiTinyMarginEnd" />
             <Button id="btnStartRecord" icon="sap-icon://record" text="{i18n>btnRecord}" type="Reject" press="onStartRecording" visible="{= ${ui>/enableVideoRecording} === true &amp;&amp; !${ui>/isRecording} &amp;&amp; !${ui>/isCountingDown} &amp;&amp; !${ui>/isWaitingForPermission} &amp;&amp; ${ui>/stealthMode} !== true }" class="sapUiTinyMarginEnd" />
 
             <HBox visible="{ui>/isWaitingForPermission}" alignItems="Center" class="sapUiTinyMarginEnd">
@@ -61,7 +62,7 @@
 
         <HBox visible="{view>/isFocusMode}" class="focusBadgeContainer sapUiLargeMarginTop" alignItems="Center" justifyContent="Center">
              <Label text="{view>/focusNodeName}" design="Bold" class="sapUiSmallMarginEnd" />
-             <Button icon="sap-icon://chain-link" text="Drill Down" press=".onFocusDrillDown" type="Transparent" class="sapUiTinyMarginEnd" tooltip="Open this view" />
+             <Button icon="sap-icon://chain-link" text="Drill Down" press=".onFocusDrillDown" type="Transparent" class="sapUiTinyMarginEnd" tooltip="Open this view" visible="{= !${ui>/isViewerMode} }" />
              <core:Icon src="sap-icon://decline" press=".onClearFocus" color="#d32f2f" tooltip="Clear Focus" cursor="pointer" class="actionIcon sapUiTinyMarginBegin" />
         </HBox>
 
@@ -94,7 +95,7 @@
             
             <Button id="btnShowHidden" icon="sap-icon://show" press=".onOpenHiddenNodes" tooltip="Manage Hidden Nodes (Shift+H)" visible="{view>/hasHiddenNodes}" class="btnIconOrange" />
             <core:HTML content='&lt;div style="width: 1px; height: 1.75rem; background: var(--sapContent_ForegroundBorderColor, #e5e5e5); margin: 0 0.25rem;"&gt;&lt;/div&gt;' />
-            <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note (Shift+N)" class="btnIconOrange" enabled="{= !${view>/isDrillDown} }" />
+            <Button id="btnAddNote" icon="sap-icon://notes" press="onAddNote" tooltip="Add Sticky Note (Shift+N)" class="btnIconOrange" visible="{= !${ui>/isViewerMode} }" enabled="{= !${ui>/isDrillDown} }" />
         </HBox>
 
         <VBox height="100%" width="100%" justifyContent="Center" alignItems="Center" renderType="Bare">

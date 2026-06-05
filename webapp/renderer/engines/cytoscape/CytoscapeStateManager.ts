@@ -17,8 +17,6 @@ export default class CytoscapeStateManager {
         const state: Record<string, any> = {};
         if (!cyInstance) return state;
         
-        state.__camera = { zoom: cyInstance.zoom(), pan: cyInstance.pan() };
-        
         cyInstance.nodes().forEach((n: NodeSingular) => {
             state[n.data('id')] = { ...n.position() };
             state[n.data('id')].isPinned = !!n.data('isPinned');

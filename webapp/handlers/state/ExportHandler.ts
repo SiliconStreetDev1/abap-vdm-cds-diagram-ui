@@ -10,11 +10,11 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
 import File from "sap/ui/core/util/File";
-import FileDownloadUtility from "../helpers/FileDownloadUtility";
-import ViewStateHelper from "../helpers/ViewStateHelper";
-import Renderer from "../renderer/Renderer";
-import { EngineType } from "../types";
-import { DiagramData } from "../constants/StateConstants";
+import FileDownloadUtility from "../../helpers/FileDownloadUtility";
+import ViewStateHelper from "../../helpers/ViewStateHelper";
+import Renderer from "../../renderer/Renderer";
+import { EngineType } from "../../types";
+import { DiagramData } from "../../constants/StateConstants";
 
 export default class ExportHandler {
     private _oView: View;
@@ -58,6 +58,7 @@ export default class ExportHandler {
         }
 
         ViewStateHelper.setAppBusy(true, this._oView, "Generating high-resolution PNG... Please wait.");
+        ViewStateHelper.setAppBusy(true, this._oView, "Generating high-resolution SVG... Please wait.");
 
         try {
             if (Renderer.supportsNativePngExport(oData.engine)) {

@@ -104,13 +104,28 @@ export default class CytoscapeLayoutManager {
             if (bIsHybrid) {
                 layoutConfig = CytoscapeLayoutBuilder.build({ ...parsedConfig, layout: 'cose' }, iNodeCount);
             } else {
-                layoutConfig = { name: 'preset', animate: false, fit: parsedConfig.camera ? false : true };
+                layoutConfig = { name: 'preset', animate: false, fit: true };
             }
         }
 
         const fnUnlock = () => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.nodes().filter((n: NodeSingular) => !n.data('isPinned')).unlock();
+
+                // ENTERPRISE UX: Smart Fit (Viewport Drift Prevention)
+                // Absolute camera coordinates saved on a 4K monitor will push diagrams off-screen on laptops.
+                // Unless this is an explicit Undo/Redo sequence, we gracefully force a global bounding box fit.
+                if (!parsedConfig.isRestore) {
+                    cyInstance.scratch('_isSystemViewportChange', true);
+                    cyInstance.fit(cyInstance.elements(), 50);
+                    
+                    // Cap the maximum zoom for tiny diagrams to prevent absurdly large rendering
+                    if (cyInstance.zoom() > 1.2) {
+                        cyInstance.zoom(1.2);
+                        cyInstance.center(cyInstance.elements());
+                    }
+                    cyInstance.scratch('_isSystemViewportChange', false);
+                }
             }
         };
 

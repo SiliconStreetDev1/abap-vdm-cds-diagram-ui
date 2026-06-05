@@ -4,6 +4,7 @@
  * Manages memory constraints and serialization to guarantee payload immutability.
  */
 import { IDiagramResult, IDiagramRequest } from "./DiagramService";
+import Renderer from "../renderer/Renderer";
 
 export default class DiagramCache {
     private static _responseCache: Map<string, string> = new Map();
@@ -13,8 +14,16 @@ export default class DiagramCache {
         this._responseCache.clear();
     }
 
+    private static _generateKey(oRequest: IDiagramRequest): string {
+        const cacheReq = { ...oRequest };
+        if (Renderer.supportsLiveUpdate(cacheReq.engine)) {
+            cacheReq.formatConfigJson = ""; // Prevent cosmetic UI changes from busting the network cache
+        }
+        return JSON.stringify(cacheReq);
+    }
+
     public static get(oRequest: IDiagramRequest): IDiagramResult | null {
-        const sRequestHash = JSON.stringify(oRequest);
+        const sRequestHash = this._generateKey(oRequest);
         const sCachedResponse = this._responseCache.get(sRequestHash);
         
         if (sCachedResponse) {
@@ -31,7 +40,7 @@ export default class DiagramCache {
     }
 
     public static set(oRequest: IDiagramRequest, oResult: IDiagramResult): void {
-        const sRequestHash = JSON.stringify(oRequest);
+        const sRequestHash = this._generateKey(oRequest);
         
         // ENTERPRISE FIX: Ensure key is promoted to the end of the Map even if it already exists
         this._responseCache.delete(sRequestHash);

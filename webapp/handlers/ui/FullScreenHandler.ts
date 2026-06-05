@@ -6,7 +6,7 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Control from "sap/ui/core/Control";
-import ViewStateHelper from "../helpers/ViewStateHelper";
+import ViewStateHelper from "../../helpers/ViewStateHelper";
 
 type FullscreenElement = HTMLElement & {
     requestFullscreen?: () => Promise<void>;

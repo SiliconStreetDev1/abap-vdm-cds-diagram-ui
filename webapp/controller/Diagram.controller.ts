@@ -13,21 +13,24 @@ import Event from "sap/ui/base/Event";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResourceBundle from "sap/base/i18n/ResourceBundle";
 import Control from "sap/ui/core/Control";
+import MessageToast from "sap/m/MessageToast";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
+import UIComponent from "sap/ui/core/UIComponent";
 
-import ExportHandler from "../handlers/ExportHandler";
-import FullScreenHandler from "../handlers/FullScreenHandler";
-import CanvasActionHandler from "../handlers/CanvasActionHandler";
-import CanvasKeyboardHandler from "../handlers/CanvasKeyboardHandler";
-import HiddenNodesHandler from "../handlers/HiddenNodesHandler";
-import NoteDialogHandler from "../handlers/NoteDialogHandler";
-import UndoHandler from "../handlers/UndoHandler";
-import DiagramRenderHandler from "../handlers/DiagramRenderHandler";
-import VideoRecordHandler from "../handlers/VideoRecordHandler";
+import ExportHandler from "../handlers/state/ExportHandler";
+import FullScreenHandler from "../handlers/ui/FullScreenHandler";
+import CanvasActionHandler from "../handlers/canvas/CanvasActionHandler";
+import CanvasKeyboardHandler from "../handlers/canvas/CanvasKeyboardHandler";
+import HiddenNodesHandler from "../handlers/ui/HiddenNodesHandler";
+import NoteDialogHandler from "../handlers/ui/NoteDialogHandler";
+import UndoHandler from "../handlers/canvas/UndoHandler";
+import DiagramRenderHandler from "../handlers/canvas/DiagramRenderHandler";
+import VideoRecordHandler from "../handlers/state/VideoRecordHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
+import { ViewState, UiState, ModelNames } from "../constants/StateConstants";
 
 export default class Diagram extends Controller {
     
@@ -77,7 +80,7 @@ export default class Diagram extends Controller {
             focusNodeName: "",
             hasNodeSelected: false,
             tempFocusMode: false
-        }), "view");
+        }), ModelNames.VIEW);
         
         // Data model storage required for ExportHandler operations
         oView.setModel(new JSONModel({ 
@@ -88,7 +91,7 @@ export default class Diagram extends Controller {
             rootCdsName: "",
             breadcrumbLinks: [],
             currentBreadcrumb: ""
-        }), "diagramData");
+        }), ModelNames.DIAGRAM_DATA);
 
         // Initialize the export service
         this._oRenderHandler = new DiagramRenderHandler(oView, this.getOwnerComponent()?.getEventBus(), this._getText.bind(this));
@@ -136,6 +139,44 @@ export default class Diagram extends Controller {
     }
 
     // ========================================================================
+    
+    /**
+     * @public
+     * @description Executed from the Viewer presentation canvas. Detaches the unlisted 
+     * Variant UUID from memory, restores the builder layout panels, and allows the 
+     * consumer to save the current visual snapshot as their own private variant.
+     * @returns {void}
+     */
+    public onCloneToWorkspace(): void {
+        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (!oUiModel) return;
+
+        // 1. Detach the original creator's Variant UUID from memory
+        oUiModel.setProperty(UiState.SELECTED_VARIANT, "");
+        oUiModel.setProperty(UiState.VARIANT_DIRTY, true);
+
+        // 2. Restore Builder interaction constraints
+        oUiModel.setProperty(UiState.IS_VIEWER_MODE, false);
+        oUiModel.setProperty(UiState.FCL_LAYOUT, "TwoColumnsMidExpanded");
+
+        // 3. Purge the deep link from the URL without triggering an OS-level page reload
+        const oRouter = (this.getOwnerComponent() as UIComponent)?.getRouter();
+        if (oRouter) {
+            oRouter.navTo("RouteMain", {}, undefined, true);
+        }
+        
+        // Re-hydrate the Selection pane with the cloned variant's state
+        const variantState = oUiModel.getProperty("/loadedVariantState");
+        if (variantState) {
+            oUiModel.setProperty("/clonedVariantName", variantState.name ? `Copy of ${variantState.name}` : "");
+            const oEventBus = this.getOwnerComponent()?.getEventBus();
+            if (oEventBus) {
+                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, variantState);
+            }
+        }
+
+        MessageToast.show(this._getText("msgClonedToWorkspace"));
+    }
     // CANVAS ACTION DELEGATIONS
     // ========================================================================
     
@@ -175,6 +216,10 @@ export default class Diagram extends Controller {
      * @description Fires a drill-down request for a specific breadcrumb, gracefully returning the user.
      */
     public onBreadcrumbPress(oEvent: Event): void {
+        // ENTERPRISE SECURE: Block breadcrumb drill-downs in read-only Viewer Mode
+        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (oUiModel && oUiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
+
         const oLink = oEvent.getSource() as Link;
         const sViewName = oLink.getText();
         if (sViewName) {
@@ -190,7 +235,11 @@ export default class Diagram extends Controller {
      * @description Fires a drill-down request for the currently focused entity.
      */
     public onFocusDrillDown(): void {
-        const sViewName = (this.getView()?.getModel("view") as JSONModel)?.getProperty("/focusNodeName");
+        // ENTERPRISE SECURE: Block popup drill-downs in read-only Viewer Mode
+        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (oUiModel && oUiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
+
+        const sViewName = (this.getView()?.getModel(ModelNames.VIEW) as JSONModel)?.getProperty(ViewState.FOCUS_NODE_NAME);
         if (sViewName) {
             const oEventBus = this.getOwnerComponent()?.getEventBus();
             if (oEventBus) {
@@ -213,7 +262,7 @@ export default class Diagram extends Controller {
      * @returns {string} Translated text.
      */
     private _getText(sKey: string, aArgs?: any[]): string {
-        const oModel = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
+        const oModel = this.getOwnerComponent()?.getModel(ModelNames.I18N) as ResourceModel;
         const oBundle = oModel?.getResourceBundle() as ResourceBundle;
         return oBundle ? oBundle.getText(sKey, aArgs) || sKey : sKey;
     }

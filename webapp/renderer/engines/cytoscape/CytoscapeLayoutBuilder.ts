@@ -24,8 +24,8 @@ export default class CytoscapeLayoutBuilder {
     public static build(config: IParsedCytoscapeConfig, nodeCount: number = 0): ICytoscapeLayoutConfig {
         let oBaseConfig: ICytoscapeLayoutConfig = {
             name: config.layout,
-            animate: config.camera ? false : config.animate,
-            fit: config.camera ? false : true,
+            animate: config.animate,
+            fit: true,
             padding: 50,
             nodeDimensionsIncludeLabels: true
         };

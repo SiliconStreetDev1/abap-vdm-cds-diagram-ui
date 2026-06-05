@@ -9,8 +9,9 @@ import Dialog from "sap/m/Dialog";
 import List from "sap/m/List";
 import MessageToast from "sap/m/MessageToast";
 import Context from "sap/ui/model/Context";
-import Renderer from "../renderer/Renderer";
-import { DomEvents } from "../constants/EventConstants";
+import Renderer from "../../renderer/Renderer";
+import { DomEvents } from "../../constants/EventConstants";
+import { ViewState, DiagramData } from "../../constants/StateConstants";
 
 export default class HiddenNodesHandler {
     private _oView: View;
@@ -49,9 +50,9 @@ export default class HiddenNodesHandler {
     }
 
     public showAll(): void {
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.showHiddenNodes(this._getInstanceId(), sEngine);
-        (this._oView.getModel("view") as JSONModel).setProperty("/hasHiddenNodes", false);
+        (this._oView.getModel("view") as JSONModel).setProperty(ViewState.HAS_HIDDEN_NODES, false);
         MessageToast.show("All hidden nodes restored");
         this.closeDialog();
         (this._oView.byId("listHiddenNodes") as List)?.removeSelections(true);
@@ -68,13 +69,13 @@ export default class HiddenNodesHandler {
         }
         
         const aIds = aSelectedContexts.map((oCtx: Context) => oCtx.getProperty("id"));
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
         Renderer.showSpecificNodes(this._getInstanceId(), sEngine, aIds);
         oList.removeSelections(true);
         
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        const aRemaining = oViewModel.getProperty("/hiddenNodesList") || [];
+        const aRemaining = oViewModel.getProperty(ViewState.HIDDEN_NODES_LIST) || [];
         if (aRemaining.length <= aIds.length) {
             this.closeDialog();
         }
@@ -91,8 +92,8 @@ export default class HiddenNodesHandler {
         const aHiddenNodes = oCustomEvent.detail?.hiddenNodes || [];
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/hasHiddenNodes", bHasHidden);
-            oViewModel.setProperty("/hiddenNodesList", aHiddenNodes);
+            oViewModel.setProperty(ViewState.HAS_HIDDEN_NODES, bHasHidden);
+            oViewModel.setProperty(ViewState.HIDDEN_NODES_LIST, aHiddenNodes);
         }
     }
 }

@@ -7,9 +7,10 @@
 import View from "sap/ui/core/mvc/View";
 import EventBus from "sap/ui/core/EventBus";
 import JSONModel from "sap/ui/model/json/JSONModel";
-import { DomEvents, EventChannels, EventIds } from "../constants/EventConstants";
-import Renderer from "../renderer/Renderer";
-import { IRenderRequestPayload } from "../types";
+import { DomEvents, EventChannels, EventIds } from "../../constants/EventConstants";
+import { DiagramData } from "../../constants/StateConstants";
+import Renderer from "../../renderer/Renderer";
+import { IRenderRequestPayload } from "../../types";
 
 export default class UndoHandler {
     private _oView: View;
@@ -156,8 +157,8 @@ export default class UndoHandler {
     private _getStack(): string[] {
         const oDataModel = this._oView.getModel("diagramData") as JSONModel;
         if (!oDataModel) return [];
-        const aLinks = oDataModel.getProperty("/breadcrumbLinks") || [];
-        const sCurrent = oDataModel.getProperty("/currentBreadcrumb") || oDataModel.getProperty("/cdsName") || "DEFAULT";
+        const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+        const sCurrent = oDataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || oDataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
         const aPath = aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase());
         const sKey = aPath.join('|');
         if (!this._mStacks[sKey]) {
@@ -214,7 +215,7 @@ export default class UndoHandler {
         const oDataModel = this._oView.getModel("diagramData") as JSONModel;
         if (!oDataModel) return;
         
-        const sEngine = oDataModel.getProperty("/engine");
+        const sEngine = oDataModel.getProperty(DiagramData.ENGINE);
         if (Renderer.supportsStateCapture(sEngine)) {
             const state = Renderer.getCanvasState(this._getInstanceId(), sEngine);
             if (state) {
@@ -275,7 +276,7 @@ export default class UndoHandler {
         const oDataModel = this._oView.getModel("diagramData") as JSONModel;
         
         if (oUiModel && oDataModel) {
-            const sEngine = oDataModel.getProperty("/engine");
+            const sEngine = oDataModel.getProperty(DiagramData.ENGINE);
             if (Renderer.supportsStateCapture(sEngine)) {
                 const oModelData = oUiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);

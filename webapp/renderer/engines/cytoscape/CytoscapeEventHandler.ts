@@ -16,10 +16,10 @@ export default class CytoscapeEventHandler {
      * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      * @returns {void}
      */
-    public static attachEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean): void {
+    public static attachEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean = false): void {
         this._attachLayoutEvents(sViewId, cyInstance);
         this._attachSelectionEvents(sViewId, cyInstance);
-        this._attachInteractionEvents(sViewId, cyInstance, bIsDrillDown);
+        this._attachInteractionEvents(sViewId, cyInstance, bIsDrillDown, bIsViewerMode);
         this._attachDragEvents(sViewId, cyInstance);
     }
 
@@ -98,7 +98,7 @@ export default class CytoscapeEventHandler {
      * @param {Core} cyInstance - The active Cytoscape.js instance.
      * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      */
-    private static _attachInteractionEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean): void {
+    private static _attachInteractionEvents(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean): void {
 
         // Enterprise UX: Clicking the background canvas instantly drops any active selections
         cyInstance.on('tap', (evt: EventObject) => {
@@ -120,11 +120,14 @@ export default class CytoscapeEventHandler {
 
             if (timeDiff > 0 && timeDiff < 400) {
                 if (node.hasClass('annotation-note')) {
-                    if (!bIsDrillDown) {
+                    if (!bIsDrillDown && !bIsViewerMode) {
                         if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { viewId: sViewId, id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
                     }
                     return;
                 }
+                
+                if (bIsViewerMode) return; // Completely enforce read-only presentation lockdown
+                
                 document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewId: sViewId, viewName: node.data('id') } }));
                 return;
             }
@@ -203,17 +206,6 @@ export default class CytoscapeEventHandler {
                 }
             }
         }));
-
-        let viewportTimeout: ReturnType<typeof setTimeout> | undefined;
-        cyInstance.on('viewport', () => {
-            if (cyInstance.scratch('_isLayoutActive')) return;
-            clearTimeout(viewportTimeout);
-            viewportTimeout = setTimeout(() => {
-                if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_VIEWPORT_CHANGED, { detail: { viewId: sViewId } }));
-                }
-            }, 300);
-        });
     }
 
     /**

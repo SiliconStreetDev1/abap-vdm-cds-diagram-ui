@@ -4,7 +4,11 @@
  * @description Encapsulates the dynamic HTML construction for right-click node menus.
  */
 import type { Core, NodeSingular, EventObject, NodeCollection } from "cytoscape";
-import { DomEvents } from "../../../constants/EventConstants";
+import BaseMenuStrategy from "./menu/BaseMenuStrategy";
+import ViewerMenuStrategy from "./menu/ViewerMenuStrategy";
+import DrillDownMenuStrategy from "./menu/DrillDownMenuStrategy";
+import BuilderEntityMenuStrategy from "./menu/BuilderEntityMenuStrategy";
+import BuilderNoteMenuStrategy from "./menu/BuilderNoteMenuStrategy";
 
 export default class CytoscapeContextMenu {
 
@@ -28,7 +32,7 @@ export default class CytoscapeContextMenu {
      * @param {boolean} bIsDrillDown - Whether the current canvas is in a read-only drill down state.
      * @returns {void}
      */
-    public static attach(sViewId: string, cyInstance: Core, bIsDrillDown: boolean): void {
+    public static attach(sViewId: string, cyInstance: Core, bIsDrillDown: boolean, bIsViewerMode: boolean): void {
         cyInstance.on('tap zoom pan', () => this.removeAll(sViewId));
 
         cyInstance.on('cxttap', 'node', (evt: EventObject) => {
@@ -87,13 +91,17 @@ export default class CytoscapeContextMenu {
             const totalCount = targetNodes.length;
             const suffix = totalCount > 1 ? ` (${totalCount})` : "";
 
-            if (bIsNote) {
-                if (!bIsDrillDown) {
-                    this._buildNoteMenu(sViewId, menu, targetNodes, node, cyInstance, suffix);
-                }
+            let strategy: BaseMenuStrategy;
+            if (bIsViewerMode) {
+                strategy = new ViewerMenuStrategy(sViewId);
+            } else if (bIsNote) {
+                strategy = new BuilderNoteMenuStrategy(sViewId);
+            } else if (bIsDrillDown) {
+                strategy = new DrillDownMenuStrategy(sViewId);
             } else {
-                this._buildEntityMenu(sViewId, menu, targetNodes, cyInstance, suffix, totalCount, bIsDrillDown);
+                strategy = new BuilderEntityMenuStrategy(sViewId);
             }
+            strategy.build(menu, targetNodes, node, cyInstance, suffix, totalCount);
 
             if (menu.childNodes.length > 0) {
                 container.appendChild(menu);
@@ -129,130 +137,5 @@ export default class CytoscapeContextMenu {
         menu.ontouchstart = (e) => e.stopPropagation();
         menu.oncontextmenu = (e) => e.preventDefault();
         return menu;
-    }
-
-    /**
-     * @private
-     * @static
-     * @description Builds the context menu items specific to annotation notes.
-     * @param {HTMLDivElement} menu - The DOM container for the menu.
-     * @param {NodeCollection} targetNodes - The collection of Cytoscape nodes to operate on.
-     * @param {NodeSingular} clickedNode - The specific node that was right-clicked.
-     * @param {Core} cyInstance - The Cytoscape graph instance.
-     * @param {string} suffix - Formatting string (e.g. "(3)") for bulk selections.
-     * @returns {void}
-     */
-    private static _buildNoteMenu(sViewId: string, menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string): void {
-        menu.appendChild(this._createMenuItem("✏️", `Edit Note${suffix}`, "#f57c00", sViewId, () => {
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { viewId: sViewId, id: clickedNode.id(), text: clickedNode.data('label'), fontFamily: clickedNode.data('fontFamily') } }));
-        }));
-
-        const selectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');
-        if (selectedEntities.length > 0) {
-            menu.appendChild(this._createMenuItem("🔗", `Link to Selected (${selectedEntities.length})`, "#0070f2", sViewId, () => {
-                targetNodes.forEach((n: NodeSingular) => {
-                    selectedEntities.forEach((e: NodeSingular) => {
-                        const edgeId = 'edge_' + n.id() + '_' + e.id();
-                        if (cyInstance.getElementById(edgeId).length === 0) {
-                            cyInstance.add({ group: 'edges', data: { id: edgeId, source: n.id(), target: e.id() }, classes: 'annotation-edge' });
-                        }
-                    });
-                });
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
-            }));
-        }
-        menu.appendChild(this._createMenuItem("✂️", `Unlink${suffix}`, "#d32f2f", sViewId, () => {
-            targetNodes.connectedEdges('.annotation-edge').remove();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
-        }));
-        menu.appendChild(this._createMenuItem("🗑️", `Delete Note${suffix}`, "#d32f2f", sViewId, () => {
-            targetNodes.remove();
-            if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
-        }));
-        
-        menu.appendChild(document.createElement("hr")).style.cssText = "margin: 0.25rem 0; border: none; border-top: 1px solid var(--sapContent_ForegroundBorderColor, #e5e5e5);";
-
-        menu.appendChild(this._createMenuItem("🟡", `Yellow${suffix}`, "#fbc02d", sViewId, () => { targetNodes.forEach((n: NodeSingular) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { viewId: sViewId, id: n.id(), bgColor: '#fff9c4', borderColor: '#fbc02d' } }))); }));
-        menu.appendChild(this._createMenuItem("🔵", `Blue${suffix}`, "#1976d2", sViewId, () => { targetNodes.forEach((n: NodeSingular) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { viewId: sViewId, id: n.id(), bgColor: '#e3f2fd', borderColor: '#1976d2' } }))); }));
-        menu.appendChild(this._createMenuItem("🟢", `Green${suffix}`, "#388e3c", sViewId, () => { targetNodes.forEach((n: NodeSingular) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { viewId: sViewId, id: n.id(), bgColor: '#e8f5e9', borderColor: '#388e3c' } }))); }));
-        menu.appendChild(this._createMenuItem("🔴", `Pink${suffix}`, "#d32f2f", sViewId, () => { targetNodes.forEach((n: NodeSingular) => document.dispatchEvent(new CustomEvent(DomEvents.CHANGE_NOTE_COLOR_REQUEST, { detail: { viewId: sViewId, id: n.id(), bgColor: '#ffebee', borderColor: '#d32f2f' } }))); }));
-    }
-
-    /**
-     * @private
-     * @static
-     * @description Builds the context menu items specific to structural CDS entities.
-     * @param {HTMLDivElement} menu - The DOM container for the menu.
-     * @param {NodeCollection} targetNodes - The collection of Cytoscape nodes to operate on.
-     * @param {Core} cyInstance - The Cytoscape graph instance.
-     * @param {string} suffix - Formatting string (e.g. "(3)") for bulk selections.
-     * @param {number} totalCount - Total number of nodes in selection.
-     * @param {boolean} bIsDrillDown - Whether the user is currently drilled down.
-     * @returns {void}
-     */
-    private static _buildEntityMenu(sViewId: string, menu: HTMLDivElement, targetNodes: NodeCollection, cyInstance: Core, suffix: string, totalCount: number, bIsDrillDown: boolean): void {
-        if (!bIsDrillDown) {
-            menu.appendChild(this._createMenuItem("📝", `Add Linked Note${suffix}`, "#f57c00", sViewId, () => {
-                cyInstance.elements().unselect();
-                targetNodes.select();
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: sViewId } }));
-            }));
-        }
-
-        const lockedCount = targetNodes.filter(':locked').length;
-        if (lockedCount < totalCount) {
-            menu.appendChild(this._createMenuItem("📌", `Pin${suffix}`, "#d32f2f", sViewId, () => { targetNodes.data('isPinned', true).lock(); document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, { detail: { viewId: sViewId } })); }));
-        } 
-        if (lockedCount > 0) {
-            menu.appendChild(this._createMenuItem("🔓", `Unlock${suffix}`, "#4caf50", sViewId, () => { targetNodes.data('isPinned', false).unlock(); document.dispatchEvent(new CustomEvent(DomEvents.NODE_PINNED, { detail: { viewId: sViewId } })); }));
-        }
-        menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", sViewId, () => {
-            // Cascade hide to linked annotation notes
-            const linkedNotes = targetNodes.connectedEdges('.annotation-edge').connectedNodes('.annotation-note');
-            const nodesToHide = targetNodes.union(linkedNotes);
-            
-            nodesToHide.addClass('hidden').data('isHidden', true).unselect();
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, { detail: { viewId: sViewId } }));
-            const hiddenList = cyInstance.nodes('.hidden').map((n: NodeSingular) => ({ id: n.id(), label: n.data('label') || n.id() }));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: hiddenList.length > 0, hiddenNodes: hiddenList } }));
-        }));
-    }
-
-    /**
-     * @private
-     * @static
-     * @description Stitches and wires Fiori-themed clickable interaction row units.
-     * @param {string} icon - Native OS string literal character or emoji to use for semantic identification.
-     * @param {string} text - Standard textual label.
-     * @param {string} color - Semantic Fiori CSS text color.
-     * @param {Function} onClick - Action trigger callback mapping back to Cytoscape.
-     * @returns {HTMLDivElement} - Styled interactive interaction tier element.
-     */
-    private static _createMenuItem(icon: string, text: string, color: string, sViewId: string, onClick: () => void): HTMLDivElement {
-        const item = document.createElement("div");
-        item.style.padding = "0.5rem 1rem";
-        item.style.cursor = "pointer";
-        item.style.color = "var(--sapTextColor, #32363a)";
-        item.style.fontSize = "0.875rem";
-        item.style.display = "flex";
-        item.style.alignItems = "center";
-        item.style.gap = "0.5rem";
-        item.style.transition = "background-color 0.2s";
-        
-        item.onmouseover = () => item.style.backgroundColor = "var(--sapList_Hover_Background, #f5f5f5)";
-        item.onmouseout = () => item.style.backgroundColor = "transparent";
-        
-        item.innerHTML = `<span style="color: ${color}; font-size: 1rem;">${icon}</span> <span>${text}</span>`;
-        
-        const fireAction = (e: Event) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onClick();
-            this.removeAll(sViewId);
-        };
-        item.onmousedown = fireAction;
-        item.ontouchstart = fireAction;
-
-        return item;
     }
 }

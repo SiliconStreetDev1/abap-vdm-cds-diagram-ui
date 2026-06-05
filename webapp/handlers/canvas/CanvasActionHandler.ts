@@ -13,8 +13,9 @@ import ResponsivePopover from "sap/m/ResponsivePopover";
 import Slider from "sap/m/Slider";
 import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
-import Renderer from "../renderer/Renderer";
-import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
+import Renderer from "../../renderer/Renderer";
+import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
+import { UiState, ViewState, DiagramData } from "../../constants/StateConstants";
 
 export default class CanvasActionHandler {
     private _oView: View;
@@ -81,8 +82,8 @@ export default class CanvasActionHandler {
      */
     public toggleMinimap(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
-        (this._oView.getModel("view") as JSONModel).setProperty("/showMinimap", bPressed);
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        (this._oView.getModel("view") as JSONModel).setProperty(ViewState.SHOW_MINIMAP, bPressed);
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.toggleMinimap(this._getInstanceId(), sEngine, bPressed);
     }
 
@@ -96,9 +97,9 @@ export default class CanvasActionHandler {
         const sMode = (oEvent.getSource() as SegmentedButton).getSelectedKey();
         const bSelectMode = (sMode === "select");
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        oViewModel.setProperty("/isSelectMode", bSelectMode);
+        oViewModel.setProperty(ViewState.IS_SELECT_MODE, bSelectMode);
         
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.setInteractionMode(this._getInstanceId(), sEngine, bSelectMode ? "select" : "pan");
     }
 
@@ -110,9 +111,9 @@ export default class CanvasActionHandler {
     public toggleTempFocusMode(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        if (oViewModel) oViewModel.setProperty("/tempFocusMode", bPressed);
+        if (oViewModel) oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, bPressed);
         
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.setTempFocusMode(this._getInstanceId(), sEngine, bPressed);
     }
 
@@ -123,7 +124,7 @@ export default class CanvasActionHandler {
      */
     public changeSpacing(): void {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
         if (oUiModel && this._oEventBus && Renderer.supportsLiveUpdate(sEngine)) {
             const oModelData = oUiModel.getData();
@@ -179,7 +180,7 @@ export default class CanvasActionHandler {
      */
     public searchCanvas(oEvent: SearchField$SearchEvent): void {
         const sQuery = oEvent.getParameter("query") || "";
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine");
+        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.searchCanvas(this._getInstanceId(), sEngine, sQuery);
     }
 
@@ -189,7 +190,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public clearSelection(): void {
-        Renderer.clearSelection(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
+        Renderer.clearSelection(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
     }
 
     /**
@@ -198,7 +199,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public selectAll(): void {
-        Renderer.selectAll(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty("/engine"));
+        Renderer.selectAll(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
     }
 
     /**
@@ -209,8 +210,8 @@ export default class CanvasActionHandler {
     private _onCloseMinimapRequest(oEvent: globalThis.Event): void {
         const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string }>;
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
-        (this._oView.getModel("view") as JSONModel)?.setProperty("/showMinimap", false);
-        Renderer.toggleMinimap(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel)?.getProperty("/engine"), false);
+        (this._oView.getModel("view") as JSONModel)?.setProperty(ViewState.SHOW_MINIMAP, false);
+        Renderer.toggleMinimap(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE), false);
     }
 
     /**
@@ -223,13 +224,13 @@ export default class CanvasActionHandler {
         if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/isFocusMode", oCustomEvent.detail?.isFocused || false);
-            oViewModel.setProperty("/focusNodeName", oCustomEvent.detail?.nodeName || "");
+            oViewModel.setProperty(ViewState.IS_FOCUS_MODE, oCustomEvent.detail?.isFocused || false);
+            oViewModel.setProperty(ViewState.FOCUS_NODE_NAME, oCustomEvent.detail?.nodeName || "");
             if (oCustomEvent.detail?.hasNodeSelected !== undefined) {
-                oViewModel.setProperty("/hasNodeSelected", oCustomEvent.detail.hasNodeSelected);
+                oViewModel.setProperty(ViewState.HAS_NODE_SELECTED, oCustomEvent.detail.hasNodeSelected);
             }
             if (oCustomEvent.detail?.tempFocusMode !== undefined) {
-                oViewModel.setProperty("/tempFocusMode", oCustomEvent.detail.tempFocusMode);
+                oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, oCustomEvent.detail.tempFocusMode);
             }
         }
     }

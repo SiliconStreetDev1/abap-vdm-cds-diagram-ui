@@ -1,5 +1,5 @@
 @startuml
-title Variant Persistence & Hydration Pipeline
+title Variant Persistence, Sharing & Cloning Pipeline
 
 skinparam handwritten false
 skinparam responseMessageBelowArrow true
@@ -8,31 +8,63 @@ actor User
 participant "Selection\nController" as Ctrl
 participant "Variant\nHandler" as VHandler
 participant "VariantState\nMapper" as Mapper
-participant "Variant\nManager" as Storage
 participant "Renderer\n(Facade)" as Renderer
+participant "Variant\nService" as Service
+participant "OData V4\nBackend" as Backend
+participant "Route\nManager" as Router
 
+== 1. Save Variant ==
 User -> Ctrl : Clicks "Save Variant"
 activate Ctrl
-Ctrl -> VHandler : openSaveDialog()
+Ctrl -> VHandler : promptSave()
 activate VHandler
 User -> VHandler : Enters Name & Confirms
-VHandler -> Mapper : captureState(view, name, bSavePositions)
+VHandler --> Ctrl : Intent Payload
+deactivate VHandler
+
+Ctrl -> Mapper : captureState()
 activate Mapper
-Mapper -> Renderer : getCanvasState(sEngine)
+Mapper -> Renderer : getCanvasState()
 activate Renderer
 Renderer --> Mapper : Canvas X/Y, Zoom, Pins
 deactivate Renderer
-Mapper --> VHandler : IVariantState (DTO)
+Mapper --> Ctrl : IVariantState (DTO)
 deactivate Mapper
 
-VHandler -> Storage : saveVariant(IVariantState)
-activate Storage
-Storage -> Storage : Check 5MB Quota\nJSON.stringify()
-Storage --> VHandler : Updated Variant List
-deactivate Storage
+Ctrl -> Service : create/updateVariant(IVariantState)
+activate Service
+Service -> Backend : POST/PATCH /Variant
+Service --> Ctrl : Updated Variant List
+deactivate Service
+deactivate Ctrl
 
-VHandler --> Ctrl : UI Dropdown Updated
-deactivate VHandler
+== 2. Share Variant (Deep Link) ==
+User -> Ctrl : Clicks "Share"
+activate Ctrl
+Ctrl -> Service : generateShareLink(VariantId)
+activate Service
+Service -> Backend : PATCH (isUnlisted = true)
+Service --> Ctrl : Success
+deactivate Service
+Ctrl -> Ctrl : Copy URL to Clipboard (#/viewer/{id})
+deactivate Ctrl
+
+== 3. View & Clone (Recipient) ==
+User -> Router : Opens Share Link (#/viewer/{id})
+activate Router
+Router -> Service : getVariantById({id})
+activate Service
+Service -> Backend : GET /Variant({id})
+Service --> Router : IVariantState
+deactivate Service
+Router -> Router : Lock UI (Viewer Mode)
+Router --> User : Renders Read-Only Canvas
+deactivate Router
+
+User -> Ctrl : Clicks "Clone to Workspace"
+activate Ctrl
+Ctrl -> Ctrl : Detach Variant UUID & Restore UI
+Ctrl --> User : Ready for Private Save
 deactivate Ctrl
 
 @enduml

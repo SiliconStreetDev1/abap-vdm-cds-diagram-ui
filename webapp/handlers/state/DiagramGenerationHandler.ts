@@ -10,15 +10,16 @@ import MessageToast from "sap/m/MessageToast";
 import Input from "sap/m/Input";
 import Select from "sap/m/Select";
 
-import DiagramRequestMapper from "../helpers/DiagramRequestMapper";
-import DiagramService from "../services/DiagramService";
-import VariantService from "../services/VariantService";
-import SearchHistoryService from "../services/SearchHistoryService";
-import SessionStateCache from "../helpers/SessionStateCache";
-import ViewStateHelper from "../helpers/ViewStateHelper";
-import { EngineType, IRenderRequestPayload } from "../types";
-import { EventChannels, EventIds } from "../constants/EventConstants";
-import Renderer from "../renderer/Renderer";
+import DiagramRequestMapper from "../../helpers/DiagramRequestMapper";
+import DiagramService from "../../services/DiagramService";
+import VariantService from "../../services/VariantService";
+import SearchHistoryService from "../../services/SearchHistoryService";
+import SessionStateCache from "../../helpers/SessionStateCache";
+import ViewStateHelper from "../../helpers/ViewStateHelper";
+import { EngineType, IRenderRequestPayload } from "../../types";
+import { EventChannels, EventIds } from "../../constants/EventConstants";
+import { UiState, ModelNames } from "../../constants/StateConstants";
+import Renderer from "../../renderer/Renderer";
 
 export default class DiagramGenerationHandler {
     private view: View;
@@ -66,8 +67,8 @@ export default class DiagramGenerationHandler {
             return;
         }
 
-        const uiModel = this.view.getModel("ui") as JSONModel;
-        const lastCdsName = uiModel.getProperty("/lastGeneratedCdsName");
+        const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
+        const lastCdsName = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
         const engine = ((this.view.byId("selEngine") as Select)?.getSelectedKey() || Renderer.getDefaultEngine()) as EngineType;
         
         if (lastCdsName && lastCdsName !== cdsName && !isRestore && !isVariantApply) {
@@ -76,14 +77,13 @@ export default class DiagramGenerationHandler {
                 const formatKey = Object.keys(modelData).find(key => key.toUpperCase() === `FORMAT${engine}`);
                 if (formatKey) {
                     uiModel.setProperty(`/${formatKey}/presetPositions`, null);
-                    uiModel.setProperty(`/${formatKey}/camera`, null);
                     if (uiModel.getProperty(`/${formatKey}/layout_algorithm`) === "preset") {
                         uiModel.setProperty(`/${formatKey}/layout_algorithm`, "dagre");
                     }
                 }
             }
         }
-        uiModel.setProperty("/lastGeneratedCdsName", cdsName);
+        uiModel.setProperty(UiState.LAST_GENERATED_CDS, cdsName);
 
         if (!isDrillDown) {
             this.rootCdsName = cdsName;
@@ -110,20 +110,20 @@ export default class DiagramGenerationHandler {
             return;
         }
 
-        uiModel.setProperty("/isCanvasStale", false);
+        uiModel.setProperty(UiState.IS_CANVAS_STALE, false);
 
         if (this.eventBus) {
             this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
         }
 
-        ViewStateHelper.setAppBusy(true, this.view);
+        ViewStateHelper.setAppBusy(true, this.view, true);
 
         try {
             const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
             const result = await DiagramService.fetchDiagram(odataModel, request);
 
             SearchHistoryService.updateHistory(result.CdsName);
-            (this.view.getModel("history") as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
+            (this.view.getModel(ModelNames.HISTORY) as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
 
             if (this.eventBus) {
                 const payload: IRenderRequestPayload = {
@@ -145,7 +145,7 @@ export default class DiagramGenerationHandler {
             }
             
         } catch (error: any) {
-            uiModel.setProperty("/isCanvasStale", true);
+            uiModel.setProperty(UiState.IS_CANVAS_STALE, true);
             MessageToast.show(this.getText(error.message) || error.message);
             if (this.eventBus) this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
         } finally {

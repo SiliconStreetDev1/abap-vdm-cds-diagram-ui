@@ -58,7 +58,8 @@ When exploring massive enterprise models, use the **Minimap Toggle** in the tool
 
 ### 7. Custom Layouts & Variant Persistence
 * **Drag and Drop Positioning:** Entities can now be freely dragged and positioned anywhere on the canvas.
-* **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved directly to the SAP Backend as View Variants.
+* **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved directly to the SAP ABAP Backend as View Variants.
+* **Deep Link Sharing:** Generate shareable URLs for specific diagrams that open in a locked-down, read-only Viewer Mode.
 * **Undo/Redo Stack:** Integrated `Ctrl+Z` support (and a dedicated UI toolbar button) utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
 * **Grid Snapping:** Toggleable alignment guides and strict snap-to-grid constraints for precise architectural mapping.
 
@@ -95,7 +96,7 @@ The canvas supports several native keyboard shortcuts for rapid architecture mod
 * `Shift + H`: Open the Hidden Entities manager.
 * `Shift + M`: Toggle the Bird's-Eye Minimap.
 
-### 13. How Variants Work (State Persistence)
+### 13. Variants, Sharing & Cloning (State Persistence)
 The Variant system acts as a comprehensive persistence layer that takes a deep snapshot of your current analysis session and saves it to the SAP ABAP Backend via an OData V4 API. 
 
 > **Architecture Note (JSON CLOB Pattern):** The backend leverages SAP RAP. To accommodate the highly dynamic nature of physical canvas coordinates and layout settings, standard database columns handle metadata and security (Authorizations), while the actual diagram configuration is serialized into a single JSON String payload.
@@ -111,7 +112,13 @@ When you save a Variant, it captures:
 2. Click the **Save (Disk Icon)** in the Variants toolbar.
 3. Provide a name. You can opt to save the exact "Custom Layout" positions and choose whether to make the variant **Global (Public)**. Public variants can be viewed and updated by other architects, but their public status cannot be revoked to prevent workflow disruption.
 4. Restore this exact architectural state at any time by selecting the variant from the dropdown. 
-5. Instantly detach from a variant or wipe away any accidental canvas changes by clicking the **Clear** or **Revert** icons next to the variant selector.
+5. **Share Link (Unlisted):** Select a private variant and click the **Share** icon. This elevates the variant to an "Unlisted" status (accessible via a direct deep link but hidden from the public dropdown) and copies the URL to your clipboard.
+6. **Revoke Share:** Click the **Unlink** icon to instantly revoke share access, reverting the variant strictly to private.
+
+**Viewer Mode & Cloning:**
+When a colleague opens your Share Link, the application automatically boots into **Viewer Mode**. The UI panels are completely hidden to maximize canvas real estate, and all destructive actions (dragging, hiding, deleting) are locked down. 
+
+If the recipient wishes to modify the architecture or use it as a starting point, they can click the **Clone to Workspace** button. This instantly detaches the diagram from your shared UUID, restores the interactive builder UI panels, and allows them to freely modify the canvas and save it as their own private variant.
 
 ---
 ---

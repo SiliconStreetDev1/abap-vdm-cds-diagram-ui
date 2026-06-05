@@ -12,6 +12,8 @@ export const EventIds = {
     RENDER_REQUEST: "RenderRequest",
     LIVE_FORMAT_UPDATE: "LiveFormatUpdate",
     NODE_DRILL_DOWN: "NodeDrillDownRequest",
+    VIEWER_LOADING: "ViewerLoading",
+    APPLY_VARIANT_STATE: "ApplyVariantState",
     VIDEO_AUTO_PAUSE: "AutoPause",
     VIDEO_AUTO_RESUME: "AutoResume",
     VIDEO_STOP: "Stop",
@@ -38,7 +40,6 @@ export const DomEvents = {
     DELETE_SELECTION_REQUEST: "CdsDeleteSelectionRequest",
     NODES_VISIBILITY_CHANGED: "CdsNodesVisibilityChanged",
     FOCUS_MODE_CHANGED: "CdsFocusModeChanged",
-    CANVAS_VIEWPORT_CHANGED: "CdsCanvasViewportChanged",
     CANVAS_READY: "CdsCanvasReady",
     UNDO_REQUEST: "CdsUndoRequest"
 };

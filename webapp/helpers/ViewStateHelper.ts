@@ -13,8 +13,10 @@ import VBox from "sap/m/VBox";
 import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import UIComponent from "sap/ui/core/UIComponent";
+import BusyDialog from "sap/m/BusyDialog";
 
 export default class ViewStateHelper {
+    private static _busyDialog?: BusyDialog;
 
     /**
      * @public
@@ -27,6 +29,9 @@ export default class ViewStateHelper {
             activeEngine: Renderer.getDefaultEngine(),
             isCanvasStale: false,
             isDrillDown: false,
+            selectedVariant: "",
+            isGlobal: false,
+            isUnlisted: false,
             isRecording: false,
             isVideoPaused: false,
             _autoPaused: false,
@@ -121,16 +126,58 @@ export default class ViewStateHelper {
     /**
      * @public
      * @static
-     * @description Locks the entire Fiori application tile (both panes) instead of just the local view.
+     * @description Locks the entire Fiori application tile (both panes) with optional conversational text.
      * @param {boolean} bBusy - True to show the busy indicator, false to hide it.
-     * @param {View} oView - The active view used to resolve the Root Component.
+     * @param {View | UIComponent} oContext - The active view or overarching component.
+     * @param {string | boolean} [sTextOptions] - Custom text to display. If True, selects a fun random message.
      */
-    public static setAppBusy(bBusy: boolean, oView: View): void {
-        const oRootControl = (oView.getController()?.getOwnerComponent() as UIComponent)?.getRootControl();
-        if (oRootControl && typeof (oRootControl as any).setBusy === "function") {
-            (oRootControl as any).setBusy(bBusy);
+    public static setAppBusy(bBusy: boolean, oContext: View | UIComponent, sTextOptions?: string | boolean): void {
+        const oComponent = (typeof (oContext as any).getController === "function") 
+            ? ((oContext as View).getController()?.getOwnerComponent() as UIComponent)
+            : (oContext as UIComponent);
+            
+        const oRootControl = oComponent?.getRootControl();
+        
+        const oUiModel = oComponent?.getModel("ui") as JSONModel;
+        if (oUiModel) oUiModel.setProperty("/isFetching", bBusy); // Engage/Release the global keyboard hardware lock
+
+        if (bBusy) {
+            let sDisplayText = typeof sTextOptions === "string" ? sTextOptions : undefined;
+            if (sTextOptions === true) {
+                const aFunMessages = [
+                    "Your diagram is on its way! Please wait...",
+                    "Untangling the architecture...",
+                    "Summoning your CDS models...",
+                    "Calculating spatial physics...",
+                    "Routing relationships..."
+                ];
+                sDisplayText = aFunMessages[Math.floor(Math.random() * aFunMessages.length)];
+            }
+
+            if (sDisplayText) {
+                if (!this._busyDialog) {
+                    this._busyDialog = new BusyDialog();
+                }
+                if (typeof (oContext as any).addDependent === "function") {
+                    (oContext as View).addDependent(this._busyDialog);
+                }
+                this._busyDialog.setText(sDisplayText);
+                this._busyDialog.open();
+            } else {
+                if (oRootControl && typeof (oRootControl as any).setBusy === "function") {
+                    (oRootControl as any).setBusy(true);
+                } else if (typeof (oContext as any).setBusy === "function") {
+                    (oContext as View).setBusy(true);
+                }
+            }
         } else {
-            oView.setBusy(bBusy);
+            // Unconditionally release all locks
+            if (this._busyDialog) this._busyDialog.close();
+            if (oRootControl && typeof (oRootControl as any).setBusy === "function") {
+                (oRootControl as any).setBusy(false);
+            } else if (typeof (oContext as any).setBusy === "function") {
+                (oContext as View).setBusy(false);
+            }
         }
     }
 }

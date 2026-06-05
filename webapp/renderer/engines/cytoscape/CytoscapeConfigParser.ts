@@ -13,8 +13,9 @@ export interface IParsedCytoscapeConfig {
     nodeSpacing: number;
     snapGuides: boolean;
     isDrillDown: boolean;
+    isViewerMode?: boolean;
+    isRestore?: boolean;
     presetPositions: Record<string, any> | null;
-    camera?: { zoom: number, pan: { x: number, y: number } } | null;
 }
 
 export default class CytoscapeConfigParser {
@@ -36,8 +37,9 @@ export default class CytoscapeConfigParser {
             nodeSpacing: parseInt(format.node_spacing || format.nodeSpacing || "200", 10),
             snapGuides: format.snapGuides === true,
             isDrillDown: format.isDrillDown === true,
-            presetPositions: format.presetPositions || null,
-            camera: format.camera || null
+            isViewerMode: format.isViewerMode === true,
+            isRestore: format.isRestore === true,
+            presetPositions: format.presetPositions || null
         };
     }
 }

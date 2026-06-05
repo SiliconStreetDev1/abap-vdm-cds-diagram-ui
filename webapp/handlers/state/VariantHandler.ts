@@ -60,29 +60,33 @@ export default class VariantHandler {
                 selected: defaultGlobal 
             }).addStyleClass("sapUiSmallMarginTop");
 
-            const updateCheckboxStates = (name: string) => {
+            const updateStates = (name: string) => {
                 const existing = existingVariants.find((v: any) => v.name === name);
-                if (existing && existing.IsGlobal) {
-                    globalCheckbox.setSelected(true);
-                    globalCheckbox.setEnabled(false);
-                } else {
-                    globalCheckbox.setEnabled(true);
-                }
 
                 // Also sync the layout position checkbox to prevent wiping existing layouts accidentally
                 if (existing) {
                     positionCheckbox.setSelected(existing.savePositions ?? !!existing.canvasState);
+                    globalCheckbox.setSelected(!!existing.IsGlobal);
                 } else {
                     positionCheckbox.setSelected(defaultPositions);
+                    globalCheckbox.setSelected(defaultGlobal);
                 }
             };
 
-            inputField.attachLiveChange((e: any) => updateCheckboxStates(e.getParameter("value").trim()));
-            updateCheckboxStates(defaultName);
+            inputField.attachLiveChange((e: any) => updateStates(e.getParameter("value").trim()));
+            updateStates(defaultName);
 
             const saveDialog = new Dialog({
                 title: this.getText("ttSaveVariant"),
-                content: [new VBox({ items: [inputField, positionCheckbox, globalCheckbox] })],
+                content: [
+                    new VBox({ 
+                        items: [
+                            inputField, 
+                            positionCheckbox,
+                            globalCheckbox
+                        ] 
+                    })
+                ],
                 beginButton: new Button({
                     text: "Save",
                     type: "Emphasized",

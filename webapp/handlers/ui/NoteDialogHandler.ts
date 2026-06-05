@@ -12,12 +12,13 @@ import Select from "sap/m/Select";
 import Item from "sap/ui/core/Item";
 import VBox from "sap/m/VBox";
 import Label from "sap/m/Label";
-import { DomEvents } from "../constants/EventConstants";
+import { DomEvents } from "../../constants/EventConstants";
 
 export default class NoteDialogHandler {
     private _oView: View;
     private _fnPromptAddNoteBind!: EventListener;
     private _fnPromptEditNoteBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
     /**
      * @public
@@ -42,6 +43,8 @@ export default class NoteDialogHandler {
      * @returns {void}
      */
     public attachEvents(): void {
+        if (this._bIsAttached) return;
+        
         this._fnPromptAddNoteBind = ((oEvent: Event) => {
             if ((oEvent as CustomEvent<{ viewId: string }>).detail?.viewId && (oEvent as CustomEvent<{ viewId: string }>).detail?.viewId !== this._getInstanceId()) return;
             this.promptAddNote();
@@ -56,6 +59,7 @@ export default class NoteDialogHandler {
             document.addEventListener(DomEvents.PROMPT_ADD_NOTE_REQUEST, this._fnPromptAddNoteBind);
             document.addEventListener(DomEvents.PROMPT_EDIT_NOTE_REQUEST, this._fnPromptEditNoteBind);
         }
+        this._bIsAttached = true;
     }
 
     /**
@@ -64,10 +68,12 @@ export default class NoteDialogHandler {
      * @returns {void}
      */
     public detachEvents(): void {
+        if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
             document.removeEventListener(DomEvents.PROMPT_ADD_NOTE_REQUEST, this._fnPromptAddNoteBind);
             document.removeEventListener(DomEvents.PROMPT_EDIT_NOTE_REQUEST, this._fnPromptEditNoteBind);
         }
+        this._bIsAttached = false;
     }
 
     /**
