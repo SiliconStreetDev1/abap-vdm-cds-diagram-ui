@@ -31,6 +31,7 @@ import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 import { ViewState, UiState, ModelNames } from "../constants/StateConstants";
+import SoundscapeManager from "../services/SoundscapeManager";
 
 export default class Diagram extends Controller {
     
@@ -285,4 +286,17 @@ export default class Diagram extends Controller {
     public onPauseRecording(): void  { this._videoRecordHandler.pauseRecording(); }
     public onResumeRecording(): void { this._videoRecordHandler.resumeRecording(); }
 
+    /**
+     * @public
+     * @description Toggles UI Soundscapes and persists user preference to LocalStorage.
+     * @param {Event} oEvent - The toggle button event.
+     */
+    public onToggleAudio(oEvent: Event): void {
+        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (oUiModel) {
+            const bNewState = !oUiModel.getProperty(UiState.ENABLE_AUDIO);
+            oUiModel.setProperty(UiState.ENABLE_AUDIO, bNewState);
+            localStorage.setItem("vdmAudioEnabled", bNewState ? "true" : "false");
+        }
+    }
 }

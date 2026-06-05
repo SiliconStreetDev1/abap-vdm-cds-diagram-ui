@@ -120,6 +120,14 @@ When a user opens a Share Link, the application loads into **Viewer Mode**. The 
 
 If the recipient wishes to modify the architecture or use it as a starting point, they can click the **Clone to Workspace** button. This instantly detaches the diagram from your shared UUID, restores the interactive builder UI panels, and allows them to freely modify the canvas and save it as their own private variant.
 
+### 14. Procedural UI Soundscapes (Haptics)
+The application provides subtle acoustic feedback (wooden ticks, mechanical snaps, and digital chimes) for interactive actions like dropping nodes, pinning, undoing, and rendering completion. 
+* **Zero-Bloat Audio:** Powered by a decoupled procedural Web Audio engine (`rlo-engine`) that synthesizes sounds mathematically, eliminating the need to download heavy `.mp3` or `.wav` files.
+* **Non-Intrusive:** Designed for enterprise environments with very low volume profiles and acoustic debouncing. Can be instantly muted via the speaker icon in the toolbar (preference persists across sessions).
+
+### 15. Dynamic Loading Experiences
+Replaces the standard Fiori busy spinner with randomized, entertaining SVG animations (e.g., spinning UFOs, running dogs, aliens) and conversational text messages (e.g., "Untangling the architecture...") to improve the UX during heavy backend OData queries.
+
 ---
 ---
 
@@ -204,24 +212,5 @@ Manage external endpoints, CDN paths, and performance limits.
 | **State** | `FullScreenHandler.ts` | Eliminates brittle `if/else` checks by encapsulating OS-level transitions and Fiori CSS injections into isolated state classes. |
 | **Template Method** | `VideoRecorder.ts` | Enforces strict execution mutex locks and memory cleanup invariants for native browser video capture. |
 | **Portal** | `MinimapManager.ts`, `ViewStateHelper.ts` | Dynamically reparents DOM elements to the HTML5 Fullscreen layer to defeat OS-level `z-index` trapping. |
-| **Pub/Sub** | `EventBus` | Ensures Fiori Flexible Column Layout (FCL) panes communicate asynchronously, preventing tight memory coupling. |
+| **Pub/Sub** | `EventBus`, `SoundscapeManager.ts` | Ensures FCL panes and background UI haptics communicate entirely asynchronously, preventing tight memory coupling. |
 | **LRU Cache** | `DiagramCache.ts` | Intercepts repeated OData backend requests and serves immutable memory caches to eliminate network spam. |
-
-## 📄 License & Terms
-
-© 2026 Silicon Street Limited. All Rights Reserved.
-
-**Usage Terms:**
-1. **INTERNAL USE:** Permission is granted to use this code for internal business documentation purposes within a single organization at no cost.
-2. **NON-REDISTRIBUTION:** You may **NOT** redistribute, sell, or include this source code (or derivatives thereof) in any commercial software, package, or library.
-3. **PAID SERVICES:** Use of this code to provide paid consulting or documentation services to third parties requires a **Commercial License**.
-4. **MODIFICATIONS:** Any modifications remain subject to this license.
-
-**DISCLAIMER:** THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
-
-**FOR COMMERCIAL LICENSING INQUIRIES:** contact@siliconst.co.nz
-
-
-Third-party notices for included JS libraries are in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). 
-
-© 2026 Silicon Street Limited.

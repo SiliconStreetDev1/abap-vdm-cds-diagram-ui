@@ -44,7 +44,8 @@ export const UiState = {
     IS_COUNTING_DOWN: "/isCountingDown",
     IS_WAITING_FOR_PERMISSION: "/isWaitingForPermission",
     ENABLE_VIDEO_RECORDING: "/enableVideoRecording",
-    COUNTDOWN_TIME: "/countdownTime"
+    COUNTDOWN_TIME: "/countdownTime",
+    ENABLE_AUDIO: "/enableAudio"
 } as const;
 
 export const ViewState = {

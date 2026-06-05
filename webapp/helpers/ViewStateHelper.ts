@@ -51,6 +51,7 @@ export default class ViewStateHelper {
             countdownTime: 5,
             enableVideoRecording: false,
             stealthMode: false,
+            enableAudio: localStorage.getItem("vdmAudioEnabled") !== "false",
             ...Renderer.getEngineDefaults()
         };
         return new JSONModel(oDefaults);

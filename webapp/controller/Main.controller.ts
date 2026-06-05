@@ -12,6 +12,7 @@ import ViewStateHelper from "../helpers/ViewStateHelper";
 import RouteManager from "../services/RouteManager";
 import UIComponent from "sap/ui/core/UIComponent";
 import { UiState, ModelNames } from "../constants/StateConstants";
+import SoundscapeManager from "../services/SoundscapeManager";
 
 export default class Main extends Controller {
     
@@ -48,6 +49,9 @@ export default class Main extends Controller {
             oMsgModel.loadData(sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/messages.json"));
             component.setModel(oMsgModel, "messages");
 
+            // Initialize decoupled audio observer
+            SoundscapeManager.attachEvents(component.getEventBus());
+
             this._routeManager = new RouteManager(component);
             this._routeManager.attachRoutes();
         } else {
@@ -60,6 +64,7 @@ export default class Main extends Controller {
      * @description Lifecycle teardown. Severs global event listeners to prevent Ghost Events.
      */
     public onExit(): void {
+        SoundscapeManager.detachEvents();
         if (this._routeManager) this._routeManager.detachRoutes();
     }
 }

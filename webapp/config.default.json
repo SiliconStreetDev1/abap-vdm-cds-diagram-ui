@@ -16,7 +16,8 @@
     "navigatorJs": "./libs/cytoscape-navigator.js",
     "navigatorCss": "./libs/cytoscape.js-navigator.css",
     "elk": "./libs/elk.bundled.js",
-    "cytoscapeElk": "./libs/cytoscape-elk.js"
+    "cytoscapeElk": "./libs/cytoscape-elk.js",
+    "rloEngine": "./lib/rlo-engine.min.js"
   },
   "cdnPaths": {
     "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js",
@@ -31,6 +32,7 @@
     "navigatorJs": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape-navigator.js",
     "navigatorCss": "https://unpkg.com/cytoscape-navigator@2.0.1/cytoscape.js-navigator.css",
     "elk": "https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js",
-    "cytoscapeElk": "https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js"
+    "cytoscapeElk": "https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js",
+    "rloEngine": "https://cdn.jsdelivr.net/npm/rlo-engine/dist/rlo-engine.min.js"
   }
 }

@@ -41,6 +41,7 @@
             <Button id="btnDownloadSrc" icon="sap-icon://download" text="{i18n>btnDownloadSrc}" press="onDownloadSource" visible="{= ${view>/canExportSource} &amp;&amp; ${view>/hasDiagram} }" />
             <Button id="btnDownloadImg" icon="sap-icon://camera" text="{i18n>btnDownloadImg}" press="onDownloadImage" type="Emphasized" visible="{= ${view>/canExportImg} &amp;&amp; ${view>/hasDiagram} }" />
             <Button id="btnDownloadPng" icon="sap-icon://camera" text="{i18n>btnDownloadPng}" press="onDownloadPng" type="Attention" visible="{= ${view>/canExportImg} &amp;&amp; ${view>/hasDiagram} }" />
+            <Button id="btnToggleAudio" icon="{= ${ui>/enableAudio} ? 'sap-icon://sound' : 'sap-icon://sound-off' }" press="onToggleAudio" tooltip="Toggle UI Soundscapes" visible="{= !${ui>/isViewerMode} }" />
         </Toolbar>   
     
      <VBox id="diagramContainer" height="100%" width="100%" renderType="Bare" class="diagramWrapper {= ${view>/isSelectMode} ? 'selectModeActive' : '' }">
