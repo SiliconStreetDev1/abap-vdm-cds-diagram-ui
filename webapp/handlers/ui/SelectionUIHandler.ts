@@ -21,9 +21,13 @@ import ResponsivePopover from "sap/m/ResponsivePopover";
 import Slider from "sap/m/Slider";
 import Renderer from "../../renderer/Renderer";
 import { EngineType } from "../../types";
-import { EventChannels, EventIds } from "../../constants/EventConstants";
+import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
 import { UiState, ModelNames } from "../../constants/StateConstants";
 
+/**
+ * @class SelectionUIHandler
+ * @description Manages view-specific UI interaction handlers, format synchronizations, and popovers.
+ */
 export default class SelectionUIHandler {
     private _oView: View;
     private _oEventBus?: EventBus;
@@ -32,12 +36,46 @@ export default class SelectionUIHandler {
     private _oCdsValueHelpHandler?: CdsValueHelpHandler;
     private _oActiveSearchField?: Control;
     private _oSpacingPopover?: ResponsivePopover;
+    private _fnSliderUpdateBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} oView - The active UI5 View.
+     * @param {EventBus | undefined} oEventBus - Application event bus.
+     * @param {SelectionStateHandler} oStateHandler - State handler reference to alert dirty tracking.
+     * @param {Function} fnGetText - Delegate function for i18n translations.
+     */
     constructor(oView: View, oEventBus: EventBus | undefined, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
         this._oEventBus = oEventBus;
         this._oStateHandler = oStateHandler;
         this._fnGetText = fnGetText;
+    }
+
+    /**
+     * @public
+     * @description Attaches custom DOM event listeners.
+     */
+    public attachEvents(): void {
+        if (this._bIsAttached) return;
+        this._fnSliderUpdateBind = this.onSliderUpdate.bind(this) as EventListener;
+        if (typeof document !== "undefined") {
+            document.addEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+        }
+        this._bIsAttached = true;
+    }
+
+    /**
+     * @public
+     * @description Detaches custom DOM event listeners to prevent memory leaks on exit.
+     */
+    public detachEvents(): void {
+        if (!this._bIsAttached) return;
+        if (typeof document !== "undefined") {
+            document.removeEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+        }
+        this._bIsAttached = false;
     }
 
     /**

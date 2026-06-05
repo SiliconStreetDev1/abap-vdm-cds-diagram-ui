@@ -7,14 +7,53 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import Select from "sap/m/Select";
 import Renderer from "../../renderer/Renderer";
 import { UiState, ModelNames } from "../../constants/StateConstants";
+import { DomEvents } from "../../constants/EventConstants";
 
 export default class SelectionStateHandler {
     private _oView: View;
     private _fnGetText: (k: string, args?: any[]) => string;
+    private _fnCanvasStateChangedBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} oView - Reference to the active UI5 view.
+     * @param {Function} fnGetText - Delegate function for i18n translations.
+     */
     constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
         this._fnGetText = fnGetText;
+    }
+
+    /**
+     * @public
+     * @description Attaches custom DOM event listeners.
+     */
+    public attachEvents(): void {
+        if (this._bIsAttached) return;
+        this._fnCanvasStateChangedBind = this.onCanvasStateChanged.bind(this) as EventListener;
+        if (typeof document !== "undefined") {
+            document.addEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
+            document.addEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
+            document.addEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
+            document.addEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+        }
+        this._bIsAttached = true;
+    }
+
+    /**
+     * @public
+     * @description Detaches custom DOM event listeners to prevent memory leaks during component destruction.
+     */
+    public detachEvents(): void {
+        if (!this._bIsAttached) return;
+        if (typeof document !== "undefined") {
+            document.removeEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
+            document.removeEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
+            document.removeEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
+            document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+        }
+        this._bIsAttached = false;
     }
 
     /**

@@ -38,6 +38,10 @@ server:
         excludePatterns:
           - /Component-preload.js
 builder:
+  componentPreload:
+    excludes:
+      - "nz/co/siliconstreet/vdmdiagrammer/libs/rlo-engine.min.js"
+      - "nz/co/siliconstreet/vdmdiagrammer/lib/rlo-engine.min.js"
   customTasks:
     - name: ui5-tooling-transpile-task
       afterTask: replaceVersion

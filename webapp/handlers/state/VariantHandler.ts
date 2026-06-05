@@ -51,7 +51,8 @@ export default class VariantHandler {
 
             const positionCheckbox = new CheckBox({ 
                 text: "Save exact node positions (Custom Layout)", 
-                selected: defaultPositions, 
+                selected: true, 
+                enabled: false,
                 visible: showPositionCheckbox 
             }).addStyleClass("sapUiSmallMarginTop");
 
@@ -63,12 +64,9 @@ export default class VariantHandler {
             const updateStates = (name: string) => {
                 const existing = existingVariants.find((v: any) => v.name === name);
 
-                // Also sync the layout position checkbox to prevent wiping existing layouts accidentally
                 if (existing) {
-                    positionCheckbox.setSelected(existing.savePositions ?? !!existing.canvasState);
                     globalCheckbox.setSelected(!!existing.IsGlobal);
                 } else {
-                    positionCheckbox.setSelected(defaultPositions);
                     globalCheckbox.setSelected(defaultGlobal);
                 }
             };

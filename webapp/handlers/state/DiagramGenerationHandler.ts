@@ -20,8 +20,8 @@ import SessionStateCache from "../../helpers/SessionStateCache";
 import DiagramCache from "../../services/DiagramCache";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
-import { EventChannels, EventIds } from "../../constants/EventConstants";
-import { UiState, ModelNames } from "../../constants/StateConstants";
+import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
+import { UiState, ModelNames, DiagramData } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
 import VariantStateMapper from "../../helpers/VariantStateMapper";
 
@@ -31,6 +31,8 @@ export default class DiagramGenerationHandler {
     private getText: (key: string, args?: any[]) => string;
     private rootCdsName: string = "";
     private breadcrumbs: string[] = [];
+    private _fnNodeDrillDownRequestBind!: EventListener;
+    private _bIsAttached: boolean = false;
 
     /**
      * @public
@@ -51,6 +53,35 @@ export default class DiagramGenerationHandler {
      */
     private getInstanceId(): string {
         return this.view.getController()?.getOwnerComponent()?.getId() || this.view.getId();
+    }
+
+    /**
+     * @public
+     * @description Attaches custom DOM and EventBus listeners required for generation cycles.
+     */
+    public attachEvents(): void {
+        if (this._bIsAttached) return;
+        if (this.eventBus) {
+            this.eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
+            this.eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, this._restoreWorkspaceState, this);
+        }
+        this._fnNodeDrillDownRequestBind = this._onNodeDrillDownDOM.bind(this) as EventListener;
+        if (typeof document !== "undefined") document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
+        this._bIsAttached = true;
+    }
+
+    /**
+     * @public
+     * @description Detaches custom DOM and EventBus listeners to prevent memory leaks during component destruction.
+     */
+    public detachEvents(): void {
+        if (!this._bIsAttached) return;
+        if (this.eventBus) {
+            this.eventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
+            this.eventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, this._restoreWorkspaceState, this);
+        }
+        if (typeof document !== "undefined") document.removeEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
+        this._bIsAttached = false;
     }
 
     /**
@@ -119,6 +150,14 @@ export default class DiagramGenerationHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Prepares the UI model state before diagram generation, clearing specific layout parameters if moving between distinct views.
+     * @param {string} cdsName - Target CDS view name.
+     * @param {EngineType} engine - Selected rendering engine.
+     * @param {boolean} isRestore - Whether this generation is restoring a known layout.
+     * @param {boolean} isVariantApply - Whether this generation is strictly applying a variant.
+     */
     private _updateUiStateBeforeGeneration(cdsName: string, engine: EngineType, isRestore: boolean, isVariantApply: boolean): void {
         const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
         const lastCdsName = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
@@ -139,6 +178,12 @@ export default class DiagramGenerationHandler {
         uiModel.setProperty(UiState.IS_CANVAS_STALE, false);
     }
 
+    /**
+     * @private
+     * @description Maintains the breadcrumb trail stack and memory cache logic during standard and drill-down generations.
+     * @param {string} cdsName - Target CDS view name.
+     * @param {boolean} isDrillDown - Whether the generation is a child drill-down operation.
+     */
     private _manageBreadcrumbHierarchy(cdsName: string, isDrillDown: boolean): void {
         if (!isDrillDown) {
             this.rootCdsName = cdsName;
@@ -158,6 +203,16 @@ export default class DiagramGenerationHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Fetches or validates diagram data from the OData service.
+     * @param {ODataModel} odataModel - OData V4 Model.
+     * @param {any} request - Prepared DTO request.
+     * @param {string} cdsName - Target CDS view name.
+     * @param {boolean} forceRefresh - True to bypass LRU cache.
+     * @param {any} cachedResult - Existing cached payload if available.
+     * @returns {Promise<any>} Raw backend response payload.
+     */
     private async _fetchDiagramData(odataModel: ODataModel, request: any, cdsName: string, forceRefresh: boolean, cachedResult: any): Promise<any> {
         if (cachedResult) {
             return cachedResult;
@@ -177,6 +232,13 @@ export default class DiagramGenerationHandler {
         return await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
     }
 
+    /**
+     * @private
+     * @description Publishes the completed diagram payload to the local EventBus for the active rendering engine to ingest and process.
+     * @param {any} result - OData backend response payload.
+     * @param {EngineType} engine - Selected rendering engine.
+     * @param {boolean} isRestore - True if restoring a layout snapshot.
+     */
     private _publishRenderEvent(result: any, engine: EngineType, isRestore: boolean): void {
         if (!this.eventBus) return;
         
@@ -226,5 +288,93 @@ export default class DiagramGenerationHandler {
             (this.view.byId("cmbCdsName") as Input).setValue(viewName);
             this.generate(true, isRestore, false, false);
         }
+    }
+
+    /**
+     * @private
+     * @description EventBus listener for drill-down commands broadcasted across separated components.
+     * @param {string} channel - Channel name.
+     * @param {string} event - Event name.
+     * @param {Object} data - Payload data containing the target view name.
+     */
+    private _onEventBusDrillDown(channel: string, event: string, data: Object): void {
+        this.processDrillDown((data as { viewName?: string })?.viewName);
+    }
+
+    /**
+     * @private
+     * @description DOM event listener intercepting Cytoscape native click-to-drill events from the Canvas.
+     * @param {globalThis.Event} e - Native DOM Event.
+     */
+    private _onNodeDrillDownDOM(e: globalThis.Event): void {
+        const customEvent = e as unknown as CustomEvent<{ viewId: string, viewName: string }>;
+        if (customEvent.detail?.viewId && customEvent.detail.viewId !== this.getInstanceId()) return;
+        this.processDrillDown(customEvent.detail?.viewName as string);
+    }
+
+    /**
+     * @private
+     * @description EventBus listener for workspace clone and variant restoration events.
+     * Safely injects the targeted CDS name, binds the saved configuration to the Fiori UI Model,
+     * and executes the diagram generation cycle.
+     * @param {string} sChannel - EventBus channel.
+     * @param {string} sEvent - Event identifier.
+     * @param {any} oState - The raw variant payload containing metadata and coordinate mappings.
+     * @returns {Promise<void>} Resolves when generation succeeds.
+     */
+    private async _restoreWorkspaceState(sChannel: string, sEvent: string, oState: any): Promise<void> {
+        const variantState = oState;
+        if (variantState.cdsName) {
+            (this.view.byId("cmbCdsName") as Input).setValue(variantState.cdsName);
+        }
+        VariantStateMapper.applyState(this.view, variantState);
+        await this.generate(false, true, true);
+    }
+
+    /**
+     * @private
+     * @description Extracts the standardized breadcrumb path for the current drill-down state.
+     * Crucial for creating unique cache keys to prevent memory collision across different layout tiers.
+     * @returns {string} Pipe-separated path string.
+     */
+    private _getBreadcrumbPath(): string {
+        const dataModel = this.view.getModel("diagramData") as JSONModel;
+        if (!dataModel) return "";
+        const links = dataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+        const current = dataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || dataModel.getProperty(DiagramData.CDS_NAME) || "";
+        return links.map((l: any) => l.name).concat(current).map((s: string) => s.toUpperCase()).join('|');
+    }
+
+    /**
+     * @public
+     * @description Core drill-down orchestration logic. Evaluates the breadcrumb stack, 
+     * handles snapshot state caching of the current view, and safely routes the request to the diagram generator.
+     * @param {string} [viewName] - Target entity name.
+     * @returns {void}
+     */
+    public processDrillDown(viewName?: string): void {
+        if (!viewName) return;
+        const inputField = this.view.byId("cmbCdsName") as Input;
+        const currentCdsName = inputField ? inputField.getValue().trim().toUpperCase() : "";
+        const targetCdsName = viewName.toUpperCase();
+        const currentPath = this._getBreadcrumbPath();
+        const dataModel = this.view.getModel("diagramData") as JSONModel;
+        const links = dataModel ? dataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [] : [];
+        const index = links.findIndex((l: any) => l.name.toUpperCase() === targetCdsName);
+        const targetPath = index > -1 ? links.slice(0, index + 1).map((l: any) => l.name.toUpperCase()).join('|') : (currentPath ? currentPath + '|' : '') + targetCdsName;
+
+        if (currentCdsName && currentCdsName !== targetCdsName) {
+            const currentState = VariantStateMapper.captureState(this.view, currentCdsName, true);
+            SessionStateCache.set(this.getInstanceId(), currentPath, currentState);
+        }
+        const cachedState = SessionStateCache.get(this.getInstanceId(), targetPath);
+        if (cachedState) {
+            VariantStateMapper.applyState(this.view, cachedState);
+            this.handleDrillDown(viewName, true);
+            return;
+        }
+        const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel) uiModel.setProperty(UiState.VARIANT_DIRTY, true);
+        this.handleDrillDown(viewName, false);
     }
 }

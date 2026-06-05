@@ -18,14 +18,27 @@ export default class HiddenNodesHandler {
     private _fnVisibilityChangedBind!: EventListener;
     private _bIsAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} oView - Reference to the active UI5 view.
+     */
     constructor(oView: View) {
         this._oView = oView;
     }
 
+    /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
     private _getInstanceId(): string {
         return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
     }
 
+    /**
+     * @public
+     * @description Attaches custom DOM event listeners to monitor node visibility changes triggered by engine physics.
+     */
     public attachEvents(): void {
         if (this._bIsAttached) return;
         this._fnVisibilityChangedBind = this._onVisibilityChanged.bind(this) as EventListener;
@@ -33,22 +46,38 @@ export default class HiddenNodesHandler {
         this._bIsAttached = true;
     }
 
+    /**
+     * @public
+     * @description Detaches custom DOM event listeners to prevent memory leaks.
+     */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         document.removeEventListener(DomEvents.NODES_VISIBILITY_CHANGED, this._fnVisibilityChangedBind);
         this._bIsAttached = false;
     }
 
+    /**
+     * @public
+     * @description Opens the dialog displaying the list of all currently hidden entities.
+     */
     public openDialog(): void {
         const oDialog = this._oView.byId("popHiddenNodes") as Dialog;
         if (oDialog) oDialog.open();
     }
 
+    /**
+     * @public
+     * @description Closes the hidden entities dialog.
+     */
     public closeDialog(): void {
         const oDialog = this._oView.byId("popHiddenNodes") as Dialog;
         if (oDialog) oDialog.close();
     }
 
+    /**
+     * @public
+     * @description Restores all currently hidden entities back to the visible diagram canvas and forces a layout refresh.
+     */
     public showAll(): void {
         const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         Renderer.showHiddenNodes(this._getInstanceId(), sEngine);
@@ -58,6 +87,10 @@ export default class HiddenNodesHandler {
         (this._oView.byId("listHiddenNodes") as List)?.removeSelections(true);
     }
 
+    /**
+     * @public
+     * @description Restores only the specific entities selected in the dialog list back to the canvas.
+     */
     public restoreSelected(): void {
         const oList = this._oView.byId("listHiddenNodes") as List;
         if (!oList) return;
