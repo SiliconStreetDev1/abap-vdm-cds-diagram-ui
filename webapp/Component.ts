@@ -14,9 +14,9 @@ export default class Component extends BaseComponent {
         ]
 	};
 
-	public init() : void {
-		// call the base component's init function
-		super.init();
+    public init() : void {
+        // call the base component's init function
+        super.init();
 
         // Establish the Apex EventManager and attach the UI5 FCL bridge
         EventManager.getInstance().attachUi5Bridge(this.getEventBus());
@@ -26,5 +26,10 @@ export default class Component extends BaseComponent {
 
         // enable routing
         this.getRouter().initialize();
-	}
+    }
+
+    public destroy(): void {
+        EventManager.getInstance().detachUi5Bridge();
+        super.destroy();
+    }
 }

@@ -18,6 +18,7 @@ import ViewStateHelper from "../helpers/ViewStateHelper";
 export default class RouteManager {
     private component: UIComponent;
     private hashChangeBind!: EventListener;
+    private _modelContextChangeBind!: () => void;
 
     constructor(component: UIComponent) {
         this.component = component;
@@ -40,12 +41,14 @@ export default class RouteManager {
         window.addEventListener("hashchange", this.hashChangeBind);
     }
 
-    /**
-     * @public
-     * @description Explicitly detaches global window listeners to prevent SPA memory leaks.
-     */
     public detachRoutes(): void {
+        const router = this.component.getRouter();
+        if (router) {
+            const viewerRoute = router.getRoute("viewer");
+            if (viewerRoute) viewerRoute.detachPatternMatched(this.onViewerRouteMatched, this);
+        }
         if (this.hashChangeBind) window.removeEventListener("hashchange", this.hashChangeBind);
+        if (this._modelContextChangeBind) this.component.detachEvent("modelContextChange", this._modelContextChangeBind);
     }
 
     /**
@@ -81,7 +84,8 @@ export default class RouteManager {
         if (!uiModel || !odataModel) {
             // ENTERPRISE FIX: Eradicate arbitrary setTimeout hacks.
             // Listen natively to the UI5 lifecycle event for deferred model resolution.
-            this.component.attachEventOnce("modelContextChange", () => this.executeViewerMode(variantId));
+            this._modelContextChangeBind = () => this.executeViewerMode(variantId);
+            this.component.attachEventOnce("modelContextChange", this._modelContextChangeBind);
             return;
         }
 

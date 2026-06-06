@@ -73,6 +73,14 @@ export class EventManager {
 
     /**
      * @public
+     * @description Detaches the Fiori UI5 EventBus bridge to prevent memory leaks during Component teardown.
+     */
+    public detachUi5Bridge(): void {
+        this.ui5EventBus = undefined;
+    }
+
+    /**
+     * @public
      * @description Toggles global diagnostic logging for all events routed through the manager.
      * @param {boolean} state - True to enable verbose console output.
      */

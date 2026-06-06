@@ -22,8 +22,7 @@ import Context from "sap/ui/model/Context";
 import { DiagramData, ViewState } from "../../constants/StateConstants";
 
 export default class DialogManager {
-    private static _oView: View | null = null;
-    private static _oHiddenNodesDialog: Dialog | null = null;
+    private static _mViews: Map<string, View> = new Map();
     private static _subscriptions: any[] = [];
     private static _bIsAttached: boolean = false;
 
@@ -32,13 +31,9 @@ export default class DialogManager {
      * @static
      * @description Bootstraps the Dialog Manager with the active view.
      */
-    public static bootstrap(oView: View): void {
-        this._oView = oView;
+    public static bootstrap(sViewId: string, oView: View): void {
+        this._mViews.set(sViewId, oView);
         this.attachEvents();
-    }
-
-    private static _getInstanceId(): string {
-        return this._oView?.getController()?.getOwnerComponent()?.getId() || this._oView?.getId() || "";
     }
 
     /**
@@ -55,7 +50,7 @@ export default class DialogManager {
             EventManager.getInstance().subscribe("ui:restoreSelectedNodes", (e: any) => this._handleRestoreSelected(e)),
             EventManager.getInstance().subscribe("ui:showAllHiddenNodes", (e: any) => this._handleShowAllHidden(e)),
             EventManager.getInstance().subscribe("canvas:nodesVisibilityChanged", (e: any) => this._onVisibilityChanged(e)),
-            EventManager.getInstance().subscribe("canvas:promptAddNoteRequest", (e: any) => this.promptAddNote()),
+            EventManager.getInstance().subscribe("canvas:promptAddNoteRequest", (e: any) => this.promptAddNote(e)),
             EventManager.getInstance().subscribe("canvas:promptEditNoteRequest", (e: any) => this.promptEditNote(e))
         ];
 
@@ -66,14 +61,22 @@ export default class DialogManager {
      * @public
      * @static
      * @description Destroys all cached dialogs and detaches events.
+     * Wait, since this is called by ToolboxManager.destroy(), we should ideally pass viewId.
+     * But since destroy() doesn't take viewId right now, let's add it. Wait, ToolboxManager.destroy() was already updated to not call DialogManager.destroy() unless it's the last view.
+     * Actually, let's just make a clear method for the specific view.
      */
-    public static destroy(): void {
-        if (!this._bIsAttached) return;
-        this._bIsAttached = false;
-        this._subscriptions.forEach((sub: any) => sub.dispose());
-        this._subscriptions = [];
-        this._oView = null;
-        this._oHiddenNodesDialog = null;
+    public static destroy(sViewId?: string): void {
+        if (sViewId) {
+            this._mViews.delete(sViewId);
+        }
+        
+        if (!sViewId || this._mViews.size === 0) {
+            if (!this._bIsAttached) return;
+            this._bIsAttached = false;
+            this._subscriptions.forEach((sub: any) => sub.dispose());
+            this._subscriptions = [];
+            this._mViews.clear();
+        }
     }
 
     // ========================================================================
@@ -81,14 +84,18 @@ export default class DialogManager {
     // ========================================================================
 
     private static _handleOpenDialog(payload: any): void {
-        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
-        if (payload.dialogType === "HiddenNodes") this._openHiddenNodesDialog();
+        const sViewId = payload?.viewId;
+        if (!sViewId || !this._mViews.has(sViewId)) return;
+        if (payload.dialogType === "HiddenNodes") this._openHiddenNodesDialog(sViewId);
     }
 
     private static _handleCloseDialog(payload: any): void {
-        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
-        if (payload.dialogType === "HiddenNodes" && this._oHiddenNodesDialog) {
-            this._oHiddenNodesDialog.close();
+        const sViewId = payload?.viewId;
+        if (!sViewId || !this._mViews.has(sViewId)) return;
+        if (payload.dialogType === "HiddenNodes") {
+            const oView = this._mViews.get(sViewId);
+            const dialog = oView?.byId("popHiddenNodes") as Dialog;
+            if (dialog) dialog.close();
         }
     }
 
@@ -96,25 +103,35 @@ export default class DialogManager {
     // HIDDEN NODES LOGIC
     // ========================================================================
 
-    private static _openHiddenNodesDialog(): void {
-        if (!this._oView) return;
-        this._oHiddenNodesDialog = this._oView.byId("popHiddenNodes") as Dialog;
-        if (this._oHiddenNodesDialog) this._oHiddenNodesDialog.open();
+    private static _openHiddenNodesDialog(sViewId: string): void {
+        const oView = this._mViews.get(sViewId);
+        if (!oView) return;
+        const dialog = oView.byId("popHiddenNodes") as Dialog;
+        if (dialog) dialog.open();
     }
 
     private static _handleShowAllHidden(payload: any): void {
-        if (!this._oView) return;
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.showHiddenNodes(this._getInstanceId(), sEngine);
-        (this._oView.getModel("view") as JSONModel).setProperty(ViewState.HAS_HIDDEN_NODES, false);
+        const sViewId = payload?.viewId;
+        const oView = this._mViews.get(sViewId);
+        if (!oView) return;
+        
+        const sEngine = (oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.showHiddenNodes(sViewId, sEngine);
+        (oView.getModel("view") as JSONModel).setProperty(ViewState.HAS_HIDDEN_NODES, false);
         MessageToast.show("All hidden nodes restored");
-        if (this._oHiddenNodesDialog) this._oHiddenNodesDialog.close();
-        (this._oView.byId("listHiddenNodes") as List)?.removeSelections(true);
+        
+        const dialog = oView.byId("popHiddenNodes") as Dialog;
+        if (dialog) dialog.close();
+        
+        (oView.byId("listHiddenNodes") as List)?.removeSelections(true);
     }
 
     private static _handleRestoreSelected(payload: any): void {
-        if (!this._oView) return;
-        const oList = this._oView.byId("listHiddenNodes") as List;
+        const sViewId = payload?.viewId;
+        const oView = this._mViews.get(sViewId);
+        if (!oView) return;
+        
+        const oList = oView.byId("listHiddenNodes") as List;
         if (!oList) return;
         
         const aSelectedContexts = oList.getSelectedContexts();
@@ -124,25 +141,27 @@ export default class DialogManager {
         }
         
         const aIds = aSelectedContexts.map((oCtx: Context) => oCtx.getProperty("id"));
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        const sEngine = (oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
-        Renderer.showSpecificNodes(this._getInstanceId(), sEngine, aIds);
+        Renderer.showSpecificNodes(sViewId, sEngine, aIds);
         oList.removeSelections(true);
         
-        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const oViewModel = oView.getModel("view") as JSONModel;
         const aRemaining = oViewModel.getProperty(ViewState.HIDDEN_NODES_LIST) || [];
         if (aRemaining.length <= aIds.length) {
-            if (this._oHiddenNodesDialog) this._oHiddenNodesDialog.close();
+            const dialog = oView.byId("popHiddenNodes") as Dialog;
+            if (dialog) dialog.close();
         }
     }
 
-    private static _onVisibilityChanged(oEvent: any): void {
-        if (!this._oView) return;
-        const payload = oEvent as any;
-        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
+    private static _onVisibilityChanged(payload: any): void {
+        const sViewId = payload?.viewId;
+        const oView = this._mViews.get(sViewId);
+        if (!oView) return;
+        
         const bHasHidden = payload?.hasHidden || false;
         const aHiddenNodes = payload?.hiddenNodes || [];
-        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const oViewModel = oView.getModel("view") as JSONModel;
         if (oViewModel) {
             oViewModel.setProperty(ViewState.HAS_HIDDEN_NODES, bHasHidden);
             oViewModel.setProperty(ViewState.HIDDEN_NODES_LIST, aHiddenNodes);
@@ -153,24 +172,31 @@ export default class DialogManager {
     // STICKY NOTES LOGIC (DYNAMIC TS DIALOGS)
     // ========================================================================
 
-    public static promptAddNote(): void {
-        this._openNoteDialog("Add Sticky Note", "", "Marker", (sText, sFont) => {
-            EventManager.getInstance().publish("canvas:addNoteRequest", { viewId: this._getInstanceId(), text: sText, fontFamily: sFont });
+    public static promptAddNote(payload: any): void {
+        const sViewId = payload?.viewId;
+        if (!sViewId) return;
+        
+        this._openNoteDialog(sViewId, "Add Sticky Note", "", "Marker", (sText, sFont) => {
+            EventManager.getInstance().publish("canvas:addNoteRequest", { viewId: sViewId, text: sText, fontFamily: sFont });
         });
     }
 
     public static promptEditNote(payload: any): void {
+        const sViewId = payload?.viewId;
+        if (!sViewId) return;
+        
         const sId = payload?.noteId || payload?.id;
         const sCurrentText = payload?.text || "";
         const sCurrentFont = payload?.fontFamily || "Marker";
         
-        this._openNoteDialog("Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
-            EventManager.getInstance().publish("canvas:editNoteRequest", { viewId: this._getInstanceId(), noteId: sId, text: sText, fontFamily: sFont });
+        this._openNoteDialog(sViewId, "Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
+            EventManager.getInstance().publish("canvas:editNoteRequest", { viewId: sViewId, noteId: sId, text: sText, fontFamily: sFont });
         });
     }
 
-    private static _openNoteDialog(sTitle: string, sInitialText: string, sInitialFont: string, fnOnSave: (sText: string, sFont: string) => void): void {
-        if (!this._oView) return;
+    private static _openNoteDialog(sViewId: string, sTitle: string, sInitialText: string, sInitialFont: string, fnOnSave: (sText: string, sFont: string) => void): void {
+        const oView = this._mViews.get(sViewId);
+        if (!oView) return;
 
         const oTextArea = new TextArea({ width: "100%", rows: 5, value: sInitialText, placeholder: "Type your sticky note here..." });
         
@@ -206,7 +232,7 @@ export default class DialogManager {
             afterClose: () => oDialog.destroy()
         });
         
-        this._oView.addDependent(oDialog);
+        oView.addDependent(oDialog);
         oDialog.open();
     }
 }

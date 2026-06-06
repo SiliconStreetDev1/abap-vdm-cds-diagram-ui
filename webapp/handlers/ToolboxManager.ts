@@ -15,43 +15,45 @@ import VideoRecordHandler from "./state/VideoRecordHandler";
 import DialogManager from "./ui/DialogManager";
 
 export default class ToolboxManager {
-    private static _handlers: any[] = [];
-    private static _oRenderHandler: DiagramRenderHandler | null = null;
-    private static _oFullScreenHandler: FullScreenHandler | null = null;
-    private static _oCanvasActionHandler: CanvasActionHandler | null = null;
-    private static _oVideoRecordHandler: VideoRecordHandler | null = null;
+    private static _instances: Map<string, any> = new Map();
 
     /**
      * @public
      * @static
      * @description Initializes all canvas interaction handlers and binds their events.
+     * @param {string} sViewId - Active Fiori View ID
      * @param {View} oView - Active Fiori View
      * @param {Function} fnGetText - i18n localization delegate
      */
-    public static bootstrap(oView: View, fnGetText: (key: string, args?: any[]) => string): void {
-        this.destroy(); // Ensure clean slate
+    public static bootstrap(sViewId: string, oView: View, fnGetText: (key: string, args?: any[]) => string): void {
+        this.destroy(sViewId); // Ensure clean slate
 
-        DialogManager.bootstrap(oView);
+        DialogManager.bootstrap(sViewId, oView);
 
-        this._oRenderHandler = new DiagramRenderHandler(oView, fnGetText);
-        this._oFullScreenHandler = new FullScreenHandler(oView);
-        this._oCanvasActionHandler = new CanvasActionHandler(oView);
-        this._oVideoRecordHandler = new VideoRecordHandler(oView, fnGetText);
+        const instanceData: any = {
+            handlers: [],
+            oRenderHandler: new DiagramRenderHandler(oView, fnGetText),
+            oFullScreenHandler: new FullScreenHandler(oView),
+            oCanvasActionHandler: new CanvasActionHandler(oView),
+            oVideoRecordHandler: new VideoRecordHandler(oView, fnGetText)
+        };
 
         const aCoreHandlers = [
-            this._oRenderHandler,
-            this._oFullScreenHandler,
-            this._oCanvasActionHandler,
+            instanceData.oRenderHandler,
+            instanceData.oFullScreenHandler,
+            instanceData.oCanvasActionHandler,
             new AnnotationHandler(oView),
             new CanvasKeyboardHandler(oView),
             new DiagramStateActionHandler(oView),
-            this._oVideoRecordHandler
+            instanceData.oVideoRecordHandler
         ];
 
         aCoreHandlers.forEach(handler => {
             if (handler.attachEvents) handler.attachEvents();
-            this._handlers.push(handler);
+            instanceData.handlers.push(handler);
         });
+
+        this._instances.set(sViewId, instanceData);
     }
 
     /**
@@ -59,46 +61,60 @@ export default class ToolboxManager {
      * @static
      * @description Returns the Render Handler instance.
      */
-    public static getRenderHandler(): DiagramRenderHandler | null { return this._oRenderHandler; }
+    public static getRenderHandler(sViewId: string): DiagramRenderHandler | null { 
+        return this._instances.get(sViewId)?.oRenderHandler || null; 
+    }
 
     /**
      * @public
      * @static
      * @description Returns the Full Screen Handler instance.
      */
-    public static getFullScreenHandler(): FullScreenHandler | null { return this._oFullScreenHandler; }
+    public static getFullScreenHandler(sViewId: string): FullScreenHandler | null { 
+        return this._instances.get(sViewId)?.oFullScreenHandler || null; 
+    }
 
     /**
      * @public
      * @static
      * @description Returns the Canvas Action Handler instance.
      */
-    public static getCanvasActionHandler(): CanvasActionHandler | null { return this._oCanvasActionHandler; }
+    public static getCanvasActionHandler(sViewId: string): CanvasActionHandler | null { 
+        return this._instances.get(sViewId)?.oCanvasActionHandler || null; 
+    }
 
     /**
      * @public
      * @static
      * @description Returns the Video Record Handler instance.
      */
-    public static getVideoRecordHandler(): VideoRecordHandler | null { return this._oVideoRecordHandler; }
+    public static getVideoRecordHandler(sViewId: string): VideoRecordHandler | null { 
+        return this._instances.get(sViewId)?.oVideoRecordHandler || null; 
+    }
 
     /**
      * @public
      * @static
-     * @description Detaches all events and clears handlers from memory.
+     * @description Detaches all events and clears handlers from memory for a specific view.
      */
-    public static destroy(): void {
-        DialogManager.destroy();
-        this._handlers.forEach(handler => {
-            if (handler.detachEvents) handler.detachEvents();
-        });
-        if (this._oVideoRecordHandler) {
-            this._oVideoRecordHandler.stopRecording();
+    public static destroy(sViewId: string): void {
+        // Wait, DialogManager is a global singleton right now, but its destroy doesn't take viewId. 
+        // We probably shouldn't blindly call it if other views are active, but let's leave it as it was if we don't have viewId in DialogManager.
+        // DialogManager.destroy() might need a fix too if it's not multi-instance, but the bug was ToolboxManager.
+        const instanceData = this._instances.get(sViewId);
+        if (instanceData) {
+            instanceData.handlers.forEach((handler: any) => {
+                if (handler.detachEvents) handler.detachEvents();
+            });
+            if (instanceData.oVideoRecordHandler) {
+                instanceData.oVideoRecordHandler.stopRecording();
+            }
+            this._instances.delete(sViewId);
         }
-        this._handlers = [];
-        this._oRenderHandler = null;
-        this._oFullScreenHandler = null;
-        this._oCanvasActionHandler = null;
-        this._oVideoRecordHandler = null;
+        
+        // Only destroy DialogManager if this is the last instance
+        if (this._instances.size === 0) {
+            DialogManager.destroy();
+        }
     }
 }

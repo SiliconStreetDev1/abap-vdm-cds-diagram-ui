@@ -21,16 +21,18 @@ export class MoveNodesCommand implements ICommand {
     }
 
     public execute(): void {
-        this.nodes.forEach(n => {
-            DiagramStateStore.getInstance().setNodeState(this.viewId, this.diagramId, n.nodeId, { position: n.newPos });
-            Renderer.moveNode(this.viewId, this._engine, n.nodeId, n.newPos);
-        });
+        const stateUpdates = this.nodes.map(n => ({ nodeId: n.nodeId, stateUpdate: { position: n.newPos } }));
+        DiagramStateStore.getInstance().setNodeStates(this.viewId, this.diagramId, stateUpdates);
+        
+        const movePayload = this.nodes.map(n => ({ nodeId: n.nodeId, position: n.newPos }));
+        Renderer.moveNodes(this.viewId, this._engine, movePayload);
     }
 
     public undo(): void {
-        this.nodes.forEach(n => {
-            DiagramStateStore.getInstance().setNodeState(this.viewId, this.diagramId, n.nodeId, { position: n.oldPos });
-            Renderer.moveNode(this.viewId, this._engine, n.nodeId, n.oldPos);
-        });
+        const stateUpdates = this.nodes.map(n => ({ nodeId: n.nodeId, stateUpdate: { position: n.oldPos } }));
+        DiagramStateStore.getInstance().setNodeStates(this.viewId, this.diagramId, stateUpdates);
+        
+        const movePayload = this.nodes.map(n => ({ nodeId: n.nodeId, position: n.oldPos }));
+        Renderer.moveNodes(this.viewId, this._engine, movePayload);
     }
 }

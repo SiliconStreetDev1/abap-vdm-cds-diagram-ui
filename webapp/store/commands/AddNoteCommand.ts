@@ -4,7 +4,7 @@ import Renderer from "../../renderer/Renderer";
 export class AddNoteCommand implements ICommand {
     public viewId: string;
     public diagramId: string;
-    private _engine: string;
+    public engine: string;
     private text: string;
     private noteJson: any;
     private isFirstRun: boolean = true;
@@ -18,7 +18,7 @@ export class AddNoteCommand implements ICommand {
         this.viewId = viewId;
         this.diagramId = diagramId;
         this.noteJson = noteJson;
-        this._engine = engine;
+        this.engine = engine;
     }
 
     public execute(): void {
@@ -26,13 +26,13 @@ export class AddNoteCommand implements ICommand {
             this.isFirstRun = false;
             // Creation already handled by Renderer prior to command generation
         } else {
-            Renderer.restoreSelection(this.viewId, this._engine, this.noteJson, []);
+            Renderer.restoreSelection(this.viewId, this.engine, this.noteJson, []);
         }
     }
 
     public undo(): void {
         if (this.noteJson) {
-            Renderer.deleteSpecificElements(this.viewId, this._engine, this.noteJson, []);
+            Renderer.deleteSpecificElements(this.viewId, this.engine, this.noteJson, []);
         }
     }
 }

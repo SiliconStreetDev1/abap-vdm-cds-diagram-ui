@@ -31,7 +31,7 @@ export default class Renderer {
      * @description Single source of truth for the default rendering engine.
      */
     public static getDefaultEngine(): string {
-        return "CYTOSCAPE";
+        return EngineType.CYTOSCAPE;
     }
 
     private static _getEngine(sEngine: string): IEngineFacade | null {
@@ -244,6 +244,16 @@ export default class Renderer {
      * @description Extracts the live X/Y canvas coordinates for layout persistence.
      */
     public static moveNode(sViewId: string, sEngine: string, nodeId: string, position: {x: number, y: number}): void { const engine = this._getEngine(sEngine); if (engine && engine.moveNode) engine.moveNode(sViewId, nodeId, position); }
+
+    /**
+     * @public
+     * @static
+     * @description Translates multiple nodes iteratively in a single batched O(1) engine command.
+     */
+    public static moveNodes(sViewId: string, sEngine: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.moveNodes) engine.moveNodes(sViewId, nodes);
+    }
 
     /**
      * @public

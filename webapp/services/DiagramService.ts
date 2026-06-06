@@ -78,7 +78,7 @@ export default class DiagramService {
      * @returns {Promise<IDiagramResult>} A promise resolving to the validated backend payload.
      * @throws {Error} Throws normalized error strings suitable for UI display.
      */
-    public static async fetchDiagram(oModel: ODataModel, oRequest: IDiagramRequest, bForceRefresh: boolean = false, bSkipCacheCheck: boolean = false): Promise<IDiagramResult> {
+    public static async fetchDiagram(oModel: ODataModel, oRequest: IDiagramRequest, bForceRefresh: boolean = false): Promise<IDiagramResult> {
         const aFilters = [
             new Filter("CdsName", FilterOperator.EQ, oRequest.cdsName),
             new Filter("RendererEngine", FilterOperator.EQ, oRequest.engine),
@@ -101,11 +101,9 @@ export default class DiagramService {
         if (oRequest.excludeCds) aFilters.push(new Filter("ExcludeCds", FilterOperator.EQ, oRequest.excludeCds));
 
         // 1. Check LRU Cache before hitting the network
-        if (!bSkipCacheCheck) {
-            const oCachedResult = bForceRefresh ? null : DiagramCache.get(oRequest);
-            if (oCachedResult) {
-                return oCachedResult;
-            }
+        const oCachedResult = bForceRefresh ? null : DiagramCache.get(oRequest);
+        if (oCachedResult) {
+            return oCachedResult;
         }
 
         const oListBinding = oModel.bindList("/Diagram") as ODataListBinding;

@@ -24,6 +24,7 @@ import CytoscapeStateManager from "./cytoscape/CytoscapeStateManager";
 import CytoscapeVisibilityManager from "./cytoscape/CytoscapeVisibilityManager";
 import CytoscapeInteractionManager from "./cytoscape/CytoscapeInteractionManager";
 import { EventManager } from "../../events/EventManager";
+import { EngineType } from "../../types";
 import type { Core } from "cytoscape";
 
 declare const cytoscape: any;
@@ -345,7 +346,8 @@ export default class CytoscapeEngine {
             const payload = {
                 viewId: sViewId,
                 notesJson: notes.length > 0 ? notes.jsons() : null,
-                hiddenNodeIds: entities.length > 0 ? entities.map(n => n.id()) : []
+                hiddenNodeIds: entities.length > 0 ? entities.map((n: any) => n.id()) : [],
+                engine: EngineType.CYTOSCAPE
             };
             EventManager.getInstance().publish("canvas:nodeHidden", payload);
         }
@@ -482,11 +484,22 @@ export default class CytoscapeEngine {
         if (context) CytoscapeVisibilityManager.showSpecificNodes(sViewId, context.cy, aNodeIds);
     }
 
+    public static moveNode(sViewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(sViewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
+
     /**
      * @public
-     * @description Returns the X/Y coordinates of all current nodes for variant persistence.
+     * @description Bulk updates multiple node coordinates in a single batched DOM repaint to eliminate O(N) performance bottlenecks.
      */
-    public static moveNode(sViewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(sViewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
+    public static moveNodes(sViewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
+        const ctx = this._cyContexts.get(sViewId);
+        if (ctx && ctx.cy) {
+            ctx.cy.batch(() => {
+                nodes.forEach(n => {
+                    ctx.cy.$("#" + n.nodeId.replace(/\./g, "\\.")).position(n.position);
+                });
+            });
+        }
+    }
 
     /**
      * @public

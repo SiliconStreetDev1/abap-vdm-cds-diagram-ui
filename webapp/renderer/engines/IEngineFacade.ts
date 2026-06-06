@@ -50,6 +50,7 @@ export interface IEngineFacade {
     updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
     getCanvasState?(sViewId: string): any;
     moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
+    moveNodes?(sViewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void;
     setNodesLocked?(sViewId: string, bLocked: boolean): void;
     runLayout?(sViewId: string): void;
     showHiddenNodes?(sViewId: string): void;

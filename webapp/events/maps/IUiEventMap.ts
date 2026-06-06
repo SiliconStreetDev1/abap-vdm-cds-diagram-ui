@@ -3,4 +3,5 @@ export interface IUiEventMap {
     "ui:closeDialog": { viewId?: string; dialogType: string };
     "ui:restoreSelectedNodes": { viewId?: string };
     "ui:showAllHiddenNodes": { viewId?: string };
+    "cache:updated": { hasCache: boolean };
 }

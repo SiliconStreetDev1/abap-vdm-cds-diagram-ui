@@ -33,13 +33,21 @@ export class CommandManager {
         this._redoStack = [];
     }
 
+    public hasUndo(): boolean {
+        return this._undoStack.length > 0;
+    }
+
+    public hasRedo(): boolean {
+        return this._redoStack.length > 0;
+    }
+
     /**
      * @public
      * @description Reverses the last executed command.
      */
     public undo(): boolean {
         const now = Date.now();
-        if (now - this._lastActionTime < 150) return false;
+        if (now - this._lastActionTime < 150) return true;
         this._lastActionTime = now;
 
         if (this._undoStack.length === 0) return false;
@@ -48,11 +56,6 @@ export class CommandManager {
         if (command) {
             command.undo();
             this._redoStack.push(command);
-            
-            // Trigger a render update to UI listeners if an engine is associated with this command
-            if (command.engine) {
-                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: command.engine, format: {} }); // Notify UI or Canvas
-            }
             return true;
         }
         return false;
@@ -64,7 +67,7 @@ export class CommandManager {
      */
     public redo(): boolean {
         const now = Date.now();
-        if (now - this._lastActionTime < 150) return false;
+        if (now - this._lastActionTime < 150) return true;
         this._lastActionTime = now;
 
         if (this._redoStack.length === 0) return false;
@@ -73,11 +76,6 @@ export class CommandManager {
         if (command) {
             command.execute();
             this._undoStack.push(command);
-            
-            // Trigger a render update to UI listeners if an engine is associated with this command
-            if (command.engine) {
-                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: command.engine, format: {} });
-            }
             return true;
         }
         return false;

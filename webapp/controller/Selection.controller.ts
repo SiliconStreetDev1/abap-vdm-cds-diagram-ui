@@ -27,6 +27,8 @@ import VariantService from "../services/VariantService";
 import SearchHistoryService from "../services/SearchHistoryService";
 import { ModelNames } from "../constants/StateConstants";
 import ContextHelpManager from "../helpers/ContextHelpManager";
+import DiagramCache from "../services/DiagramCache";
+import { EventManager } from "../events/EventManager";
 
 export default class Selection extends Controller {
 
@@ -35,6 +37,9 @@ export default class Selection extends Controller {
     private stateHandler!: SelectionStateHandler;
     private uiHandler!: SelectionUIHandler;
     private variantOrchestrator!: VariantOrchestrationHandler;
+    private _fetchVariantsBind!: () => Promise<void>;
+    private _cacheUpdatedBind!: (e: any) => void;
+    private _cacheSubscription: any;
 
     /**
      * @private
@@ -74,7 +79,7 @@ export default class Selection extends Controller {
         view.setModel(new JSONModel({ items: SearchHistoryService.getHistory() }), "history");
         view.setModel(new JSONModel({ items: [] }), "variants");
 
-        const fetchVariants = async () => {
+        this._fetchVariantsBind = async () => {
             const odataModel = (view.getModel() || this.getOwnerComponent()?.getModel()) as ODataModel;
             if (!odataModel) return;
             try {
@@ -86,10 +91,18 @@ export default class Selection extends Controller {
         };
 
         if (view.getModel() || this.getOwnerComponent()?.getModel()) {
-            fetchVariants();
+            this._fetchVariantsBind();
         } else {
-            view.attachEventOnce("modelContextChange", fetchVariants);
+            view.attachEventOnce("modelContextChange", this._fetchVariantsBind);
         }
+
+        this._cacheUpdatedBind = (e: any) => {
+            const uiModel = this.getView()?.getModel("ui") as JSONModel;
+            if (uiModel) {
+                uiModel.setProperty("/hasCache", !!e?.hasCache);
+            }
+        };
+        this._cacheSubscription = EventManager.getInstance().subscribe("cache:updated", this._cacheUpdatedBind);
 
         this.generationHandler.attachEvents();
         this.uiHandler.attachEvents();
@@ -105,6 +118,16 @@ export default class Selection extends Controller {
         this.generationHandler.detachEvents();
         this.uiHandler.detachEvents();
         this.stateHandler.detachEvents();
+
+        const view = this.getView();
+        if (view && this._fetchVariantsBind) {
+            view.detachEvent("modelContextChange", this._fetchVariantsBind);
+        }
+        
+        if (this._cacheSubscription) {
+            this._cacheSubscription.dispose();
+            this._cacheSubscription = null;
+        }
 
         ContextHelpManager.destroy(this.getInstanceId());
     }
@@ -174,6 +197,15 @@ export default class Selection extends Controller {
      * @param {Event} e - Button press event.
      */
     public onShowInfo(e: Event): void { this.uiHandler.onShowInfo(e); }
+
+    /**
+     * @public
+     * @description Flushes the DiagramCache and forces fresh OData network requests.
+     */
+    public onClearCache(): void {
+        DiagramCache.clear();
+        MessageToast.show(this.getText("msgCacheCleared"));
+    }
 
     /**
      * @private

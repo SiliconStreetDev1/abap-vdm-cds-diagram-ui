@@ -7,6 +7,11 @@
     <ScrollContainer vertical="true" horizontal="false" height="100%">
         <VBox class="sapUiSmallMargin">
             
+            <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginBottom" visible="{= ${ui>/hasCache} === true }">
+                <Label text="{i18n>lblClearCache}" design="Bold" />
+                <Button id="btnClearCache" text="{i18n>btnClear}" press="onClearCache" type="Reject" tooltip="Force backend refresh on next load" />
+            </HBox>
+
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiSmallMarginBottom">
                 <Label text="{i18n>lblShowHelp}" design="Bold" />
                 <Switch state="{ui>/showHelp}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" />

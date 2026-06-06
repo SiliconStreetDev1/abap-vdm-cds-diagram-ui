@@ -12,6 +12,7 @@ import { DiagramStateStore } from "../../store/DiagramStateStore";
 import { MoveNodeCommand } from "../../store/commands/MoveNodeCommand";
 import { MoveNodesCommand } from "../../store/commands/MoveNodesCommand";
 import { DeleteSelectionCommand } from "../../store/commands/DeleteSelectionCommand";
+import Renderer from "../../renderer/Renderer";
 
 export default class DiagramStateActionHandler {
     private _oView: View;
@@ -101,18 +102,21 @@ export default class DiagramStateActionHandler {
         DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), diagramId).history.execute(command);
     }
 
-    private _onNodeHidden(payload: { viewId?: string; notesJson?: any; hiddenNodeIds?: string[] }): void {
+    private _onNodeHidden(payload: { viewId?: string; notesJson?: any; hiddenNodeIds?: string[]; engine?: string }): void {
         if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
-        const command = new DeleteSelectionCommand(this._getInstanceId(), this._getDiagramId(), payload.notesJson || null, payload.hiddenNodeIds || [], "CYTOSCAPE");
+        const engine = payload.engine || Renderer.getDefaultEngine();
+        const command = new DeleteSelectionCommand(this._getInstanceId(), this._getDiagramId(), payload.notesJson || null, payload.hiddenNodeIds || [], engine);
         DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.execute(command);
     }
 
     private _onUndoRequest(payload: { viewId?: string }): void {
         if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
         
-        const bDidUndo = DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.undo();
+        const history = DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history;
         
-        if (!bDidUndo) {
+        if (history.hasUndo()) {
+            history.undo();
+        } else {
             const oDataModel = this._oView.getModel("diagramData") as JSONModel;
             const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
             if (aLinks.length > 0) {

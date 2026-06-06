@@ -26,6 +26,7 @@ import { ViewState, UiState, ModelNames, DiagramData } from "../constants/StateC
 
 import SoundscapeManager from "../services/SoundscapeManager";
 import { EventManager } from "../events/EventManager";
+import { DiagramStateStore } from "../store/DiagramStateStore";
 
 export default class Diagram extends Controller {
     
@@ -81,10 +82,10 @@ export default class Diagram extends Controller {
         }), ModelNames.DIAGRAM_DATA);
 
         // Initialize the Toolbox Manager for all canvas interaction handlers
-        ToolboxManager.bootstrap(oView, this._getText.bind(this));
+        ToolboxManager.bootstrap(this._getInstanceId(), oView, this._getText.bind(this));
 
         // Initialize the new unified Export Pipeline
-        const oRenderHandler = ToolboxManager.getRenderHandler();
+        const oRenderHandler = ToolboxManager.getRenderHandler(this._getInstanceId());
         this._exportPipelineModule = new ExportPipelineModule(oView, this._getText.bind(this), oRenderHandler ? oRenderHandler.showError.bind(oRenderHandler) : () => {});
     }
 
@@ -93,12 +94,15 @@ export default class Diagram extends Controller {
      * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
      */
     public onExit(): void {
-        ToolboxManager.destroy();
+        ToolboxManager.destroy(this._getInstanceId());
 
         ContextHelpManager.destroy(this._getInstanceId());
 
         // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
         Renderer.destroyActiveEngine(this._getInstanceId());
+        
+        // CLEANUP: Free the Redux-like state store for this view instance
+        DiagramStateStore.getInstance().clearDiagramState(this._getInstanceId());
     }
 
     // ========================================================================
@@ -159,20 +163,20 @@ export default class Diagram extends Controller {
         }
     }
 
-    public onToggleFullScreen(): void { ToolboxManager.getFullScreenHandler()?.toggleFullScreen(this.getView() as Control); }
-    public onToggleMinimap(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.toggleMinimap(oEvent); }
-    public onChangeInteractionMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.changeInteractionMode(oEvent); }
-    public onSpacingChange(): void { ToolboxManager.getCanvasActionHandler()?.changeSpacing(); }
-    public onToggleTempFocusMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.toggleTempFocusMode(oEvent); }
-    public onClearFocus(): void { ToolboxManager.getCanvasActionHandler()?.clearSelection(); }
-    public onSelectAll(): void { ToolboxManager.getCanvasActionHandler()?.selectAll(); }
+    public onToggleFullScreen(): void { ToolboxManager.getFullScreenHandler(this._getInstanceId())?.toggleFullScreen(this.getView() as Control); }
+    public onToggleMinimap(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.toggleMinimap(oEvent); }
+    public onChangeInteractionMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.changeInteractionMode(oEvent); }
+    public onSpacingChange(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.changeSpacing(); }
+    public onToggleTempFocusMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.toggleTempFocusMode(oEvent); }
+    public onClearFocus(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.clearSelection(); }
+    public onSelectAll(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.selectAll(); }
     public onAddNote(): void { EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() }); }
 
     public onOpenHiddenNodes(): void { EventManager.getInstance().publish("ui:openDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
     public onCloseHiddenNodes(): void { EventManager.getInstance().publish("ui:closeDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
     public onRestoreSelectedNodes(): void { EventManager.getInstance().publish("ui:restoreSelectedNodes", { viewId: this._getInstanceId() }); }
     public onShowHiddenNodes(): void { EventManager.getInstance().publish("ui:showAllHiddenNodes", { viewId: this._getInstanceId() }); }
-    public onShowSpacing(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.showSpacingPopover(oEvent); }
+    public onShowSpacing(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.showSpacingPopover(oEvent); }
 
     /**
      * @public
@@ -231,7 +235,7 @@ export default class Diagram extends Controller {
      * @public
      * @description Search handler for locating specific nodes in the active canvas.
      */
-    public onSearchCanvas(oEvent: SearchField$SearchEvent): void { ToolboxManager.getCanvasActionHandler()?.searchCanvas(oEvent); }
+    public onSearchCanvas(oEvent: SearchField$SearchEvent): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.searchCanvas(oEvent); }
 
     /**
      * @private
@@ -259,10 +263,10 @@ export default class Diagram extends Controller {
     // VIDEO RECORDING DELEGATIONS
     // ========================================================================
 
-    public onStartRecording(): void  { ToolboxManager.getVideoRecordHandler()?.startRecording(); }
-    public onStopRecording(): void   { ToolboxManager.getVideoRecordHandler()?.stopRecording(); }
-    public onPauseRecording(): void  { ToolboxManager.getVideoRecordHandler()?.pauseRecording(); }
-    public onResumeRecording(): void { ToolboxManager.getVideoRecordHandler()?.resumeRecording(); }
+    public onStartRecording(): void  { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.startRecording(); }
+    public onStopRecording(): void   { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.stopRecording(); }
+    public onPauseRecording(): void  { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.pauseRecording(); }
+    public onResumeRecording(): void { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.resumeRecording(); }
 
     /**
      * @public

@@ -5,6 +5,7 @@
  */
 import { IDiagramResult, IDiagramRequest } from "./DiagramService";
 import Renderer from "../renderer/Renderer";
+import { EventManager } from "../events/EventManager";
 
 export default class DiagramCache {
     private static _responseCache: Map<string, string> = new Map();
@@ -12,6 +13,7 @@ export default class DiagramCache {
 
     public static clear(): void {
         this._responseCache.clear();
+        EventManager.getInstance().publish("cache:updated", { hasCache: false });
     }
 
     private static _generateKey(oRequest: IDiagramRequest): string {
@@ -39,6 +41,11 @@ export default class DiagramCache {
         return null;
     }
 
+    public static has(oRequest: IDiagramRequest): boolean {
+        const sRequestHash = this._generateKey(oRequest);
+        return this._responseCache.has(sRequestHash);
+    }
+
     public static set(oRequest: IDiagramRequest, oResult: IDiagramResult): void {
         const sRequestHash = this._generateKey(oRequest);
         
@@ -54,5 +61,7 @@ export default class DiagramCache {
                 this._responseCache.delete(firstKey);
             }
         }
+        
+        EventManager.getInstance().publish("cache:updated", { hasCache: this._responseCache.size > 0 });
     }
 }

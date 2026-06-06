@@ -115,15 +115,15 @@ export default class DiagramGenerationHandler {
 
         const oUiModel = this.view.getModel("ui") as JSONModel;
         const request = StateSyncModule.buildRequest(oUiModel, cdsName, engine, this.view);
-        const cachedResult = forceRefresh ? null : DiagramCache.get(request);
+        const bIsCached = forceRefresh ? false : DiagramCache.has(request);
 
         // ENTERPRISE UX: Suppress the busy dialog and Fiori blocking if the payload is already in RAM.
-        if (!cachedResult) {
+        if (!bIsCached) {
             ViewStateHelper.setAppBusy(true, this.view, true);
         }
 
         try {
-            const result = await this._fetchDiagramData(odataModel, request, cdsName, forceRefresh, cachedResult);
+            const result = await this._fetchDiagramData(odataModel, request, cdsName, forceRefresh, bIsCached);
 
             SearchHistoryService.updateHistory(result.CdsName);
             (this.view.getModel(ModelNames.HISTORY) as JSONModel).setProperty("/items", SearchHistoryService.getHistory());
@@ -212,9 +212,9 @@ export default class DiagramGenerationHandler {
      * @param {any} cachedResult - Existing cached payload if available.
      * @returns {Promise<any>} Raw backend response payload.
      */
-    private async _fetchDiagramData(odataModel: ODataModel, request: any, cdsName: string, forceRefresh: boolean, cachedResult: any): Promise<any> {
-        if (cachedResult) {
-            return cachedResult;
+    private async _fetchDiagramData(odataModel: ODataModel, request: any, cdsName: string, forceRefresh: boolean, bIsCached: boolean): Promise<any> {
+        if (bIsCached) {
+            return await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
         }
 
         // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
@@ -223,7 +223,7 @@ export default class DiagramGenerationHandler {
             throw new Error("msgNoMeta");
         }
 
-        return await DiagramService.fetchDiagram(odataModel, request, forceRefresh, true);
+        return await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
     }
 
     /**

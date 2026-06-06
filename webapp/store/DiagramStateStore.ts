@@ -84,6 +84,22 @@ export class DiagramStateStore {
 
     /**
      * @public
+     * @description Bulk updates multiple nodes in a single O(1) operation array iteration.
+     */
+    public setNodeStates(viewId: string, diagramId: string, updates: { nodeId: string; stateUpdate: Partial<INodeState> }[]): void {
+        const diagramState = this.getDiagramState(viewId, diagramId);
+        updates.forEach(u => {
+            let nodeState = diagramState.nodes.get(u.nodeId);
+            if (!nodeState) {
+                nodeState = { id: u.nodeId, position: { x: 0, y: 0 }, isPinned: false, isHidden: false };
+            }
+            Object.assign(nodeState, u.stateUpdate);
+            diagramState.nodes.set(u.nodeId, nodeState);
+        });
+    }
+
+    /**
+     * @public
      * @description Sets the VariantState cache for a diagram (used for drill-downs).
      */
     public setVariantState(viewId: string, diagramId: string, variantState: IVariantState): void {

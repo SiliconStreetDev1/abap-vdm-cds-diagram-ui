@@ -4,7 +4,6 @@
  * @description Provides the foundation for building Fiori-styled menu items and encapsulates destruction logic.
  */
 import type { Core, NodeCollection, NodeSingular } from "cytoscape";
-import CytoscapeContextMenu from "../CytoscapeContextMenu";
 import { EventManager } from "../../../../events/EventManager";
 
 export default abstract class BaseMenuStrategy {
@@ -43,7 +42,7 @@ export default abstract class BaseMenuStrategy {
             e.preventDefault();
             e.stopPropagation();
             onClick();
-            CytoscapeContextMenu.removeAll(this._sViewId);
+            this._closeMenu();
         };
         item.onmousedown = fireAction;
         item.ontouchstart = fireAction;
