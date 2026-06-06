@@ -19,7 +19,7 @@ participant "OData V4 Service" as Backend
 end box
 
 box "Fiori Flexible Column Layout (Right Pane)" #fffdf2
-participant "EventBus" as Bus
+participant "EventManager" as Bus
 participant "Diagram Controller" as DiagCtrl
 participant "Render Handler" as RenderHandler
 participant "Renderer (Facade)" as Renderer
@@ -53,11 +53,11 @@ deactivate Cache
 DiagService --> GenHandler : IDiagramResult
 deactivate DiagService
 
-GenHandler -> Bus : publish(EventIds.RENDER_REQUEST, payload)
+GenHandler -> Bus : publish("diagram:renderRequest", payload)
 deactivate GenHandler
 deactivate SelCtrl
 
-note over Bus : Asynchronous Decoupling across Fiori Views
+note over Bus : Typed Pub/Sub Decoupling across Fiori FCL Panes
 
 Bus -> DiagCtrl : _onRenderRequest()
 activate DiagCtrl

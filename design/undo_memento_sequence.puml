@@ -12,7 +12,7 @@ participant "UI5 JSON\nModel" as Model
 
 User -> Cy : Drags Node
 activate Cy
-Cy -> Undo : DOM Event: NODE_DRAGGED
+Cy -> Undo : EventManager: "canvas:nodePositionChanged"
 activate Undo
 Undo -> Undo : _onStateChange()\n(300ms Debounce Timer)
 Undo -> Renderer : getCanvasState()

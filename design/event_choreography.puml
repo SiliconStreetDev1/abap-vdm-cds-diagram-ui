@@ -1,53 +1,53 @@
 @startuml
-title VDM Diagrammer - Event Choreography (Pub/Sub & DOM Events)
+title VDM Diagrammer - Event Choreography (EventManager & Canvas Events)
 
 skinparam handwritten false
 skinparam responseMessageBelowArrow true
 
 participant "Selection Panel\n(Left Controllers)" as Left
-participant "SAPUI5\nEventBus" as Bus #FFF9C4
+participant "EventManager\n(Singleton)" as Bus #FFF9C4
 participant "Global\nDocument" as DOM #E3F2FD
 participant "Diagram Panel\n(Right Handlers)" as Right
 participant "Active\nEngine" as Engine
 
 == 1. OData Render Pipeline ==
-Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)\n+ Payload DTO
+Left -> Bus : publish("diagram:renderRequest", payload)\n+ IRenderRequestPayload
 Bus -> Right : (DiagramRenderHandler)
 Right -> Engine : render()
-Engine -> DOM : dispatchEvent("CANVAS_READY")
-DOM -> Right : Commit to Undo Stack (UndoHandler)
+Engine -> Bus : publish("canvas:ready", { viewId })
+Bus -> Right : Commit to Undo Stack (DiagramStateActionHandler)
 
 == 2. Live Format Updating ==
-Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE)\n+ Config DTO
+Left -> Bus : publish("diagram:liveFormatUpdate", { engine, format })\n+ Config DTO
 Bus -> Right : (DiagramRenderHandler)
 Right -> Engine : updateFormat()
-Left -> DOM : dispatchEvent("FORMAT_SLIDER_UPDATE")
-DOM -> Right : Sync Spacing Slider UI (CanvasActionHandler)
+Left -> Bus : publish("canvas:formatSliderUpdate", { node_spacing })
+Bus -> Right : Sync Spacing Slider UI (CanvasActionHandler)
 
 == 3. Interactive Drill-Down ==
 User -> Engine : Double-Clicks Node
-Engine -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN)\n+ Target CDS Name
+Engine -> Bus : publish("diagram:nodeDrillDown", { viewName })\n+ Target CDS Name
 Bus -> Left : (SelectionController)
 Left -> Left : Save Current State to SessionStateCache
-Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)
+Left -> Bus : publish("diagram:renderRequest", payload)
 
-== 4. Canvas Interactivity (DOM Decoupling) ==
+== 4. Canvas Interactivity (EventManager Routing) ==
 User -> DOM : Presses Ctrl+Z
-DOM -> Right : UndoHandler intercepts
-Right -> Engine : applyStateToConfig()
+DOM -> Right : BuilderKeyboardStrategy intercepts
+Right -> Bus : publish("canvas:undoRequest", { viewId })
 
 User -> Engine : Drags Node
-Engine -> DOM : dispatchEvent("NODE_DRAGGED")
-DOM -> Left : Mark UI Dirty (SelectionStateHandler)
-DOM -> Right : Snapshot State (UndoHandler)
+Engine -> Bus : publish("canvas:nodePositionChanged", { nodeId, oldPos, newPos })
+Bus -> Left : Mark UI Dirty (SelectionStateHandler)
+Bus -> Right : Snapshot State (UndoHandler)
 
 == 5. Video Engine Orchestration ==
-Left -> Bus : publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE)\n[Triggered before OData Fetch]
+Left -> Bus : publish("video:autoPause")\n[Triggered before OData Fetch]
 Bus -> Right : VideoRecordHandler systemPause()
-Left -> Bus : publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST)
-Engine -> DOM : dispatchEvent("CANVAS_READY")
-DOM -> Right : _onCanvasReady listener
-Right -> Bus : publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME)
+Left -> Bus : publish("diagram:renderRequest", payload)
+Engine -> Bus : publish("canvas:ready", { viewId })
+Bus -> Right : _onCanvasReady listener
+Right -> Bus : publish("video:autoResume")
 Bus -> Right : VideoRecordHandler systemResume()
 
 @enduml

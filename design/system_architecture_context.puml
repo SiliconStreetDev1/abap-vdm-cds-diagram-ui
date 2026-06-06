@@ -13,7 +13,7 @@ node "Browser Environment (Client-Side Rendering)" {
         [Search History]
     }
 
-    package "SAPUI5 EventBus (Asynchronous Bridge)" as EventBus <<Node>> #FFF9C4
+    package "EventManager (Typed Pub/Sub Singleton)" as EventBus <<Node>> #FFF9C4
 
     package "Flexible Column Layout: Left Pane" #E3F2FD {
         [RouteManager (Deep Links)] as Router
@@ -33,8 +33,8 @@ node "Browser Environment (Client-Side Rendering)" {
         GenHand -right-> Session : Saves Breadcrumb State
         GenHand -down-> DiagSvc : Fetches Data
         DiagSvc <--> LRU : Caches Payloads (Immutability)
-        GenHand -right-> EventBus : Publishes (RENDER_REQUEST)
-        Router -right-> EventBus : Publishes (RENDER_REQUEST)
+        GenHand -right-> EventBus : publish("diagram:renderRequest")
+        Router -right-> EventBus : publish("diagram:renderRequest")
     }
 
     package "Flexible Column Layout: Right Pane" #FBE9E7 {
@@ -51,9 +51,9 @@ node "Browser Environment (Client-Side Rendering)" {
         DiagCtrl -down-> UndoHand : Delegates Ctrl+Z
         DiagCtrl -down-> VidHand : Delegates Recording
         
-        EventBus -down-> RenderHand : RENDER_REQUEST
-        EventBus -down-> UndoHand : RENDER_REQUEST
-        EventBus -down-> VidHand : AutoPause/Resume
+        EventBus -down-> RenderHand : "diagram:renderRequest"
+        EventBus -down-> UndoHand : "canvas:undoRequest"
+        EventBus -down-> VidHand : "video:autoPause/autoResume"
     }
 
     package "Rendering Core (Strategy Pattern)" #E8F5E9 {
