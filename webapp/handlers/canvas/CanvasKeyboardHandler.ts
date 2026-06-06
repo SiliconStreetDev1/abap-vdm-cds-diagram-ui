@@ -6,17 +6,15 @@
  */
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
-import EventBus from "sap/ui/core/EventBus";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { UiState, ViewState, ModelNames } from "../../constants/StateConstants";
 import BaseKeyboardStrategy from "../keyboard/BaseKeyboardStrategy";
 import BuilderKeyboardStrategy from "../keyboard/BuilderKeyboardStrategy";
 import ViewerKeyboardStrategy from "../keyboard/ViewerKeyboardStrategy";
-import { EventChannels, EventIds } from "../../constants/EventConstants";
+import { EventManager } from "../../events/EventManager";
 
 export default class CanvasKeyboardHandler {
     private _oView: View;
-    private _oEventBus?: EventBus;
     private _fnKeyDownBind!: EventListener;
     private _fnKeyUpBind!: EventListener;
     private _fnWindowBlurBind!: EventListener;
@@ -29,11 +27,10 @@ export default class CanvasKeyboardHandler {
     private _builderStrategy: BuilderKeyboardStrategy;
     private _viewerStrategy: ViewerKeyboardStrategy;
 
-    constructor(oView: View, oEventBus?: EventBus) {
+    constructor(oView: View) {
         this._oView = oView;
-        this._oEventBus = oEventBus;
-        this._builderStrategy = new BuilderKeyboardStrategy(oView, oEventBus);
-        this._viewerStrategy = new ViewerKeyboardStrategy(oView, oEventBus);
+        this._builderStrategy = new BuilderKeyboardStrategy(oView);
+        this._viewerStrategy = new ViewerKeyboardStrategy(oView);
     }
 
     private _getActiveStrategy(): BaseKeyboardStrategy {
@@ -82,7 +79,7 @@ export default class CanvasKeyboardHandler {
         // Global Stealth Record Hotkey (Bypasses Typing Guards)
         if (bCtrl && bShift && sKey === "x") {
             e.preventDefault();
-            if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH);
+            EventManager.getInstance().publish("video:toggleStealth", undefined);
             return;
         }
 

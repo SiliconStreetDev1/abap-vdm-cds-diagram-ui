@@ -8,26 +8,25 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import ToggleButton from "sap/m/ToggleButton";
 import SegmentedButton from "sap/m/SegmentedButton";
-import EventBus from "sap/ui/core/EventBus";
+
 import ResponsivePopover from "sap/m/ResponsivePopover";
 import Slider from "sap/m/Slider";
 import Control from "sap/ui/core/Control";
 import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Renderer from "../../renderer/Renderer";
-import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
 import { UiState, ViewState, DiagramData } from "../../constants/StateConstants";
+import { EventManager } from "../../events/EventManager";
+import { Subscription } from "../../events/Subscription";
 
 export default class CanvasActionHandler {
-    private _oView: View;
-    private _oEventBus?: EventBus;
-    private _fnCloseMinimapRequestBind!: EventListener;
-    private _fnFocusModeChangedBind!: EventListener;
-    private _oSpacingPopover?: ResponsivePopover;
-    private _bIsAttached: boolean = false;
+    private view: View;
 
-    constructor(oView: View, oEventBus?: EventBus) {
-        this._oView = oView;
-        this._oEventBus = oEventBus;
+    private spacingPopover?: ResponsivePopover;
+    private subscriptions: Subscription[] = [];
+    private isAttached: boolean = false;
+
+    constructor(view: View) {
+        this.view = view;
     }
 
     /**
@@ -35,8 +34,8 @@ export default class CanvasActionHandler {
      * @description Resolves the overarching Component ID to group Views in the same FCL.
      * @returns {string} Unique Instance ID.
      */
-    private _getInstanceId(): string {
-        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
+    private getInstanceId(): string {
+        return this.view.getController()?.getOwnerComponent()?.getId() || this.view.getId();
     }
 
     /**
@@ -45,15 +44,12 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public attachEvents(): void {
-        if (this._bIsAttached) return;
+        if (this.isAttached) return;
 
-        this._fnCloseMinimapRequestBind = this._onCloseMinimapRequest.bind(this) as EventListener;
-        this._fnFocusModeChangedBind = this._onFocusModeChanged.bind(this) as EventListener;
-
-        document.addEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
-        document.addEventListener(DomEvents.FOCUS_MODE_CHANGED, this._fnFocusModeChangedBind);
+        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:closeMinimapRequest", this.onCloseMinimapRequest.bind(this)));
+        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:focusModeChanged", this.onFocusModeChanged.bind(this)));
         
-        this._bIsAttached = true;
+        this.isAttached = true;
     }
 
     /**
@@ -62,16 +58,17 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public detachEvents(): void {
-        if (!this._bIsAttached) return;
+        if (!this.isAttached) return;
 
-        document.removeEventListener(DomEvents.CLOSE_MINIMAP, this._fnCloseMinimapRequestBind);
-        document.removeEventListener(DomEvents.FOCUS_MODE_CHANGED, this._fnFocusModeChangedBind);
-        if (this._oSpacingPopover) {
-            this._oSpacingPopover.destroy();
-            this._oSpacingPopover = undefined;
+        this.subscriptions.forEach(sub => sub.dispose());
+        this.subscriptions = [];
+
+        if (this.spacingPopover) {
+            this.spacingPopover.destroy();
+            this.spacingPopover = undefined;
         }
         
-        this._bIsAttached = false;
+        this.isAttached = false;
     }
 
     /**
@@ -82,9 +79,9 @@ export default class CanvasActionHandler {
      */
     public toggleMinimap(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
-        (this._oView.getModel("view") as JSONModel).setProperty(ViewState.SHOW_MINIMAP, bPressed);
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.toggleMinimap(this._getInstanceId(), sEngine, bPressed);
+        (this.view.getModel("view") as JSONModel).setProperty(ViewState.SHOW_MINIMAP, bPressed);
+        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.toggleMinimap(this.getInstanceId(), sEngine, bPressed);
     }
 
     /**
@@ -96,11 +93,11 @@ export default class CanvasActionHandler {
     public changeInteractionMode(oEvent: Event): void {
         const sMode = (oEvent.getSource() as SegmentedButton).getSelectedKey();
         const bSelectMode = (sMode === "select");
-        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const oViewModel = this.view.getModel("view") as JSONModel;
         oViewModel.setProperty(ViewState.IS_SELECT_MODE, bSelectMode);
         
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.setInteractionMode(this._getInstanceId(), sEngine, bSelectMode ? "select" : "pan");
+        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.setInteractionMode(this.getInstanceId(), sEngine, bSelectMode ? "select" : "pan");
     }
 
     /**
@@ -110,11 +107,11 @@ export default class CanvasActionHandler {
      */
     public toggleTempFocusMode(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
-        const oViewModel = this._oView.getModel("view") as JSONModel;
+        const oViewModel = this.view.getModel("view") as JSONModel;
         if (oViewModel) oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, bPressed);
         
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.setTempFocusMode(this._getInstanceId(), sEngine, bPressed);
+        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.setTempFocusMode(this.getInstanceId(), sEngine, bPressed);
     }
 
     /**
@@ -123,19 +120,17 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public changeSpacing(): void {
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        const oUiModel = this.view.getModel("ui") as JSONModel;
+        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
-        if (oUiModel && this._oEventBus && Renderer.supportsLiveUpdate(sEngine)) {
+        if (oUiModel && Renderer.supportsLiveUpdate(sEngine)) {
             const oModelData = oUiModel.getData();
             const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
             if (sFormatKey) {
                 const oFormatConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
-                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: sEngine, format: oFormatConfig });
+                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: sEngine, format: oFormatConfig });
                 
-                if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.FORMAT_SLIDER_UPDATE, { detail: { viewId: this._getInstanceId(), node_spacing: oFormatConfig.node_spacing } }));
-                }
+                EventManager.getInstance().publish("canvas:formatSliderUpdate", { viewId: this.getInstanceId(), node_spacing: oFormatConfig.node_spacing });
             }
         }
     }
@@ -147,13 +142,13 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public showSpacingPopover(oEvent: Event): void {
-        if (!this._oSpacingPopover) {
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
+        if (!this.spacingPopover) {
+            const oUiModel = this.view.getModel("ui") as JSONModel;
             const sEngine = oUiModel ? oUiModel.getProperty("/activeEngine") : "CYTOSCAPE";
             const oModelData = oUiModel ? oUiModel.getData() : {};
             const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
 
-            this._oSpacingPopover = new ResponsivePopover({
+            this.spacingPopover = new ResponsivePopover({
                 showHeader: false,
                 placement: "Top",
                 contentWidth: "300px",
@@ -169,9 +164,9 @@ export default class CanvasActionHandler {
                     }).addStyleClass("sapUiSmallMargin")
                 ]
             });
-            this._oView.addDependent(this._oSpacingPopover);
+            this.view.addDependent(this.spacingPopover);
         }
-        this._oSpacingPopover.openBy(oEvent.getSource() as Control);
+        this.spacingPopover.openBy(oEvent.getSource() as Control);
     }
 
     /**
@@ -180,8 +175,8 @@ export default class CanvasActionHandler {
      */
     public searchCanvas(oEvent: SearchField$SearchEvent): void {
         const sQuery = oEvent.getParameter("query") || "";
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.searchCanvas(this._getInstanceId(), sEngine, sQuery);
+        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.searchCanvas(this.getInstanceId(), sEngine, sQuery);
     }
 
     /**
@@ -190,7 +185,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public clearSelection(): void {
-        Renderer.clearSelection(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
+        Renderer.clearSelection(this.getInstanceId(), (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
     }
 
     /**
@@ -199,7 +194,7 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public selectAll(): void {
-        Renderer.selectAll(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
+        Renderer.selectAll(this.getInstanceId(), (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE));
     }
 
     /**
@@ -207,30 +202,28 @@ export default class CanvasActionHandler {
      * @description Intercepts events requesting a teardown of the minimap control.
      * @returns {void}
      */
-    private _onCloseMinimapRequest(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
-        (this._oView.getModel("view") as JSONModel)?.setProperty(ViewState.SHOW_MINIMAP, false);
-        Renderer.toggleMinimap(this._getInstanceId(), (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE), false);
+    private onCloseMinimapRequest(oPayload: { viewId?: string }): void {
+        if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
+        (this.view.getModel("view") as JSONModel)?.setProperty(ViewState.SHOW_MINIMAP, false);
+        Renderer.toggleMinimap(this.getInstanceId(), (this.view.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE), false);
     }
 
     /**
      * @private
      * @description Maps the Focus Mode state to the UI Model.
-     * @param {CustomEvent} oEvent - Custom DOM Event.
+     * @param {any} oPayload - Payload from EventManager
      */
-    private _onFocusModeChanged(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string, isFocused: boolean, nodeName: string, hasNodeSelected: boolean, tempFocusMode: boolean }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
-        const oViewModel = this._oView.getModel("view") as JSONModel;
+    private onFocusModeChanged(oPayload: { viewId?: string, isFocused?: boolean, nodeName?: string, hasNodeSelected?: boolean, tempFocusMode?: boolean }): void {
+        if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
+        const oViewModel = this.view.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty(ViewState.IS_FOCUS_MODE, oCustomEvent.detail?.isFocused || false);
-            oViewModel.setProperty(ViewState.FOCUS_NODE_NAME, oCustomEvent.detail?.nodeName || "");
-            if (oCustomEvent.detail?.hasNodeSelected !== undefined) {
-                oViewModel.setProperty(ViewState.HAS_NODE_SELECTED, oCustomEvent.detail.hasNodeSelected);
+            oViewModel.setProperty(ViewState.IS_FOCUS_MODE, oPayload?.isFocused || false);
+            oViewModel.setProperty(ViewState.FOCUS_NODE_NAME, oPayload?.nodeName || "");
+            if (oPayload?.hasNodeSelected !== undefined) {
+                oViewModel.setProperty(ViewState.HAS_NODE_SELECTED, oPayload.hasNodeSelected);
             }
-            if (oCustomEvent.detail?.tempFocusMode !== undefined) {
-                oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, oCustomEvent.detail.tempFocusMode);
+            if (oPayload?.tempFocusMode !== undefined) {
+                oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, oPayload.tempFocusMode);
             }
         }
     }
@@ -238,20 +231,19 @@ export default class CanvasActionHandler {
     /**
      * @public
      * @description Broadcasts layout node spacing changes.
-     * @param {any} oEvent - UI Custom Slider Event.
+     * @param {any} oEvent - We actually don't use this directly anymore, but it might be called from somewhere. Let's see...
      * @returns {void}
      */
-    public onSliderUpdate(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent<{ viewId: string, node_spacing: number }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
-        if (oCustomEvent.detail?.node_spacing) {
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
+    public onSliderUpdate(oPayload: { viewId?: string, node_spacing?: number }): void {
+        if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
+        if (oPayload?.node_spacing) {
+            const oUiModel = this.view.getModel("ui") as JSONModel;
             if (oUiModel) {
                 const sEngine = oUiModel.getProperty("/activeEngine");
                 const oModelData = oUiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
                 if (sFormatKey) {
-                    oUiModel.setProperty(`/${sFormatKey}/node_spacing`, oCustomEvent.detail.node_spacing);
+                    oUiModel.setProperty(`/${sFormatKey}/node_spacing`, oPayload.node_spacing);
                     oUiModel.setProperty("/variantDirty", true);
                 }
             }

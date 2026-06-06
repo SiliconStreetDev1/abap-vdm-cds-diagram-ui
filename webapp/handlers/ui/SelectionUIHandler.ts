@@ -5,6 +5,7 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
+import { EventManager } from "../../events/EventManager";
 import EventBus from "sap/ui/core/EventBus";
 import Control from "sap/ui/core/Control";
 import VBox from "sap/m/VBox";
@@ -21,7 +22,6 @@ import ResponsivePopover from "sap/m/ResponsivePopover";
 import Slider from "sap/m/Slider";
 import Renderer from "../../renderer/Renderer";
 import { EngineType } from "../../types";
-import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
 import { UiState, ModelNames } from "../../constants/StateConstants";
 
 /**
@@ -30,14 +30,15 @@ import { UiState, ModelNames } from "../../constants/StateConstants";
  */
 export default class SelectionUIHandler {
     private _oView: View;
-    private _oEventBus?: EventBus;
+    
     private _oStateHandler: SelectionStateHandler;
     private _fnGetText: (k: string, args?: any[]) => string;
     private _oCdsValueHelpHandler?: CdsValueHelpHandler;
     private _oActiveSearchField?: Control;
     private _oSpacingPopover?: ResponsivePopover;
-    private _fnSliderUpdateBind!: EventListener;
+    private _fnSliderUpdateBind!: any;
     private _bIsAttached: boolean = false;
+    private _subscriptions: any[] = [];
 
     /**
      * @constructor
@@ -46,9 +47,9 @@ export default class SelectionUIHandler {
      * @param {SelectionStateHandler} oStateHandler - State handler reference to alert dirty tracking.
      * @param {Function} fnGetText - Delegate function for i18n translations.
      */
-    constructor(oView: View, oEventBus: EventBus | undefined, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
+    constructor(oView: View, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
-        this._oEventBus = oEventBus;
+        
         this._oStateHandler = oStateHandler;
         this._fnGetText = fnGetText;
     }
@@ -61,7 +62,7 @@ export default class SelectionUIHandler {
         if (this._bIsAttached) return;
         this._fnSliderUpdateBind = this.onSliderUpdate.bind(this) as EventListener;
         if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:formatSliderUpdate", this._fnSliderUpdateBind));
         }
         this._bIsAttached = true;
     }
@@ -73,7 +74,7 @@ export default class SelectionUIHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            document.removeEventListener(DomEvents.FORMAT_SLIDER_UPDATE, this._fnSliderUpdateBind);
+            /* removed */
         }
         this._bIsAttached = false;
     }
@@ -113,9 +114,7 @@ export default class SelectionUIHandler {
             const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
             const oFormatConfig = sFormatKey ? Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`)) : {};
             
-            if (this._oEventBus) {
-                this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, { engine: sEngine, format: oFormatConfig });
-            }
+            EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: sEngine, format: oFormatConfig });
         } else {
             // Other engines require a full rendering cycle for format changes
             this._oStateHandler.markStaleState();
@@ -140,15 +139,15 @@ export default class SelectionUIHandler {
      * @returns {void}
      */
     public onSliderUpdate(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as unknown as CustomEvent;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
-        if (oCustomEvent.detail?.node_spacing) {
+        const payload = oEvent as any;
+        if (payload?.viewId && payload.viewId !== this._getInstanceId()) return;
+        if (payload?.node_spacing) {
             const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
             if (oUiModel) {
                 const sEngine = oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine();
                 const oModelData = oUiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
-                oUiModel.setProperty(`/${sFormatKey}/node_spacing`, oCustomEvent.detail.node_spacing);
+                oUiModel.setProperty(`/${sFormatKey}/node_spacing`, payload.node_spacing);
                 this._oStateHandler.markDirtyState(false);
             }
         }

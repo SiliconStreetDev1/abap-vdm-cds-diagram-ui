@@ -4,6 +4,7 @@
  * @description Extracts Note Dialog UI generation from the CanvasActionHandler 
  * to strictly enforce the Single Responsibility Principle.
  */
+import { EventManager } from "../../events/EventManager";
 import View from "sap/ui/core/mvc/View";
 import Dialog from "sap/m/Dialog";
 import TextArea from "sap/m/TextArea";
@@ -12,13 +13,13 @@ import Select from "sap/m/Select";
 import Item from "sap/ui/core/Item";
 import VBox from "sap/m/VBox";
 import Label from "sap/m/Label";
-import { DomEvents } from "../../constants/EventConstants";
 
 export default class NoteDialogHandler {
     private _oView: View;
-    private _fnPromptAddNoteBind!: EventListener;
-    private _fnPromptEditNoteBind!: EventListener;
+    private _fnPromptAddNoteBind!: any;
+    private _fnPromptEditNoteBind!: any;
     private _bIsAttached: boolean = false;
+    private _subscriptions: any[] = [];
 
     /**
      * @public
@@ -46,18 +47,20 @@ export default class NoteDialogHandler {
         if (this._bIsAttached) return;
         
         this._fnPromptAddNoteBind = ((oEvent: Event) => {
-            if ((oEvent as CustomEvent<{ viewId: string }>).detail?.viewId && (oEvent as CustomEvent<{ viewId: string }>).detail?.viewId !== this._getInstanceId()) return;
+            const payload = oEvent as any;
+            if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
             this.promptAddNote();
-        }) as EventListener;
+        }) as any;
         
         this._fnPromptEditNoteBind = ((oEvent: Event) => {
-            if ((oEvent as CustomEvent<{ viewId: string }>).detail?.viewId && (oEvent as CustomEvent<{ viewId: string }>).detail?.viewId !== this._getInstanceId()) return;
+            const payload = oEvent as any;
+            if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
             this.promptEditNote(oEvent);
-        }) as EventListener;
+        }) as any;
 
         if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.PROMPT_ADD_NOTE_REQUEST, this._fnPromptAddNoteBind);
-            document.addEventListener(DomEvents.PROMPT_EDIT_NOTE_REQUEST, this._fnPromptEditNoteBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:promptAddNoteRequest", this._fnPromptAddNoteBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:promptEditNoteRequest", this._fnPromptEditNoteBind));
         }
         this._bIsAttached = true;
     }
@@ -70,8 +73,8 @@ export default class NoteDialogHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            document.removeEventListener(DomEvents.PROMPT_ADD_NOTE_REQUEST, this._fnPromptAddNoteBind);
-            document.removeEventListener(DomEvents.PROMPT_EDIT_NOTE_REQUEST, this._fnPromptEditNoteBind);
+            /* removed */
+            /* removed */
         }
         this._bIsAttached = false;
     }
@@ -84,7 +87,7 @@ export default class NoteDialogHandler {
     public promptAddNote(): void {
         this._openNoteDialog("Add Sticky Note", "", "Marker", (sText, sFont) => {
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.ADD_NOTE_REQUEST, { detail: { viewId: this._getInstanceId(), text: sText, fontFamily: sFont } }));
+                EventManager.getInstance().publish("canvas:addNoteRequest", { viewId: this._getInstanceId(), text: sText, fontFamily: sFont });
             }
         });
     }
@@ -96,14 +99,14 @@ export default class NoteDialogHandler {
      * @returns {void}
      */
     public promptEditNote(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent<{ id: string, text: string, fontFamily: string }>;
-        const sId = oCustomEvent.detail?.id;
-        const sCurrentText = oCustomEvent.detail?.text || "";
-        const sCurrentFont = oCustomEvent.detail?.fontFamily || "Marker";
+        const payload = oEvent as any;
+        const sId = payload?.noteId || payload?.id;
+        const sCurrentText = payload?.text || "";
+        const sCurrentFont = payload?.fontFamily || "Marker";
         
         this._openNoteDialog("Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.EDIT_NOTE_REQUEST, { detail: { viewId: this._getInstanceId(), id: sId, text: sText, fontFamily: sFont } }));
+                EventManager.getInstance().publish("canvas:editNoteRequest", { viewId: this._getInstanceId(), noteId: sId, text: sText, fontFamily: sFont });
             }
         });
     }

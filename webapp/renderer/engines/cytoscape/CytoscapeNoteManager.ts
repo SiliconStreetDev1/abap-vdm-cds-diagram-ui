@@ -5,14 +5,14 @@
  * isolating it from standard event binding or global engine operations.
  */
 import type { Core, NodeSingular, BoundingBox12, BoundingBoxWH } from "cytoscape";
-import { DomEvents } from "../../../constants/EventConstants";
+import { EventManager } from "../../../events/EventManager";
 
 export default class CytoscapeNoteManager {
     private static _cyInstances: Map<string, Core> = new Map();
     private static _bIsBound = false;
-    private static _fnAddNote?: EventListener;
-    private static _fnEditNote?: EventListener;
-    private static _fnChangeColor?: EventListener;
+    private static _fnAddNote?: any;
+    private static _fnEditNote?: any;
+    private static _fnChangeColor?: any;
 
     /**
      * @public
@@ -26,13 +26,13 @@ export default class CytoscapeNoteManager {
         this._cyInstances.set(sViewId, cyInstance);
 
         if (!this._bIsBound && typeof document !== "undefined") {
-            this._fnAddNote = this._onAddNoteRequest.bind(this) as EventListener;
-            this._fnEditNote = this._onEditNoteRequest.bind(this) as EventListener;
-            this._fnChangeColor = this._onChangeNoteColorRequest.bind(this) as EventListener;
+            this._fnAddNote = this._onAddNoteRequest.bind(this) as any;
+            this._fnEditNote = this._onEditNoteRequest.bind(this) as any;
+            this._fnChangeColor = this._onChangeNoteColorRequest.bind(this) as any;
             
-            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNote);
-            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNote);
-            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeColor);
+            EventManager.getInstance().subscribe("canvas:addNoteRequest", this._fnAddNote);
+            EventManager.getInstance().subscribe("canvas:editNoteRequest", this._fnEditNote);
+            EventManager.getInstance().subscribe("canvas:changeNoteColorRequest", this._fnChangeColor);
             this._bIsBound = true;
         }
     }
@@ -49,9 +49,9 @@ export default class CytoscapeNoteManager {
         // ENTERPRISE FIX: If no active instances remain, completely detach global listeners 
         // to prevent ghost events in the SAP Fiori Launchpad when navigating between apps.
         if (this._cyInstances.size === 0 && this._bIsBound && typeof document !== "undefined") {
-            if (this._fnAddNote) document.removeEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnAddNote);
-            if (this._fnEditNote) document.removeEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnEditNote);
-            if (this._fnChangeColor) document.removeEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnChangeColor);
+            
+            
+            
             this._bIsBound = false;
         }
     }
@@ -130,7 +130,7 @@ export default class CytoscapeNoteManager {
             });
         }
 
-        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
+        if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
     }
 
     /**
@@ -154,7 +154,7 @@ export default class CytoscapeNoteManager {
             if (oNode.length > 0) {
                 oNode.data('label', sText);
                 if (sFontFamily) oNode.data('fontFamily', sFontFamily);
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
+                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
             }
         }
     }
@@ -180,7 +180,7 @@ export default class CytoscapeNoteManager {
             if (oNode.length > 0) {
                 oNode.data('bgColor', sBgColor);
                 oNode.data('borderColor', sBorderColor);
-                if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
+                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
             }
         }
     }

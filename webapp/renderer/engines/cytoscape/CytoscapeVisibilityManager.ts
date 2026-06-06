@@ -4,7 +4,7 @@
  * @description Handles logic for showing/hiding specific nodes and managing their DOM events.
  */
 import type { Core, NodeSingular } from "cytoscape";
-import { DomEvents } from "../../../constants/EventConstants";
+import { EventManager } from "../../../events/EventManager";
 
 export default class CytoscapeVisibilityManager {
     
@@ -16,10 +16,8 @@ export default class CytoscapeVisibilityManager {
     public static showHiddenNodes(sViewId: string, cyInstance: Core): void {
         if (!cyInstance) return;
         cyInstance.nodes('.hidden').removeClass('hidden').data('isHidden', false);
-        if (typeof document !== "undefined") {
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: false, hiddenNodes: [] } }));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_UNHIDDEN, { detail: { viewId: sViewId } }));
-        }
+        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: sViewId, hasHidden: false, hiddenNodes: [] });
+        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: sViewId });
     }
 
     /**
@@ -41,9 +39,7 @@ export default class CytoscapeVisibilityManager {
         
         const remainingHidden = cyInstance.nodes('.hidden');
         const hiddenList = remainingHidden.map((n: NodeSingular) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
-        if (typeof document !== "undefined") {
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: remainingHidden.length > 0, hiddenNodes: hiddenList } }));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_UNHIDDEN, { detail: { viewId: sViewId } }));
-        }
+        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: sViewId, hasHidden: remainingHidden.length > 0, hiddenNodes: hiddenList });
+        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: sViewId });
     }
 }

@@ -5,7 +5,8 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
-import EventBus from "sap/ui/core/EventBus";
+import { EventManager } from "../../events/EventManager";
+import { Subscription } from "../../events/Subscription";
 import MessageToast from "sap/m/MessageToast";
 import Input from "sap/m/Input";
 import Select from "sap/m/Select";
@@ -20,29 +21,26 @@ import SessionStateCache from "../../helpers/SessionStateCache";
 import DiagramCache from "../../services/DiagramCache";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
-import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
 import { UiState, ModelNames, DiagramData } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
 import VariantStateMapper from "../../helpers/VariantStateMapper";
 
 export default class DiagramGenerationHandler {
     private view: View;
-    private eventBus?: EventBus;
+    private subscriptions: Subscription[] = [];
     private getText: (key: string, args?: any[]) => string;
     private rootCdsName: string = "";
     private breadcrumbs: string[] = [];
-    private _fnNodeDrillDownRequestBind!: EventListener;
+    private _fnNodeDrillDownRequestBind!: any;
     private _bIsAttached: boolean = false;
 
     /**
      * @public
      * @param {View} view - The active SAPUI5 view.
-     * @param {EventBus | undefined} eventBus - The application event bus for decoupled messaging.
      * @param {Function} getText - Translation string delegate.
      */
-    constructor(view: View, eventBus: EventBus | undefined, getText: (key: string, args?: any[]) => string) {
+    constructor(view: View, getText: (key: string, args?: any[]) => string) {
         this.view = view;
-        this.eventBus = eventBus;
         this.getText = getText;
     }
 
@@ -61,12 +59,10 @@ export default class DiagramGenerationHandler {
      */
     public attachEvents(): void {
         if (this._bIsAttached) return;
-        if (this.eventBus) {
-            this.eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
-            this.eventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, this._restoreWorkspaceState, this);
-        }
-        this._fnNodeDrillDownRequestBind = this._onNodeDrillDownDOM.bind(this) as EventListener;
-        if (typeof document !== "undefined") document.addEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
+        this.subscriptions.push(EventManager.getInstance().subscribe("diagram:nodeDrillDown", this._onEventBusDrillDown.bind(this)));
+        this.subscriptions.push(EventManager.getInstance().subscribe("diagram:applyVariantState", this._restoreWorkspaceState.bind(this)));
+        this._fnNodeDrillDownRequestBind = this._onNodeDrillDownDOM.bind(this) as any;
+        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeDrillDownRequest", this._fnNodeDrillDownRequestBind));
         this._bIsAttached = true;
     }
 
@@ -76,11 +72,9 @@ export default class DiagramGenerationHandler {
      */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
-        if (this.eventBus) {
-            this.eventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, this._onEventBusDrillDown, this);
-            this.eventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, this._restoreWorkspaceState, this);
-        }
-        if (typeof document !== "undefined") document.removeEventListener(DomEvents.NODE_DRILL_DOWN, this._fnNodeDrillDownRequestBind);
+        this.subscriptions.forEach(sub => sub.dispose());
+        this.subscriptions = [];
+        /* removed */
         this._bIsAttached = false;
     }
 
@@ -116,9 +110,7 @@ export default class DiagramGenerationHandler {
             return;
         }
 
-        if (this.eventBus) {
-            this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
-        }
+        EventManager.getInstance().publish("video:autoPause", undefined);
 
         const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
         const cachedResult = forceRefresh ? null : DiagramCache.get(request);
@@ -139,10 +131,8 @@ export default class DiagramGenerationHandler {
         } catch (error: any) {
             (this.view.getModel(ModelNames.UI) as JSONModel).setProperty(UiState.IS_CANVAS_STALE, true);
             
-            if (this.eventBus) {
-                this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, { message: error.message });
-                this.eventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
-            }
+            EventManager.getInstance().publish("diagram:renderFailed", { message: error.message });
+            EventManager.getInstance().publish("video:autoResume", undefined);
             
             MessageToast.show(this.getText(error.message) || error.message);
         } finally {
@@ -240,8 +230,6 @@ export default class DiagramGenerationHandler {
      * @param {boolean} isRestore - True if restoring a layout snapshot.
      */
     private _publishRenderEvent(result: any, engine: EngineType, isRestore: boolean): void {
-        if (!this.eventBus) return;
-        
         const uiModel = this.view.getModel(ModelNames.UI) as JSONModel;
         const payload: IRenderRequestPayload = {
             payload: result.DiagramPayload, 
@@ -258,7 +246,7 @@ export default class DiagramGenerationHandler {
             payload.engineConfig = Object.assign({}, uiModel.getProperty(`/${formatKey}`));
             payload.engineConfig.isRestore = isRestore;
         }
-        this.eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, payload);
+        EventManager.getInstance().publish("diagram:renderRequest", payload);
     }
 
     /**
@@ -293,12 +281,9 @@ export default class DiagramGenerationHandler {
     /**
      * @private
      * @description EventBus listener for drill-down commands broadcasted across separated components.
-     * @param {string} channel - Channel name.
-     * @param {string} event - Event name.
-     * @param {Object} data - Payload data containing the target view name.
      */
-    private _onEventBusDrillDown(channel: string, event: string, data: Object): void {
-        this.processDrillDown((data as { viewName?: string })?.viewName);
+    private _onEventBusDrillDown(data: any): void {
+        this.processDrillDown(data?.viewName);
     }
 
     /**
@@ -307,9 +292,9 @@ export default class DiagramGenerationHandler {
      * @param {globalThis.Event} e - Native DOM Event.
      */
     private _onNodeDrillDownDOM(e: globalThis.Event): void {
-        const customEvent = e as unknown as CustomEvent<{ viewId: string, viewName: string }>;
-        if (customEvent.detail?.viewId && customEvent.detail.viewId !== this.getInstanceId()) return;
-        this.processDrillDown(customEvent.detail?.viewName as string);
+        const payload = e as any;
+        if (payload?.viewId && payload.viewId !== this.getInstanceId()) return;
+        this.processDrillDown(payload?.viewName as string);
     }
 
     /**
@@ -317,12 +302,8 @@ export default class DiagramGenerationHandler {
      * @description EventBus listener for workspace clone and variant restoration events.
      * Safely injects the targeted CDS name, binds the saved configuration to the Fiori UI Model,
      * and executes the diagram generation cycle.
-     * @param {string} sChannel - EventBus channel.
-     * @param {string} sEvent - Event identifier.
-     * @param {any} oState - The raw variant payload containing metadata and coordinate mappings.
-     * @returns {Promise<void>} Resolves when generation succeeds.
      */
-    private async _restoreWorkspaceState(sChannel: string, sEvent: string, oState: any): Promise<void> {
+    private async _restoreWorkspaceState(oState: any): Promise<void> {
         const variantState = oState;
         if (variantState.cdsName) {
             (this.view.byId("cmbCdsName") as Input).setValue(variantState.cdsName);

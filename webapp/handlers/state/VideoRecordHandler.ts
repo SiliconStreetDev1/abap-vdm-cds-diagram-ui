@@ -7,18 +7,18 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import MessageToast from "sap/m/MessageToast";
-import EventBus from "sap/ui/core/EventBus";
+import { EventManager } from "../../events/EventManager";
+import { Subscription } from "../../events/Subscription";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import FileDownloadUtility from "../../helpers/FileDownloadUtility";
 import VideoRecorder, { IRecordingConfig } from "../../video/VideoRecorder";
-import { EventChannels, EventIds } from "../../constants/EventConstants";
 import ScreenRecorder from "../../video/ScreenRecorder";
 import CanvasRecorder from "../../video/CanvasRecorder";
 import { UiState, DiagramData } from "../../constants/StateConstants";
 
 export default class VideoRecordHandler {
     private view: View;
-    private eventBus?: EventBus;
+    private subscriptions: Subscription[] = [];
     private recorder: VideoRecorder | null = null;
     private textFormatter: (key: string) => string;
 
@@ -35,12 +35,9 @@ export default class VideoRecordHandler {
     /**
      * Initializes the Video Record Handler.
      * @param {View} view - Reference to the active SAPUI5 view.
-     * @param {EventBus} eventBus - Application event bus for auto-pause orchestration.
-     * @param {Function} textFormatter - Delegate function for i18n translations.
      */
-    constructor(view: View, eventBus: EventBus | undefined, textFormatter: (key: string) => string) {
+    constructor(view: View, textFormatter: (key: string) => string) {
         this.view = view;
-        this.eventBus = eventBus;
         this.textFormatter = textFormatter;
 
         this.autoPauseBind = this.handleAutoPause.bind(this);
@@ -59,15 +56,13 @@ export default class VideoRecordHandler {
     public attachEvents(): void {
         if (this._bIsAttached) return;
 
-        if (this.eventBus) {
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE, this.autoPauseBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME, this.autoResumeBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_STOP, this.stopBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_PAUSE, this.pauseBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_RESUME, this.resumeBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_START, this.startBind, this);
-            this.eventBus.subscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH, this.toggleStealthBind, this);
-        }
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:autoPause", this.autoPauseBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:autoResume", this.autoResumeBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:stop", this.stopBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:pause", this.pauseBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:resume", this.resumeBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:start", this.startBind));
+        this.subscriptions.push(EventManager.getInstance().subscribe("video:toggleStealth", this.toggleStealthBind));
         
         this._bIsAttached = true;
     }
@@ -79,15 +74,8 @@ export default class VideoRecordHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
 
-        if (this.eventBus) {
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE, this.autoPauseBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME, this.autoResumeBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_STOP, this.stopBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_PAUSE, this.pauseBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_RESUME, this.resumeBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_START, this.startBind, this);
-            this.eventBus.unsubscribe(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_TOGGLE_STEALTH, this.toggleStealthBind, this);
-        }
+        this.subscriptions.forEach(sub => sub.dispose());
+        this.subscriptions = [];
         
         this._bIsAttached = false;
     }

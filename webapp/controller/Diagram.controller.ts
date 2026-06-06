@@ -29,9 +29,10 @@ import DiagramRenderHandler from "../handlers/canvas/DiagramRenderHandler";
 import VideoRecordHandler from "../handlers/state/VideoRecordHandler";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
-import { EventChannels, EventIds, DomEvents } from "../constants/EventConstants";
 import { ViewState, UiState, ModelNames, DiagramData } from "../constants/StateConstants";
+
 import SoundscapeManager from "../services/SoundscapeManager";
+import { EventManager } from "../events/EventManager";
 
 export default class Diagram extends Controller {
     
@@ -95,15 +96,15 @@ export default class Diagram extends Controller {
         }), ModelNames.DIAGRAM_DATA);
 
         // Initialize the export service
-        this._oRenderHandler = new DiagramRenderHandler(oView, this.getOwnerComponent()?.getEventBus(), this._getText.bind(this));
+        this._oRenderHandler = new DiagramRenderHandler(oView, this._getText.bind(this));
         this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._oRenderHandler.showError.bind(this._oRenderHandler));
         this._oFullScreenHandler = new FullScreenHandler(oView);
-        this._oCanvasActionHandler = new CanvasActionHandler(oView, this.getOwnerComponent()?.getEventBus());
-        this._oCanvasKeyboardHandler = new CanvasKeyboardHandler(oView, this.getOwnerComponent()?.getEventBus());
+        this._oCanvasActionHandler = new CanvasActionHandler(oView);
+        this._oCanvasKeyboardHandler = new CanvasKeyboardHandler(oView);
         this._oHiddenNodesHandler = new HiddenNodesHandler(oView);
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
-        this._oUndoHandler = new UndoHandler(oView, this.getOwnerComponent()?.getEventBus());
-        this._videoRecordHandler = new VideoRecordHandler(oView, this.getOwnerComponent()?.getEventBus(), this._getText.bind(this));
+        this._oUndoHandler = new UndoHandler(oView);
+        this._videoRecordHandler = new VideoRecordHandler(oView, this._getText.bind(this));
         
         this._oRenderHandler.attachEvents();
         this._oFullScreenHandler.attachEvents();
@@ -183,10 +184,7 @@ export default class Diagram extends Controller {
             }
 
             oUiModel.setProperty("/clonedVariantName", variantState.name ? `Copy of ${variantState.name}` : "");
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.APPLY_VARIANT_STATE, variantState);
-            }
+            EventManager.getInstance().publish("diagram:applyVariantState", variantState);
         }
 
         MessageToast.show(this._getText("msgClonedToWorkspace"));
@@ -196,7 +194,7 @@ export default class Diagram extends Controller {
     
     public onUndo(): void {
         if (typeof document !== "undefined") {
-            document.dispatchEvent(new CustomEvent(DomEvents.UNDO_REQUEST, { detail: { viewId: this._getInstanceId() } }));
+            EventManager.getInstance().publish("canvas:undoRequest", { viewId: this._getInstanceId() });
         }
     }
 
@@ -237,10 +235,7 @@ export default class Diagram extends Controller {
         const oLink = oEvent.getSource() as Link;
         const sViewName = oLink.getText();
         if (sViewName) {
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sViewName });
-            }
+            EventManager.getInstance().publish("diagram:nodeDrillDown", { viewName: sViewName });
         }
     }
 
@@ -255,10 +250,7 @@ export default class Diagram extends Controller {
 
         const sViewName = (this.getView()?.getModel(ModelNames.VIEW) as JSONModel)?.getProperty(ViewState.FOCUS_NODE_NAME);
         if (sViewName) {
-            const oEventBus = this.getOwnerComponent()?.getEventBus();
-            if (oEventBus) {
-                oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sViewName });
-            }
+            EventManager.getInstance().publish("diagram:nodeDrillDown", { viewName: sViewName });
         }
     }
 

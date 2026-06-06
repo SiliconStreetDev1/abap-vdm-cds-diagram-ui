@@ -3,21 +3,18 @@
  * @description Defines the polymorphic contract for shortcut mapping and encapsulates
  * shared canvas execution commands (Panning, Selection, Minimap) used by all modes.
  */
+import { EventManager } from "../../events/EventManager";
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Dialog from "sap/m/Dialog";
-import EventBus from "sap/ui/core/EventBus";
 import Renderer from "../../renderer/Renderer";
 import { ViewState, DiagramData } from "../../constants/StateConstants";
-import { DomEvents } from "../../constants/EventConstants";
 
 export default abstract class BaseKeyboardStrategy {
     protected _oView: View;
-    protected _oEventBus?: EventBus;
 
-    constructor(oView: View, oEventBus?: EventBus) {
+    constructor(oView: View) {
         this._oView = oView;
-        this._oEventBus = oEventBus;
     }
 
     protected _getInstanceId(): string {
@@ -60,7 +57,7 @@ export default abstract class BaseKeyboardStrategy {
     protected _deleteSelection(): void {
         const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
         Renderer.deleteSelection(this._getInstanceId(), sEngine);
-        this._dispatch(DomEvents.DELETE_SELECTION_REQUEST);
+        EventManager.getInstance().publish("canvas:deleteSelectionRequest", { viewId: this._getInstanceId() });
     }
 
     protected _toggleHidden(): void {

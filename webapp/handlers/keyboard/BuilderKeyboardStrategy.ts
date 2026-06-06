@@ -3,9 +3,9 @@
  * @description Enables full structural modification, destructive actions, and metadata annotation.
  */
 import ViewerKeyboardStrategy from "./ViewerKeyboardStrategy";
+import { EventManager } from "../../events/EventManager";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Renderer from "../../renderer/Renderer";
-import { DomEvents, EventChannels, EventIds } from "../../constants/EventConstants";
 import { UiState, ViewState, DiagramData } from "../../constants/StateConstants";
 
 export default class BuilderKeyboardStrategy extends ViewerKeyboardStrategy {
@@ -22,7 +22,7 @@ export default class BuilderKeyboardStrategy extends ViewerKeyboardStrategy {
         super.mapShortcuts(e, bIsTyping);
 
         if (bCtrl && !bShift && !e.altKey) {
-            if (sKey === "z") { e.preventDefault(); this._dispatch(DomEvents.UNDO_REQUEST); return; }
+            if (sKey === "z") { e.preventDefault(); EventManager.getInstance().publish("canvas:undoRequest", { viewId: this._getInstanceId() }); return; }
         }
 
         if (bShift && !bCtrl && !e.altKey) {
@@ -33,7 +33,7 @@ export default class BuilderKeyboardStrategy extends ViewerKeyboardStrategy {
 
     private _addNote(): void {
         const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel && !oUiModel.getProperty(UiState.IS_DRILL_DOWN)) this._dispatch(DomEvents.PROMPT_ADD_NOTE_REQUEST);
+        if (oUiModel && !oUiModel.getProperty(UiState.IS_DRILL_DOWN)) EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() });
     }
 
     private _toggleTempFocus(): void {

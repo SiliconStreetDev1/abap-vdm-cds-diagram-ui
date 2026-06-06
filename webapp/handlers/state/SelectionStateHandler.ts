@@ -3,17 +3,18 @@
  * @fileoverview Manages Variant Drift and UI dirty states.
  */
 import View from "sap/ui/core/mvc/View";
+import { EventManager } from "../../events/EventManager";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Select from "sap/m/Select";
 import Renderer from "../../renderer/Renderer";
 import { UiState, ModelNames } from "../../constants/StateConstants";
-import { DomEvents } from "../../constants/EventConstants";
 
 export default class SelectionStateHandler {
     private _oView: View;
     private _fnGetText: (k: string, args?: any[]) => string;
-    private _fnCanvasStateChangedBind!: EventListener;
+    private _fnCanvasStateChangedBind!: any;
     private _bIsAttached: boolean = false;
+    private _subscriptions: any[] = [];
 
     /**
      * @constructor
@@ -31,12 +32,12 @@ export default class SelectionStateHandler {
      */
     public attachEvents(): void {
         if (this._bIsAttached) return;
-        this._fnCanvasStateChangedBind = this.onCanvasStateChanged.bind(this) as EventListener;
+        this._fnCanvasStateChangedBind = this.onCanvasStateChanged.bind(this) as any;
         if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
-            document.addEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
-            document.addEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
-            document.addEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeDragged", this._fnCanvasStateChangedBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePinned", this._fnCanvasStateChangedBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeHidden", this._fnCanvasStateChangedBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeUnhidden", this._fnCanvasStateChangedBind));
         }
         this._bIsAttached = true;
     }
@@ -48,10 +49,10 @@ export default class SelectionStateHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            document.removeEventListener(DomEvents.NODE_DRAGGED, this._fnCanvasStateChangedBind);
-            document.removeEventListener(DomEvents.NODE_PINNED, this._fnCanvasStateChangedBind);
-            document.removeEventListener(DomEvents.NODE_HIDDEN, this._fnCanvasStateChangedBind);
-            document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnCanvasStateChangedBind);
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
         }
         this._bIsAttached = false;
     }
@@ -91,7 +92,8 @@ export default class SelectionStateHandler {
      * @returns {void}
      */
     public onCanvasStateChanged(oEvent?: globalThis.Event): void {
-        if (oEvent && (oEvent as unknown as CustomEvent).detail?.viewId && (oEvent as unknown as CustomEvent).detail?.viewId !== this._getInstanceId()) return;
+        const payload = oEvent as any;
+        if (payload && payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
         const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
         if (oUiModel) {
             oUiModel.setProperty(UiState.NODES_DRAGGED, true);

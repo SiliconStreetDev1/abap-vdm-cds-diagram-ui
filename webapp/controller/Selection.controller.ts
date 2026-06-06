@@ -58,9 +58,8 @@ export default class Selection extends Controller {
         this.variantHandler = new VariantHandler(view, this.getText.bind(this));
         this.stateHandler = new SelectionStateHandler(view, this.getText.bind(this));
         
-        const eventBus = this.getOwnerComponent()?.getEventBus();
-        this.generationHandler = new DiagramGenerationHandler(view, eventBus, this.getText.bind(this));
-        this.uiHandler = new SelectionUIHandler(view, eventBus, this.stateHandler, this.getText.bind(this));
+        this.generationHandler = new DiagramGenerationHandler(view, this.getText.bind(this));
+        this.uiHandler = new SelectionUIHandler(view, this.stateHandler, this.getText.bind(this));
         this.variantOrchestrator = new VariantOrchestrationHandler(view, this.variantHandler, this.generationHandler, this.getText.bind(this));
 
         const incInput = this.byId("inpInclude") as MultiInput;

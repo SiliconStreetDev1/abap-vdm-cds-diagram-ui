@@ -4,7 +4,7 @@
  * @description Binds user interaction events (click, double click, selection) on the graph to Fiori UI dispatchers.
  */
 import type { Core, NodeSingular, EventObject } from "cytoscape";
-import { DomEvents } from "../../../constants/EventConstants";
+import { EventManager } from "../../../events/EventManager";
 
 export default class CytoscapeEventHandler {
 
@@ -85,9 +85,9 @@ export default class CytoscapeEventHandler {
             }
             
             if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { 
-                    detail: { viewId: sViewId, isFocused: bFocus, nodeName: sFocusName, hasNodeSelected: bHasSingleNode, tempFocusMode: cyInstance.scratch('_tempFocusMode') || false } 
-                }));
+                EventManager.getInstance().publish("canvas:focusModeChanged", { 
+                    viewId: sViewId, isFocused: bFocus, nodeName: sFocusName, hasNodeSelected: bHasSingleNode, tempFocusMode: cyInstance.scratch('_tempFocusMode') || false 
+                });
             }
         });
     }
@@ -123,14 +123,14 @@ export default class CytoscapeEventHandler {
             if (timeDiff > 0 && timeDiff < 400) {
                 if (node.hasClass('annotation-note')) {
                     if (!getIsDrillDown() && !getIsViewerMode()) {
-                        if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_EDIT_NOTE_REQUEST, { detail: { viewId: sViewId, id: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') } }));
+                        EventManager.getInstance().publish("canvas:promptEditNoteRequest", { viewId: sViewId, noteId: node.id(), text: node.data('label'), fontFamily: node.data('fontFamily') });
                     }
                     return;
                 }
                 
                 if (getIsViewerMode()) return; // Completely enforce read-only presentation lockdown
                 
-                document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRILL_DOWN, { detail: { viewId: sViewId, viewName: node.data('id') } }));
+                EventManager.getInstance().publish("canvas:nodeDrillDownRequest", { viewId: sViewId, viewName: node.data('id') });
                 return;
             }
             
@@ -142,11 +142,11 @@ export default class CytoscapeEventHandler {
                 node.unselect();
             }
             
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_CLICKED, { detail: { viewId: sViewId, viewName: node.data('id') } }));
+            EventManager.getInstance().publish("canvas:nodeClicked", { viewId: sViewId, nodeId: node.data('id') });
         });
 
         cyInstance.on('closeMinimap', () => {
-            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, { detail: { viewId: sViewId } }));
+            EventManager.getInstance().publish("canvas:closeMinimapRequest", { viewId: sViewId });
         });
     }
 
@@ -187,7 +187,7 @@ export default class CytoscapeEventHandler {
                 }
             }
 
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_DRAGGED, { detail: { viewId: sViewId } }));
+            EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
         });
     }
 
@@ -204,7 +204,7 @@ export default class CytoscapeEventHandler {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isLayoutActive', false);
                 if (typeof document !== "undefined") {
-                    document.dispatchEvent(new CustomEvent(DomEvents.CANVAS_READY, { detail: { viewId: sViewId } }));
+                    EventManager.getInstance().publish("canvas:ready", { viewId: sViewId });
                 }
             }
         }));

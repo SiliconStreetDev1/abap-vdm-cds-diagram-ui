@@ -5,7 +5,7 @@
  */
 import type { Core, NodeCollection, NodeSingular } from "cytoscape";
 import BaseMenuStrategy from "./BaseMenuStrategy";
-import { DomEvents } from "../../../../constants/EventConstants";
+import { EventManager } from "../../../../events/EventManager";
 
 export default class BuilderEntityMenuStrategy extends BaseMenuStrategy {
 
@@ -18,9 +18,7 @@ export default class BuilderEntityMenuStrategy extends BaseMenuStrategy {
 
             cyInstance.elements().unselect();
             targetNodes.select();
-            if (typeof document !== "undefined") {
-                document.dispatchEvent(new CustomEvent(DomEvents.PROMPT_ADD_NOTE_REQUEST, { detail: { viewId: this._sViewId } }));
-            }
+            EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._sViewId });
         }));
 
         // Compose standard Pin/Hide commands

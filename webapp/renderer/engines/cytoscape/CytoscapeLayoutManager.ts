@@ -4,7 +4,7 @@
  */
 import CytoscapeLayoutBuilder from "./CytoscapeLayoutBuilder";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
-import { DomEvents } from "../../../constants/EventConstants";
+import { EventManager } from "../../../events/EventManager";
 import type { Core, NodeSingular } from "cytoscape";
 
 export default class CytoscapeLayoutManager {
@@ -95,7 +95,7 @@ export default class CytoscapeLayoutManager {
         const hiddenNodes = cyInstance.nodes('.hidden');
         if (typeof document !== "undefined") {
             const hiddenList = hiddenNodes.map((n: NodeSingular) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
-            document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, { detail: { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList } }));
+            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenList });
         }
 
         let layoutConfig = CytoscapeLayoutBuilder.build(parsedConfig, iNodeCount);

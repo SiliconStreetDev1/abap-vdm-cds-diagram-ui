@@ -6,50 +6,43 @@
 import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import HTML from "sap/ui/core/HTML";
-import EventBus from "sap/ui/core/EventBus";
+import { EventManager } from "../../events/EventManager";
+import { Subscription } from "../../events/Subscription";
 import Renderer from "../../renderer/Renderer";
 import { EngineType, IRenderRequestPayload } from "../../types";
-import { EventChannels, EventIds, DomEvents } from "../../constants/EventConstants";
 import { UiState, ViewState } from "../../constants/StateConstants";
 
 export default class DiagramRenderHandler {
     private _oView: View;
-    private _oEventBus?: EventBus;
+    private _subscriptions: Subscription[] = [];
     private _fnGetText: (k: string, args?: any[]) => string;
-    private _fnCanvasReadyBind!: EventListener;
+    private _fnCanvasReadyBind!: any;
     private _bIsAttached: boolean = false;
 
-    constructor(oView: View, oEventBus: EventBus | undefined, fnGetText: (k: string, args?: any[]) => string) {
+    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
-        this._oEventBus = oEventBus;
         this._fnGetText = fnGetText;
     }
 
     public attachEvents(): void {
         if (this._bIsAttached) return;
-        if (this._oEventBus) {
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, this._onRenderFailed, this);
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
-        }
-        this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as EventListener;
+        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderRequest", this._onRenderRequest.bind(this)));
+        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderFailed", this._onRenderFailed.bind(this)));
+        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:liveFormatUpdate", this._onLiveFormatUpdate.bind(this)));
+        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:viewerLoading", this._onViewerLoading.bind(this)));
+        this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as any;
         if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:ready", this._fnCanvasReadyBind));
         }
         this._bIsAttached = true;
     }
 
     public detachEvents(): void {
         if (!this._bIsAttached) return;
-        if (this._oEventBus) {
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_FAILED, this._onRenderFailed, this);
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.LIVE_FORMAT_UPDATE, this._onLiveFormatUpdate, this);
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, this._onViewerLoading, this);
-        }
+        this._subscriptions.forEach(sub => sub.dispose());
+        this._subscriptions = [];
         if (typeof document !== "undefined") {
-            document.removeEventListener(DomEvents.CANVAS_READY, this._fnCanvasReadyBind);
+            /* removed */
         }
         this._bIsAttached = false;
     }
@@ -58,11 +51,11 @@ export default class DiagramRenderHandler {
         return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
     }
 
-    private _onLiveFormatUpdate(sChannel: string, sEvent: string, oData: any): void {
+    private _onLiveFormatUpdate(oData: any): void {
         this.handleLiveFormatUpdate(oData);
     }
 
-    private _onRenderFailed(sChannel: string, sEvent: string, oData: any): void {
+    private _onRenderFailed(oData: any): void {
         this.showError(oData.message || "Rendering failed.");
     }
 
@@ -74,9 +67,9 @@ export default class DiagramRenderHandler {
         }
     }
 
-    private _onRenderRequest(sChannel: string, sEvent: string, oEventData: any): void {
+    private _onRenderRequest(oEventData: any): void {
         // ENTERPRISE UX: Auto-pause the video loop during a Drill-Down network request
-        if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_PAUSE);
+        EventManager.getInstance().publish("video:autoPause", undefined);
 
         const oHtml = this._oView.byId("htmlRenderer") as HTML;
         this.handleRenderRequest(oEventData as IRenderRequestPayload, oHtml);
@@ -85,17 +78,17 @@ export default class DiagramRenderHandler {
         // We safely resume the recording after a short deferral to allow the DOM to paint.
         if (oEventData.engine !== "CYTOSCAPE") {
             setTimeout(() => {
-                if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
+                EventManager.getInstance().publish("video:autoResume", undefined);
             }, 500);
         }
     }
 
     private _onCanvasReady(oEvent: globalThis.Event): void {
-        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail.viewId !== this._getInstanceId()) return;
+        const payload = oEvent as any;
+        if (payload?.viewId && payload.viewId !== this._getInstanceId()) return;
         
         // Seamlessly auto-resume the video feed directly on the new diagram!
-        if (this._oEventBus) this._oEventBus.publish(EventChannels.VIDEO_RECORDING, EventIds.VIDEO_AUTO_RESUME);
+        EventManager.getInstance().publish("video:autoResume", undefined);
     }
 
     public handleLiveFormatUpdate(oData: any): void {

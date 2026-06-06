@@ -4,15 +4,15 @@
  * @description Handles the raw DOM manipulation, dragging, and resizing mathematics for the Fiori minimap overlay.
  */
 import type { Core } from "cytoscape";
-import { DomEvents } from "../../constants/EventConstants";
+import { EventManager } from "../../events/EventManager";
 
 export default class MinimapManager {
     
     // Track left/bottom instead of transform to prevent coordinate math breaking in the canvas
-    private static _minimapState = { w: 200, h: 200, left: 20, bottom: 20 };
-    private static _navInstances: Map<string, any> = new Map();
-    private static _bShowMinimaps: Map<string, boolean> = new Map();
-    private static _fnMinimapCleanups: Map<string, (() => void)> = new Map();
+    private static minimapState = { w: 200, h: 200, left: 20, bottom: 20 };
+    private static navInstances: Map<string, any> = new Map();
+    private static showMinimaps: Map<string, boolean> = new Map();
+    private static minimapCleanups: Map<string, (() => void)> = new Map();
 
     /**
      * @public
@@ -20,7 +20,7 @@ export default class MinimapManager {
      * @description Retrieves the stored visibility state of the minimap.
      */
     public static getShowState(sViewId: string): boolean {
-        return this._bShowMinimaps.get(sViewId) || false;
+        return this.showMinimaps.get(sViewId) || false;
     }
 
     /**
@@ -29,17 +29,17 @@ export default class MinimapManager {
      * @description Instantiates, toggles, or destroys the cytoscape-navigator plugin based on user UI commands.
      */
     public static toggle(sViewId: string, cyInstance: Core | undefined, bShow: boolean): void {
-        this._bShowMinimaps.set(sViewId, bShow);
+        this.showMinimaps.set(sViewId, bShow);
         if (!cyInstance) return;
         
-        let navInstance = this._navInstances.get(sViewId);
+        let navInstance = this.navInstances.get(sViewId);
         if (bShow) {
             if (!navInstance && typeof (cyInstance as any).navigator === "function") {
                 navInstance = (cyInstance as any).navigator({ container: false });
-                this._navInstances.set(sViewId, navInstance);
+                this.navInstances.set(sViewId, navInstance);
                 const navElem = navInstance.$panel;
                 if (navElem) {
-                    this._fnMinimapCleanups.set(sViewId, this.enhancePanel(sViewId, navElem, cyInstance));
+                    this.minimapCleanups.set(sViewId, this.enhancePanel(sViewId, navElem, cyInstance));
                 }
                 cyInstance.one("render", () => cyInstance.resize());
             }
@@ -55,16 +55,16 @@ export default class MinimapManager {
      * @description Safely destroys the minimap plugin instance and cleans up its DOM hooks.
      */
     public static destroy(sViewId: string): void {
-        const navInstance = this._navInstances.get(sViewId);
+        const navInstance = this.navInstances.get(sViewId);
         if (navInstance) {
             navInstance.destroy(); // Let the plugin perform its native teardown first
             
-            const fnCleanup = this._fnMinimapCleanups.get(sViewId);
+            const fnCleanup = this.minimapCleanups.get(sViewId);
             if (fnCleanup) {
                 fnCleanup();
-                this._fnMinimapCleanups.delete(sViewId);
+                this.minimapCleanups.delete(sViewId);
             }
-            this._navInstances.delete(sViewId);
+            this.navInstances.delete(sViewId);
         }
     }
 
@@ -77,7 +77,7 @@ export default class MinimapManager {
      * @returns {() => void} A teardown closure to safely destroy the event listeners.
      */
     public static enhancePanel(sViewId: string, navElem: unknown, cy: Core): () => void {
-        this._ensureDefaultStyles();
+        this.ensureDefaultStyles();
 
         // cytoscape-navigator often returns a jQuery object. Extract the raw HTMLElement.
         const domElem: HTMLElement = navElem instanceof HTMLElement ? navElem : ((navElem as { 0?: HTMLElement })[0] || navElem as HTMLElement);
@@ -99,10 +99,10 @@ export default class MinimapManager {
         const container = cy.container();
         if (container) container.style.position = "";
 
-        domElem.style.setProperty("width", `${this._minimapState.w}px`, "important");
-        domElem.style.setProperty("height", `${this._minimapState.h}px`, "important");
-        domElem.style.setProperty("left", `${this._minimapState.left}px`, "important");
-        domElem.style.setProperty("bottom", `${this._minimapState.bottom}px`, "important");
+        domElem.style.setProperty("width", `${this.minimapState.w}px`, "important");
+        domElem.style.setProperty("height", `${this.minimapState.h}px`, "important");
+        domElem.style.setProperty("left", `${this.minimapState.left}px`, "important");
+        domElem.style.setProperty("bottom", `${this.minimapState.bottom}px`, "important");
         domElem.style.setProperty("top", "auto", "important");
         domElem.style.setProperty("right", "auto", "important");
         domElem.style.setProperty("max-width", "none", "important");
@@ -116,9 +116,9 @@ export default class MinimapManager {
         domElem.style.setProperty("border-radius", "4px", "important");
         domElem.style.setProperty("z-index", "9999", "important");
 
-        const dragHandle = this._createHandle("✥", "Drag Minimap", { top: "8px", left: "50%", transform: "translateX(-50%)", cursor: "grab", color: "#0854a0" });
-        const closeHandle = this._createHandle("✖", "Close Minimap", { top: "8px", left: "8px", cursor: "pointer", color: "#e33e38" });
-        const trResizeHandle = this._createHandle("⤢", "Resize Minimap", { top: "8px", right: "8px", cursor: "nesw-resize", color: "#0854a0" });
+        const dragHandle = this.createHandle("✥", "Drag Minimap", { top: "8px", left: "50%", transform: "translateX(-50%)", cursor: "grab", color: "#0854a0" });
+        const closeHandle = this.createHandle("✖", "Close Minimap", { top: "8px", left: "8px", cursor: "pointer", color: "#e33e38" });
+        const trResizeHandle = this.createHandle("⤢", "Resize Minimap", { top: "8px", right: "8px", cursor: "nesw-resize", color: "#0854a0" });
 
         domElem.appendChild(dragHandle);
         domElem.appendChild(closeHandle);
@@ -128,11 +128,11 @@ export default class MinimapManager {
         // Hook into the central Event Bus / DOM Event system to actually close it
         closeHandle.addEventListener("click", (e: MouseEvent) => { 
             e.stopPropagation(); 
-            document.dispatchEvent(new CustomEvent(DomEvents.CLOSE_MINIMAP, { detail: { viewId: sViewId } }));
+            EventManager.getInstance().publish("canvas:closeMinimapRequest", { viewId: sViewId });
         });
 
-        const dragCleanup = this._attachDragLogic(dragHandle, domElem);
-        const resizeObj = this._attachResizeLogic(trResizeHandle, domElem, cy);
+        const dragCleanup = this.attachDragLogic(dragHandle, domElem);
+        const resizeObj = this.attachResizeLogic(trResizeHandle, domElem, cy);
 
         return () => {
             document.removeEventListener("fullscreenchange", reparentMinimap);
@@ -155,7 +155,7 @@ export default class MinimapManager {
      * @param {Record<string, string>} oStyles - Map of CSS properties.
      * @returns {HTMLDivElement} The generated handle DOM element.
      */
-    private static _createHandle(sHtml: string, sTitle: string, oStyles: Record<string, string>): HTMLDivElement {
+    private static createHandle(sHtml: string, sTitle: string, oStyles: Record<string, string>): HTMLDivElement {
         const handle = document.createElement("div");
         handle.innerHTML = sHtml;
         handle.title = sTitle;
@@ -176,10 +176,10 @@ export default class MinimapManager {
      * @param {HTMLElement} navElem - The minimap panel DOM element.
      * @returns {() => void} Cleanup function to detach the drag listeners.
      */
-    private static _attachDragLogic(dragHandle: HTMLDivElement, domElem: HTMLElement): () => void {
+    private static attachDragLogic(dragHandle: HTMLDivElement, domElem: HTMLElement): () => void {
         let bIsDragging = false;
         let iStartX = 0, iStartY = 0;
-        let iStartLeft = this._minimapState.left, iStartBottom = this._minimapState.bottom;
+        let iStartLeft = this.minimapState.left, iStartBottom = this.minimapState.bottom;
 
         const onDragMove = (e: MouseEvent) => {
             if (!bIsDragging) return;
@@ -197,8 +197,8 @@ export default class MinimapManager {
             if (!dragHandle.matches(':hover')) dragHandle.style.opacity = "0.4";
             iStartLeft += e.clientX - iStartX;
             iStartBottom -= e.clientY - iStartY;
-            this._minimapState.left = iStartLeft;
-            this._minimapState.bottom = iStartBottom;
+            this.minimapState.left = iStartLeft;
+            this.minimapState.bottom = iStartBottom;
             document.removeEventListener("mousemove", onDragMove);
             document.removeEventListener("mouseup", onDragUp);
         };
@@ -228,7 +228,7 @@ export default class MinimapManager {
      * @param {Core} cy - The active Cytoscape.js instance to notify of dimension changes.
      * @returns {any} Cleanup object containing the ResizeObserver and DOM unbinders.
      */
-    private static _attachResizeLogic(resizeHandle: HTMLDivElement, domElem: HTMLElement, cy: Core): any {
+    private static attachResizeLogic(resizeHandle: HTMLDivElement, domElem: HTMLElement, cy: Core): any {
         let bIsResizing = false;
         let iStartX = 0, iStartY = 0, iStartW = 0, iStartH = 0;
 
@@ -238,8 +238,8 @@ export default class MinimapManager {
             let newH = Math.max(100, iStartH - (ev.clientY - iStartY));
             domElem.style.setProperty("width", `${newW}px`, "important");
             domElem.style.setProperty("height", `${newH}px`, "important");
-            this._minimapState.w = newW;
-            this._minimapState.h = newH;
+            this.minimapState.w = newW;
+            this.minimapState.h = newH;
         };
 
         const onResizeUp = () => {
@@ -282,7 +282,7 @@ export default class MinimapManager {
      * @static
      * @description Injects required core CSS for cytoscape-navigator if the external stylesheet wasn't bundled.
      */
-    private static _ensureDefaultStyles(): void {
+    private static ensureDefaultStyles(): void {
         if (!document.getElementById("vdm-minimap-styles")) {
             const style = document.createElement("style");
             style.id = "vdm-minimap-styles";

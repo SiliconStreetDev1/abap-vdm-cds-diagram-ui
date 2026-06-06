@@ -50,7 +50,7 @@ export default class Main extends Controller {
             component.setModel(oMsgModel, "messages");
 
             // Initialize decoupled audio observer
-            SoundscapeManager.attachEvents(component.getEventBus());
+            SoundscapeManager.attachEvents();
 
             this._routeManager = new RouteManager(component);
             this._routeManager.attachRoutes();

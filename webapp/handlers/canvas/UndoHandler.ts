@@ -5,20 +5,20 @@
  * Safely caps memory usage to a defined stack limit.
  */
 import View from "sap/ui/core/mvc/View";
-import EventBus from "sap/ui/core/EventBus";
+import { EventManager } from "../../events/EventManager";
+import { Subscription } from "../../events/Subscription";
 import JSONModel from "sap/ui/model/json/JSONModel";
-import { DomEvents, EventChannels, EventIds } from "../../constants/EventConstants";
 import { DiagramData } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
 import { IRenderRequestPayload } from "../../types";
 
 export default class UndoHandler {
     private _oView: View;
-    private _oEventBus?: EventBus;
+    private _subscriptions: Subscription[] = [];
     private _mStacks: Record<string, string[]> = {};
     private _iMaxLimit = 25;
-    private _fnUndoRequestBind!: EventListener;
-    private _fnStateChangeBind!: EventListener;
+    private _fnUndoRequestBind!: any;
+    private _fnStateChangeBind!: any;
     private _bIsRestoring = false;
     private _bIsRestoringCache = false;
     private _iDebounceTimer?: ReturnType<typeof setTimeout>;
@@ -29,11 +29,9 @@ export default class UndoHandler {
     /**
      * @public
      * @param {View} oView - The active UI5 View.
-     * @param {EventBus} [oEventBus] - Application event bus.
      */
-    constructor(oView: View, oEventBus?: EventBus) {
+    constructor(oView: View) {
         this._oView = oView;
-        this._oEventBus = oEventBus;
     }
 
     /**
@@ -53,24 +51,22 @@ export default class UndoHandler {
     public attachEvents(): void {
         if (this._bIsAttached) return;
 
-        this._fnUndoRequestBind = this._onUndoRequest.bind(this) as EventListener;
-        this._fnStateChangeBind = this._onStateChange.bind(this) as EventListener;
+        this._fnUndoRequestBind = this._onUndoRequest.bind(this) as any;
+        this._fnStateChangeBind = this._onStateChange.bind(this) as any;
         
-        if (this._oEventBus) {
-            this._oEventBus.subscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
-        }
+        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderRequest", this._onRenderRequest.bind(this)));
 
         if (typeof document !== "undefined") {
-            document.addEventListener(DomEvents.UNDO_REQUEST, this._fnUndoRequestBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:undoRequest", this._fnUndoRequestBind));
             
-            document.addEventListener(DomEvents.NODE_DRAGGED, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.NODE_PINNED, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.NODE_HIDDEN, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.NODE_UNHIDDEN, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.CANVAS_READY, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnStateChangeBind);
-            document.addEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnStateChangeBind);
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeDragged", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePinned", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeHidden", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeUnhidden", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:ready", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:addNoteRequest", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:editNoteRequest", this._fnStateChangeBind));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:changeNoteColorRequest", this._fnStateChangeBind));
         }
         
         this._bIsAttached = true;
@@ -84,20 +80,19 @@ export default class UndoHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
 
-        if (this._oEventBus) {
-            this._oEventBus.unsubscribe(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, this._onRenderRequest, this);
-        }
+        this._subscriptions.forEach(sub => sub.dispose());
+        this._subscriptions = [];
         
         if (typeof document !== "undefined") {
-            document.removeEventListener(DomEvents.UNDO_REQUEST, this._fnUndoRequestBind);
-            document.removeEventListener(DomEvents.NODE_DRAGGED, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.NODE_PINNED, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.NODE_HIDDEN, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.NODE_UNHIDDEN, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.CANVAS_READY, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.ADD_NOTE_REQUEST, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.EDIT_NOTE_REQUEST, this._fnStateChangeBind);
-            document.removeEventListener(DomEvents.CHANGE_NOTE_COLOR_REQUEST, this._fnStateChangeBind);
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
+            /* removed */
         }
         clearTimeout(this._iDebounceTimer);
         clearTimeout(this._iFailsafeTimer); // ENTERPRISE FIX: Clear dangling failsafe timer
@@ -124,7 +119,7 @@ export default class UndoHandler {
      * @private
      * @description Intercepts render requests to intelligently flush history only on brand new sessions.
      */
-    private _onRenderRequest(sChannel: string, sEvent: string, rawData: Object): void {
+    private _onRenderRequest(rawData: Object): void {
         const oData = rawData as IRenderRequestPayload;
         if (oData && oData.engineConfig?.isRestore) {
             this._bIsRestoringCache = true;
@@ -173,12 +168,12 @@ export default class UndoHandler {
      * to ensure we only capture the final placement snapshot to conserve history steps.
      */
     private _onStateChange(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
+        const payload = oEvent as any;
+        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
         
         if (this._bIsRestoringCache) {
             // Defensive UX: Release the lock immediately when the canvas finishes rendering the restored cache state
-            if (oCustomEvent.type === DomEvents.CANVAS_READY) {
+            if ((payload as any)._syntheticType === "canvas:ready") {
                 this._bIsRestoringCache = false;
             }
             return; // DO NOT capture state. The stack already perfectly matches this visual layout.
@@ -186,7 +181,7 @@ export default class UndoHandler {
 
         if (this._bIsRestoring) {
             // Defensive UX: Release the lock immediately when the canvas finishes rendering the restored state
-            if (oCustomEvent.type === DomEvents.CANVAS_READY) {
+            if ((payload as any)._syntheticType === "canvas:ready") {
                 this._bIsRestoring = false;
                 clearTimeout(this._iFailsafeTimer);
             }
@@ -196,7 +191,7 @@ export default class UndoHandler {
         // ENTERPRISE FIX: Synchronously capture the exact pristine state the millisecond the canvas is ready.
         // Bypassing the debounce timer guarantees the baseline state (State 0) is never lost 
         // if a power-user interacts with the canvas within the first 300ms.
-        if (oCustomEvent.type === DomEvents.CANVAS_READY) {
+        if ((payload as any)._syntheticType === "canvas:ready") {
             this._captureState();
             return;
         }
@@ -240,8 +235,8 @@ export default class UndoHandler {
      * @description Pops the latest state off the stack and physically restores the previous layout.
      */
     private _onUndoRequest(oEvent: Event): void {
-        const oCustomEvent = oEvent as CustomEvent<{ viewId: string }>;
-        if (oCustomEvent.detail?.viewId && oCustomEvent.detail?.viewId !== this._getInstanceId()) return;
+        const payload = oEvent as any;
+        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
         
         const aStack = this._getStack();
 
@@ -259,8 +254,8 @@ export default class UndoHandler {
             this._iFallbackTimer = setTimeout(() => {
                 this._iFallbackTimer = undefined;
                 const sParentName = aBreadcrumbs[aBreadcrumbs.length - 1].name;
-                if (sParentName && this._oEventBus) {
-                    this._oEventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.NODE_DRILL_DOWN, { viewName: sParentName });
+                if (sParentName) {
+                    EventManager.getInstance().publish("diagram:nodeDrillDown", { viewName: sParentName });
                 }
             }, 50);
             return;

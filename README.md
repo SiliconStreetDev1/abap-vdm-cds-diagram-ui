@@ -16,6 +16,7 @@ This application utilizes four distinct visual engines to render CDS relationshi
 * **Cytoscape.js:** An interactive Canvas engine. It is built for navigating large VDM models where standard SVG rendering becomes cluttered. Features include double-click drill-down capabilities, breadcrumb navigation, and a minimap.
 * **Mermaid.js:** Renders locally in the browser. Best for quick, interactive web previews.
 * **Graphviz (WASM):** Executes via WebAssembly locally. Ideal for complex multi-edge routing and structured ER layouts.
+* **D2 Script:** Provides a headless pass-through for exporting and downloading D2 syntax files (requires a local CLI/Server to compile).
 > [!WARNING]
 > **PlantUML:** If selected, this engine calls the public PlantUML server (`https://www.plantuml.com/plantuml/svg/`).
 > * **Data Privacy Note:** SAP metadata is sent over the public internet. 
@@ -110,7 +111,7 @@ When you save a Variant, it captures:
 **Usage:**
 1. Adjust your diagram (filter properties, move nodes, hide entities, add sticky notes).
 2. Click the **Save (Disk Icon)** in the Variants toolbar.
-3. Provide a name. You can opt to save the exact "Custom Layout" positions and choose whether to make the variant **Global (Public)**. Public variants can be viewed and updated by other architects, but their public status cannot be revoked to prevent workflow disruption.
+3. Provide a name. The exact "Custom Layout" positions are automatically captured to ensure high-fidelity snapshots. You can choose whether to make the variant **Global (Public)**. Public variants can be viewed and updated by other architects, but their public status cannot be revoked to prevent workflow disruption.
 4. Restore this exact architectural state at any time by selecting the variant from the dropdown. 
 5. **Share Link (Unlisted):** Select a private variant and click the **Share** icon. This elevates the variant to an "Unlisted" status (accessible via a direct deep link but hidden from the public dropdown) and copies the URL to your clipboard.
 6. **Revoke Share:** Click the **Unlink** icon to instantly revoke share access, reverting the variant strictly to private.

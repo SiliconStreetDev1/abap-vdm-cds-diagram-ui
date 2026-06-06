@@ -24,7 +24,7 @@ import CytoscapeNoteManager from "./cytoscape/CytoscapeNoteManager";
 import CytoscapeStateManager from "./cytoscape/CytoscapeStateManager";
 import CytoscapeVisibilityManager from "./cytoscape/CytoscapeVisibilityManager";
 import CytoscapeInteractionManager from "./cytoscape/CytoscapeInteractionManager";
-import { DomEvents } from "../../constants/EventConstants";
+import { EventManager } from "../../events/EventManager";
 import type { Core } from "cytoscape";
 
 declare const cytoscape: any;
@@ -254,7 +254,7 @@ export default class CytoscapeEngine {
                     cyInstance.scratch('_ignoreTempFocusWipe', false);
                 } else {
                     cyInstance.elements().removeClass('faded highlighted');
-                    if (typeof document !== "undefined") document.dispatchEvent(new CustomEvent(DomEvents.FOCUS_MODE_CHANGED, { detail: { viewId: sViewId, isFocused: false, nodeName: "", hasNodeSelected: false, tempFocusMode: false } }));
+                    EventManager.getInstance().publish("canvas:focusModeChanged", { viewId: sViewId, isFocused: false, nodeName: "", hasNodeSelected: false, tempFocusMode: false });
                 }
             }
         }
@@ -339,20 +339,18 @@ export default class CytoscapeEngine {
             bChanged = true;
             
             // Ensure Fiori UI 'Hidden Entities' list syncs up
-            if (typeof document !== "undefined") {
-                const hiddenNodes = cyInstance.nodes('.hidden').map((n: any) => ({
-                    id: n.id(),
-                    label: n.data('label') || n.id()
-                }));
-                document.dispatchEvent(new CustomEvent(DomEvents.NODES_VISIBILITY_CHANGED, {
-                    detail: { viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes }
-                }));
-            }
+            const hiddenNodes = cyInstance.nodes('.hidden').map((n: any) => ({
+                id: n.id(),
+                label: n.data('label') || n.id()
+            }));
+            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
+                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+            });
         }
 
         // Commit changes to the Ctrl+Z Undo Stack
-        if (bChanged && typeof document !== "undefined") {
-            document.dispatchEvent(new CustomEvent(DomEvents.NODE_HIDDEN, { detail: { viewId: sViewId } }));
+        if (bChanged) {
+            EventManager.getInstance().publish("canvas:nodeHidden", { viewId: sViewId });
         }
     }
 

@@ -6,24 +6,21 @@
 import UIComponent from "sap/ui/core/UIComponent";
 import ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import JSONModel from "sap/ui/model/json/JSONModel";
-import EventBus from "sap/ui/core/EventBus";
 import MessageToast from "sap/m/MessageToast";
 import VariantService from "./VariantService";
 import DiagramService, { IDiagramRequest } from "./DiagramService";
 import Renderer from "../renderer/Renderer";
-import { EventChannels, EventIds } from "../constants/EventConstants";
+import { EventManager } from "../events/EventManager";
 import { UiState, ModelNames } from "../constants/StateConstants";
 import { IRenderRequestPayload } from "../types";
 import ViewStateHelper from "../helpers/ViewStateHelper";
 
 export default class RouteManager {
-    private _component: UIComponent;
-    private _eventBus: EventBus;
-    private _fnHashChangeBind!: EventListener;
+    private component: UIComponent;
+    private hashChangeBind!: EventListener;
 
     constructor(component: UIComponent) {
-        this._component = component;
-        this._eventBus = component.getEventBus();
+        this.component = component;
     }
 
     /**
@@ -32,15 +29,15 @@ export default class RouteManager {
      * interceptor for environments missing strict manifest.json route declarations.
      */
     public attachRoutes(): void {
-        const router = this._component.getRouter();
+        const router = this.component.getRouter();
         if (router) {
             const viewerRoute = router.getRoute("viewer");
-            if (viewerRoute) viewerRoute.attachPatternMatched(this._onViewerRouteMatched, this);
+            if (viewerRoute) viewerRoute.attachPatternMatched(this.onViewerRouteMatched, this);
         }
 
-        this._checkHashFallback();
-        this._fnHashChangeBind = this._checkHashFallback.bind(this) as EventListener;
-        window.addEventListener("hashchange", this._fnHashChangeBind);
+        this.checkHashFallback();
+        this.hashChangeBind = this.checkHashFallback.bind(this) as EventListener;
+        window.addEventListener("hashchange", this.hashChangeBind);
     }
 
     /**
@@ -48,28 +45,28 @@ export default class RouteManager {
      * @description Explicitly detaches global window listeners to prevent SPA memory leaks.
      */
     public detachRoutes(): void {
-        if (this._fnHashChangeBind) window.removeEventListener("hashchange", this._fnHashChangeBind);
+        if (this.hashChangeBind) window.removeEventListener("hashchange", this.hashChangeBind);
     }
 
-    private _checkHashFallback(): void {
+    private checkHashFallback(): void {
         const hash = window.location.hash;
         const match = hash.match(/\/viewer\/([a-zA-Z0-9-]+)/);
-        if (match && match[1]) this._executeViewerMode(match[1]);
+        if (match && match[1]) this.executeViewerMode(match[1]);
     }
 
-    private _onViewerRouteMatched(event: any): void {
+    private onViewerRouteMatched(event: any): void {
         const args = event.getParameter("arguments");
-        if (args && args.variantId) this._executeViewerMode(args.variantId);
+        if (args && args.variantId) this.executeViewerMode(args.variantId);
     }
 
-    private async _executeViewerMode(variantId: string): Promise<void> {
-        const uiModel = this._component.getModel(ModelNames.UI) as JSONModel;
-        const odataModel = this._component.getModel() as ODataModel;
+    private async executeViewerMode(variantId: string): Promise<void> {
+        const uiModel = this.component.getModel(ModelNames.UI) as JSONModel;
+        const odataModel = this.component.getModel() as ODataModel;
 
         if (!uiModel || !odataModel) {
             // ENTERPRISE FIX: Eradicate arbitrary setTimeout hacks.
             // Listen natively to the UI5 lifecycle event for deferred model resolution.
-            this._component.attachEventOnce("modelContextChange", () => this._executeViewerMode(variantId));
+            this.component.attachEventOnce("modelContextChange", () => this.executeViewerMode(variantId));
             return;
         }
 
@@ -79,8 +76,8 @@ export default class RouteManager {
 
         // ENTERPRISE FIX: Ensure cosmetic JSON dictionaries are fully loaded into memory
         // before spawning the busy dialog, otherwise it falls back to the default icon and text.
-        const animModel = this._component.getModel("animations") as JSONModel;
-        const msgModel = this._component.getModel("messages") as JSONModel;
+        const animModel = this.component.getModel("animations") as JSONModel;
+        const msgModel = this.component.getModel("messages") as JSONModel;
 
         const waitForModel = (model: JSONModel) => new Promise<void>(resolve => {
             if (!model || (model.getData() && Object.keys(model.getData()).length > 0)) {
@@ -95,8 +92,8 @@ export default class RouteManager {
 
         // ENTERPRISE UX: Immediately lock the UI and suppress the "No Diagram" empty state
         // before evaluating deferred models to guarantee zero UI flashing.
-        ViewStateHelper.setAppBusy(true, this._component, true);
-        this._eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.VIEWER_LOADING, {});
+        ViewStateHelper.setAppBusy(true, this.component, true);
+        EventManager.getInstance().publish("diagram:viewerLoading", undefined, true);
 
         try {
             // 2. Fetch the specific UUID payload (bypassing dropdown filters)
@@ -131,12 +128,12 @@ export default class RouteManager {
                 engine: engine as any, rootCdsName: result.CdsName, breadcrumbs: [result.CdsName], engineConfig: engineConfig
             };
 
-            this._eventBus.publish(EventChannels.DIAGRAM_ENGINE, EventIds.RENDER_REQUEST, payload);
+            EventManager.getInstance().publish("diagram:renderRequest", payload, true);
 
         } catch (error: any) {
             MessageToast.show(error.message || "Failed to load shared diagram. It may have been deleted or access was revoked.");
         } finally {
-            ViewStateHelper.setAppBusy(false, this._component);
+            ViewStateHelper.setAppBusy(false, this.component);
         }
     }
 }
