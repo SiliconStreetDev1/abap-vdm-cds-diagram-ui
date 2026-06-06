@@ -10,6 +10,8 @@ import { Subscription } from "../../events/Subscription";
 import { DiagramData } from "../../constants/StateConstants";
 import { DiagramStateStore } from "../../store/DiagramStateStore";
 import { MoveNodeCommand } from "../../store/commands/MoveNodeCommand";
+import { MoveNodesCommand } from "../../store/commands/MoveNodesCommand";
+import { DeleteSelectionCommand } from "../../store/commands/DeleteSelectionCommand";
 
 export default class DiagramStateActionHandler {
     private _oView: View;
@@ -57,6 +59,8 @@ export default class DiagramStateActionHandler {
             this._subscriptions.push(EventManager.getInstance().subscribe("canvas:undoRequest", this._onUndoRequest.bind(this)));
             this._subscriptions.push(EventManager.getInstance().subscribe("canvas:redoRequest", this._onRedoRequest.bind(this)));
             this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePositionChanged", this._onNodePositionChanged.bind(this)));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodesPositionChanged", this._onNodesPositionChanged.bind(this)));
+            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeHidden", this._onNodeHidden.bind(this)));
         }
         
         this._bIsAttached = true;
@@ -81,17 +85,41 @@ export default class DiagramStateActionHandler {
         DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.clear();
     }
 
-    private _onNodePositionChanged(payload: { viewId?: string; diagramId?: string; nodeId: string; oldPos: {x: number, y: number}; newPos: {x: number, y: number} }): void {
+    private _onNodePositionChanged(payload: { viewId?: string; diagramId?: string; nodeId: string; oldPos: {x: number, y: number}; newPos: {x: number, y: number}; engine: string }): void {
         if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
 
         const diagramId = payload.diagramId || this._getDiagramId();
-        const command = new MoveNodeCommand(this._getInstanceId(), diagramId, payload.nodeId, payload.oldPos, payload.newPos);
+        const command = new MoveNodeCommand(this._getInstanceId(), diagramId, payload.nodeId, payload.oldPos, payload.newPos, payload.engine);
         DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), diagramId).history.execute(command);
+    }
+
+    private _onNodesPositionChanged(payload: { viewId?: string; diagramId?: string; nodes: { nodeId: string; oldPos: {x: number, y: number}; newPos: {x: number, y: number} }[]; engine: string }): void {
+        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
+
+        const diagramId = payload.diagramId || this._getDiagramId();
+        const command = new MoveNodesCommand(this._getInstanceId(), diagramId, payload.nodes, payload.engine);
+        DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), diagramId).history.execute(command);
+    }
+
+    private _onNodeHidden(payload: { viewId?: string; notesJson?: any; hiddenNodeIds?: string[] }): void {
+        if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
+        const command = new DeleteSelectionCommand(this._getInstanceId(), this._getDiagramId(), payload.notesJson || null, payload.hiddenNodeIds || [], "CYTOSCAPE");
+        DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.execute(command);
     }
 
     private _onUndoRequest(payload: { viewId?: string }): void {
         if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
-        DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.undo();
+        
+        const bDidUndo = DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), this._getDiagramId()).history.undo();
+        
+        if (!bDidUndo) {
+            const oDataModel = this._oView.getModel("diagramData") as JSONModel;
+            const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+            if (aLinks.length > 0) {
+                const sParentName = aLinks[aLinks.length - 1].name;
+                EventManager.getInstance().publish("diagram:nodeDrillDown", { viewName: sParentName });
+            }
+        }
     }
 
     private _onRedoRequest(payload: { viewId?: string }): void {

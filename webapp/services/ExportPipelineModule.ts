@@ -123,6 +123,13 @@ export default class ExportPipelineModule {
     // INTERNAL PIPELINE UTILITIES
     // ========================================================================
 
+    /**
+     * @private
+     * @description Cleans and standardizes the raw SVG string from the layout engine.
+     * Removes unsupported inline styles and ensures proper XML namespaces.
+     * @param {string} sRawSvg - The raw SVG string.
+     * @returns {string} The standardized SVG string.
+     */
     private _standardizeSvg(sRawSvg: string): string {
         const sPreCleanedSvg = sRawSvg.replace(/&nbsp;/gi, "&#160;");
         const oParser = new DOMParser();
@@ -152,6 +159,11 @@ export default class ExportPipelineModule {
         return new XMLSerializer().serializeToString(oDoc);
     }
 
+    /**
+     * @private
+     * @description Recursively removes non-element nodes (like comments and processing instructions) from the SVG DOM.
+     * @param {Node} oNode - The current DOM node to process.
+     */
     private _removeNonElementNodes(oNode: Node): void {
         let i = oNode.childNodes.length;
         while (i--) {
@@ -161,6 +173,12 @@ export default class ExportPipelineModule {
         }
     }
 
+    /**
+     * @private
+     * @description Converts a sanitized SVG string into a high-resolution PNG Blob using the HTML5 Canvas API.
+     * @param {string} sSvgData - The clean SVG XML string.
+     * @returns {Promise<Blob>} Promise resolving to the binary PNG Blob.
+     */
     private _convertSvgStringToPngBlob(sSvgData: string): Promise<Blob> {
         return new Promise((resolve, reject) => {
             let sCleanSvgData = sSvgData.replace(/@import url\([^)]+\);?/gi, "").replace(/<image[^>]+href="http[^>]+>/gi, "");
@@ -215,6 +233,12 @@ export default class ExportPipelineModule {
         });
     }
 
+    /**
+     * @private
+     * @description Triggers a file download in the browser from a given URL or Data URI.
+     * @param {string} sUrl - The URL or Data URI to download.
+     * @param {string} sFileName - The target filename.
+     */
     private _downloadFromUrl(sUrl: string, sFileName: string): void {
         const link = document.createElement("a");
         link.href = sUrl; link.download = sFileName;
@@ -223,6 +247,12 @@ export default class ExportPipelineModule {
         document.body.removeChild(link);
     }
 
+    /**
+     * @private
+     * @description Creates an object URL for a Blob and triggers its download, then cleans up the URL.
+     * @param {Blob} oBlob - The binary Blob to download.
+     * @param {string} sFileName - The target filename.
+     */
     private _downloadBlob(oBlob: Blob, sFileName: string): void {
         const url = URL.createObjectURL(oBlob);
         this._downloadFromUrl(url, sFileName);

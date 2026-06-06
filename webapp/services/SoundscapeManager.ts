@@ -120,15 +120,17 @@ export default class SoundscapeManager {
                 const sLocalUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/lib/rlo-engine.min.js");
                 rlo = await nativeImport(sLocalUrl);
             } catch (e) {
-                console.warn("VDM Diagrammer: Local RLO Engine missing. Engaging CDN fallback...");
-                rlo = await nativeImport((config.cdnPaths as any)?.rloEngine);
+                const cdnPath = (config.cdnPaths as any)?.rloEngine;
+                if (!cdnPath) return; // Silent exit if no CDN fallback available
+                rlo = await nativeImport(cdnPath);
             }
 
-            this.engine = new rlo.RLOGameEngine(this.audioCtx);
-            this.engine.setSFXVolume(0.15); 
-            console.log("VDM Diagrammer: Audio Engine initialized successfully.");
+            if (rlo && rlo.RLOGameEngine) {
+                this.engine = new rlo.RLOGameEngine(this.audioCtx);
+                this.engine.setSFXVolume(0.15); 
+            }
         } catch (e) {
-            console.warn("VDM Diagrammer: Failed to initialize audio engine.", e);
+            // Silently suppress audio initialization errors to keep the console clean
         }
     }
 

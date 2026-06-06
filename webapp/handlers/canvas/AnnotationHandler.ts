@@ -10,6 +10,8 @@ import JSONModel from "sap/ui/model/json/JSONModel";
 import { Subscription } from "../../events/Subscription";
 import { DiagramData } from "../../constants/StateConstants";
 import View from "sap/ui/core/mvc/View";
+import { DiagramStateStore } from "../../store/DiagramStateStore";
+import { AddNoteCommand } from "../../store/commands/AddNoteCommand";
 
 /**
  * @class AnnotationHandler
@@ -71,7 +73,16 @@ export default class AnnotationHandler {
      */
     private getActiveEngine(): string {
         const diagramData = this.view.getModel("diagramData") as JSONModel;
-        return diagramData ? diagramData.getProperty(DiagramData.ENGINE) : "CYTOSCAPE";
+        return diagramData ? diagramData.getProperty(DiagramData.ENGINE) : Renderer.getDefaultEngine();
+    }
+
+    private _getDiagramId(): string {
+        const oDataModel = this.view.getModel("diagramData") as JSONModel;
+        if (!oDataModel) return "DEFAULT";
+        const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+        const sCurrent = oDataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || oDataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
+        const aPath = aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase());
+        return aPath.join('|');
     }
 
     /**
@@ -84,7 +95,9 @@ export default class AnnotationHandler {
         const sText = oPayload?.text;
         const sFontFamily = oPayload?.fontFamily || "Marker";
         if (sText) {
-            Renderer.addNote(this.getInstanceId(), this.getActiveEngine(), sText, sFontFamily);
+            const noteJson = Renderer.addNote(this.getInstanceId(), this.getActiveEngine(), sText, sFontFamily);
+            const command = new AddNoteCommand(this.getInstanceId(), this._getDiagramId(), noteJson, this.getActiveEngine());
+            DiagramStateStore.getInstance().getDiagramState(this.getInstanceId(), this._getDiagramId()).history.execute(command);
             EventManager.getInstance().publish("canvas:variantDirty", { viewId: this.getInstanceId() });
         }
     }

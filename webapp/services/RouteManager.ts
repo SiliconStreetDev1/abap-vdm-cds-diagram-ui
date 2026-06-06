@@ -48,17 +48,32 @@ export default class RouteManager {
         if (this.hashChangeBind) window.removeEventListener("hashchange", this.hashChangeBind);
     }
 
+    /**
+     * @private
+     * @description Manual fallback to check the hash for deep links if UI5 routing is not fully initialized.
+     */
     private checkHashFallback(): void {
         const hash = window.location.hash;
         const match = hash.match(/\/viewer\/([a-zA-Z0-9-]+)/);
         if (match && match[1]) this.executeViewerMode(match[1]);
     }
 
+    /**
+     * @private
+     * @description Event handler for when the "viewer" route pattern is matched.
+     * @param {any} event - UI5 route matched event.
+     */
     private onViewerRouteMatched(event: any): void {
         const args = event.getParameter("arguments");
         if (args && args.variantId) this.executeViewerMode(args.variantId);
     }
 
+    /**
+     * @private
+     * @description Orchestrates the lockdown and initialization of the UI for Viewer Mode.
+     * @param {string} variantId - The UUID of the variant to load.
+     * @returns {Promise<void>}
+     */
     private async executeViewerMode(variantId: string): Promise<void> {
         const uiModel = this.component.getModel(ModelNames.UI) as JSONModel;
         const odataModel = this.component.getModel() as ODataModel;
@@ -101,7 +116,7 @@ export default class RouteManager {
             uiModel.setProperty("/loadedVariantState", variantState);
 
             // 3. Map Variant settings directly to the Backend DTO (Bypassing the hidden UI DOM)
-            const engine = variantState.engine as string || "CYTOSCAPE";
+            const engine = variantState.engine as string || Renderer.getDefaultEngine();
             const request: IDiagramRequest = {
                 cdsName: variantState.cdsName || "", engine: engine, maxLevel: variantState.maxLevel || 1,
                 showKeys: !!variantState.keys, showFields: !!variantState.fields, showAssocFields: !!variantState.assocFields,

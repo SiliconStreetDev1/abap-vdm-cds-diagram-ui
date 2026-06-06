@@ -62,7 +62,7 @@
                 <Button id="btnRevertVariant" icon="sap-icon://undo" tooltip="Revert to Saved Variant" press="onRevertVariant" type="Transparent" visible="{= ${ui>/variantDirty} === true &amp;&amp; !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
                 <Button id="btnClearVariant" icon="sap-icon://decline" tooltip="Clear Variant Selection" press="onClearVariant" type="Transparent" visible="{= !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
                 <Button id="btnShareVariant" icon="sap-icon://share-2" tooltip="{= ${ui>/isUnlisted} || ${ui>/isGlobal} ? ${i18n>ttCopyLink} : ${i18n>ttShareVariant} }" press="onShareVariant" type="Transparent" visible="{= !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
-                <Button id="btnRevokeShare" icon="sap-icon://chain-link-disconnect" tooltip="{i18n>ttRevokeShare}" press="onRevokeShare" type="Transparent" visible="{= (${ui>/isUnlisted} === true || ${ui>/isGlobal} === true) &amp;&amp; !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
+                <Button id="btnRevokeShare" icon="sap-icon://broken-link" tooltip="{i18n>ttRevokeShare}" press="onRevokeShare" type="Transparent" visible="{= (${ui>/isUnlisted} === true &amp;&amp; ${ui>/isGlobal} !== true) &amp;&amp; !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
                 <Button icon="sap-icon://save" tooltip="{i18n>ttSaveVariant}" press="onSaveVariant" type="Transparent" enabled="{= !${ui>/isDrillDown} }" />
                 <Button icon="sap-icon://delete" tooltip="{i18n>ttDeleteVariant}" press="onDeleteVariant" type="Transparent" visible="{= !!${ui>/selectedVariant} }" enabled="{= !${ui>/isDrillDown} }" />
             </HBox>

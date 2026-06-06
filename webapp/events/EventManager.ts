@@ -30,6 +30,23 @@ export class EventManager {
      */
     private constructor() {
         // Private constructor for Singleton
+        this.isLoggingEnabled = this.checkDebugMode();
+    }
+
+    /**
+     * @private
+     * @description Checks URL parameters and LocalStorage to automatically enable deep trace mode.
+     */
+    private checkDebugMode(): boolean {
+        if (typeof window === "undefined") return false;
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get("sap-ui-debug") === "true") return true;
+            if (window.localStorage && window.localStorage.getItem("sap-ui-debug") === "true") return true;
+        } catch (e) {
+            // Ignore gracefully if running in a restricted environment
+        }
+        return false;
     }
 
     /**
@@ -117,14 +134,21 @@ export class EventManager {
      * @template K The type of the event being published.
      */
     public publish<K extends keyof IAppEventMap>(event: K, payload: IAppEventMap[K], bridgeToUi5: boolean = false): void {
+        const listeners = this.registry[event] ? [...this.registry[event]] : [];
+        const subscriberCount = listeners.length;
+
         if (this.isLoggingEnabled) {
-            console.log(`[EventManager] \u2192 Routed [${event as string}]`, payload);
+            console.groupCollapsed(`🚀 [EventManager] Fired: ${event as string}`);
+            console.log("📦 Payload:", payload);
+            console.log(`👥 Subscribers Notified: ${subscriberCount}`);
+            if (subscriberCount === 0) {
+                console.warn(`⚠️ Warning: No subscribers are listening to [${event as string}]. Potential lifecycle/attachment issue.`);
+            }
+            console.groupEnd();
         }
 
         // Route to internal subscribers
-        if (this.registry[event]) {
-            // Shallow clone the array to prevent iteration errors if listeners unsubscribe mid-loop
-            const listeners = [...this.registry[event]];
+        if (subscriberCount > 0) {
             for (const callback of listeners) {
                 try {
                     callback(payload);

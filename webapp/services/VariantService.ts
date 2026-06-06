@@ -14,6 +14,42 @@ export default class VariantService {
     private static readonly UPDATE_GROUP = "VariantUpdateGroup";
 
     /**
+     * @private
+     * @static
+     * @description Executes a batch PATCH operation on a specific Variant entity.
+     * Centralizes OData V4 boilerplate, error handling, and memory cleanup.
+     * @param {ODataModel} odataModel - The active OData V4 model.
+     * @param {string} variantId - The UUID of the target variant.
+     * @param {(context: any) => void} action - Callback to mutate the OData context properties.
+     * @param {string} errorMsg - Fallback error message if the operation fails.
+     * @returns {Promise<void>} Resolves when the batch update completes successfully.
+     */
+    private static async _patchVariant(odataModel: ODataModel, variantId: string, action: (context: any) => void, errorMsg: string): Promise<void> {
+        if (!odataModel) throw new Error("OData connection not established.");
+
+        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, [new Filter("VariantId", FilterOperator.EQ, variantId)], { $$updateGroupId: this.UPDATE_GROUP, $select: "*" });
+        try {
+            const contexts = await listBinding.requestContexts(0, 1);
+            if (contexts.length === 0) throw new Error("Variant not found on server.");
+            
+            action(contexts[0]);
+            
+            await odataModel.submitBatch(this.UPDATE_GROUP);
+            
+            // ENTERPRISE FIX: submitBatch resolves even if the backend returns HTTP 400/403.
+            // We must explicitly check if the changes were rejected and left in the pending queue.
+            if (odataModel.hasPendingChanges(this.UPDATE_GROUP)) {
+                throw new Error("Backend validation or ETag mismatch rejected the request.");
+            }
+        } catch (error: any) {
+            if (odataModel.hasPendingChanges()) { try { odataModel.resetChanges(this.UPDATE_GROUP); } catch (e) {} }
+            throw new Error(error.message || errorMsg);
+        } finally {
+            listBinding.destroy();
+        }
+    }
+
+    /**
      * @public
      * @static
      * @description Retrieves all saved user variants from the OData V4 Backend.
@@ -121,33 +157,13 @@ export default class VariantService {
      * @returns {Promise<void>} Resolves when the batch update completes.
      */
     public static async updateVariant(odataModel: ODataModel, variantId: string, state: IVariantState, isGlobal: boolean, isUnlisted: boolean = false): Promise<void> {
-        if (!odataModel) throw new Error("OData connection not established.");
-
-        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, [new Filter("VariantId", FilterOperator.EQ, variantId)], { $$updateGroupId: this.UPDATE_GROUP, $select: "*" });
-        try {
-            const contexts = await listBinding.requestContexts(0, 1);
-            if (contexts.length === 0) throw new Error("Variant not found on server.");
-            
-            const context = contexts[0];
+        await this._patchVariant(odataModel, variantId, (context: any) => {
             context.setProperty("VariantName", state.name);
             context.setProperty("CdsName", (state as any).cdsName || "");
             context.setProperty("IsGlobal", isGlobal);
             context.setProperty("isUnlisted", isUnlisted);
             context.setProperty("Configuration", JSON.stringify(state));
-            
-            await odataModel.submitBatch(this.UPDATE_GROUP);
-            
-            // ENTERPRISE FIX: submitBatch resolves even if the backend returns HTTP 400/403.
-            // We must explicitly check if the changes were rejected and left in the pending queue.
-            if (odataModel.hasPendingChanges(this.UPDATE_GROUP)) {
-                throw new Error("Backend validation or ETag mismatch rejected the update.");
-            }
-        } catch (error: any) {
-            if (odataModel.hasPendingChanges()) { try { odataModel.resetChanges(this.UPDATE_GROUP); } catch (e) {} }
-            throw new Error(error.message || "Failed to update variant.");
-        } finally {
-            listBinding.destroy();
-        }
+        }, "Failed to update variant.");
     }
 
     /**
@@ -159,26 +175,10 @@ export default class VariantService {
      * @returns {Promise<void>} Resolves when the update is confirmed by the backend.
      */
     public static async revokeShareLink(odataModel: ODataModel, variantId: string): Promise<void> {
-        if (!odataModel) throw new Error("OData connection not established.");
-        
-        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, [new Filter("VariantId", FilterOperator.EQ, variantId)], { $$updateGroupId: this.UPDATE_GROUP, $select: "*" });
-        try {
-            const contexts = await listBinding.requestContexts(0, 1);
-            if (contexts.length === 0) throw new Error("Variant not found on server.");
-            const context = contexts[0];
+        await this._patchVariant(odataModel, variantId, (context: any) => {
             context.setProperty("isUnlisted", false);
             context.setProperty("IsGlobal", false);
-            await odataModel.submitBatch(this.UPDATE_GROUP);
-
-            if (odataModel.hasPendingChanges(this.UPDATE_GROUP)) {
-                throw new Error("Backend validation or ETag mismatch rejected the request.");
-            }
-        } catch (error: any) {
-            if (odataModel.hasPendingChanges()) { try { odataModel.resetChanges(this.UPDATE_GROUP); } catch (e) {} }
-            throw new Error(error.message || "Failed to revoke share link.");
-        } finally {
-            listBinding.destroy();
-        }
+        }, "Failed to revoke share link.");
     }
 
     /**
@@ -187,25 +187,9 @@ export default class VariantService {
      * @description Elevates a private variant to Unlisted Global status to generate a secure share link.
      */
     public static async generateShareLink(odataModel: ODataModel, variantId: string): Promise<void> {
-        if (!odataModel) throw new Error("OData connection not established.");
-        
-        const listBinding = odataModel.bindList(this.ENTITY_SET, undefined, undefined, [new Filter("VariantId", FilterOperator.EQ, variantId)], { $$updateGroupId: this.UPDATE_GROUP, $select: "*" });
-        try {
-            const contexts = await listBinding.requestContexts(0, 1);
-            if (contexts.length === 0) throw new Error("Variant not found on server.");
-            const context = contexts[0];
+        await this._patchVariant(odataModel, variantId, (context: any) => {
             context.setProperty("isUnlisted", true);
-            await odataModel.submitBatch(this.UPDATE_GROUP);
-
-            if (odataModel.hasPendingChanges(this.UPDATE_GROUP)) {
-                throw new Error("Backend validation or ETag mismatch rejected the request.");
-            }
-        } catch (error: any) {
-            if (odataModel.hasPendingChanges()) { try { odataModel.resetChanges(this.UPDATE_GROUP); } catch (e) {} }
-            throw new Error(error.message || "Failed to generate share link.");
-        } finally {
-            listBinding.destroy();
-        }
+        }, "Failed to generate share link.");
     }
 
     /**

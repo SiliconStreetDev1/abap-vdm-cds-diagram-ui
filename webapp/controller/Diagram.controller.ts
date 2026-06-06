@@ -217,6 +217,18 @@ export default class Diagram extends Controller {
 
     /**
      * @public
+     * @description Fires a deep-link request to open the focused entity in Eclipse (ABAP Development Tools).
+     */
+    public onOpenInADT(): void {
+        const sViewName = (this.getView()?.getModel(ModelNames.VIEW) as JSONModel)?.getProperty(ViewState.FOCUS_NODE_NAME);
+        if (sViewName) {
+            const sSystemId = window.location.hostname.split('.')[0] || "ABAP"; 
+            window.open(`adt://${sSystemId}/sap/bc/adt/ddic/ddl/sources/${sViewName.toLowerCase()}`);
+        }
+    }
+
+    /**
+     * @public
      * @description Search handler for locating specific nodes in the active canvas.
      */
     public onSearchCanvas(oEvent: SearchField$SearchEvent): void { ToolboxManager.getCanvasActionHandler()?.searchCanvas(oEvent); }

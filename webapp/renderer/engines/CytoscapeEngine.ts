@@ -44,6 +44,9 @@ export default class CytoscapeEngine {
     public static supportsSearch = true;
     public static supportsSourceExport = false;
     public static supportsImageExport = true;
+    public static isAsynchronousRenderer = true;
+    public static supportsInteractiveMode = true;
+    public static supportsAdvancedFormatting = true;
 
     /**
      * @public
@@ -60,7 +63,7 @@ export default class CytoscapeEngine {
      * @description Provides the baseline default configuration for the UI Model.
      */
     public static getDefaultConfig(): Record<string, any> {
-        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false, enableFocusMode: false };
+        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false, enableFocusMode: false, autoScale: true };
     }
 
     public static applyStateToConfig(oConfig: Record<string, any>, oState: any): Record<string, any> {
@@ -339,7 +342,69 @@ export default class CytoscapeEngine {
 
         // Commit changes to the Ctrl+Z Undo Stack
         if (bChanged) {
-            EventManager.getInstance().publish("canvas:nodeHidden", { viewId: sViewId });
+            const payload = {
+                viewId: sViewId,
+                notesJson: notes.length > 0 ? notes.jsons() : null,
+                hiddenNodeIds: entities.length > 0 ? entities.map(n => n.id()) : []
+            };
+            EventManager.getInstance().publish("canvas:nodeHidden", payload);
+        }
+    }
+
+    /**
+     * @public
+     * @description Deletes specific notes and hides specific entities for Redo.
+     */
+    public static deleteSpecificElements(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context) return;
+
+        if (notesJson && notesJson.length > 0) {
+            const noteIds = notesJson.map((n: any) => n.data.id);
+            const selector = noteIds.map((id: string) => `#${id}`).join(', ');
+            context.cy.remove(context.cy.nodes(selector));
+        }
+
+        if (hiddenNodeIds && hiddenNodeIds.length > 0) {
+            const selector = hiddenNodeIds.map(id => `#${id}`).join(', ');
+            const entities = context.cy.nodes(selector);
+            entities.addClass('hidden');
+            entities.unselect();
+            
+            const hiddenNodes = context.cy.nodes('.hidden').map((n: any) => ({
+                id: n.id(),
+                label: n.data('label') || n.id()
+            }));
+            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
+                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+            });
+        }
+    }
+
+    /**
+     * @public
+     * @description Restores previously deleted notes and unhides entities for Undo.
+     */
+    public static restoreSelection(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context) return;
+        
+        if (notesJson && notesJson.length > 0) {
+            context.cy.add(notesJson);
+        }
+        
+        if (hiddenNodeIds && hiddenNodeIds.length > 0) {
+            const selector = hiddenNodeIds.map(id => `#${id}`).join(', ');
+            const entities = context.cy.nodes(selector);
+            entities.removeClass('hidden');
+            
+            const hiddenNodes = context.cy.nodes('.hidden').map((n: any) => ({
+                id: n.id(),
+                label: n.data('label') || n.id()
+            }));
+            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
+                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+            });
         }
     }
 
@@ -438,7 +503,7 @@ export default class CytoscapeEngine {
      * @static
      * @description Add a new sticky note to the graph.
      */
-    public static addNote(sViewId: string, sText: string, sFontFamily: string): void {
+    public static addNote(sViewId: string, sText: string, sFontFamily: string): any {
         const context = this._cyContexts.get(sViewId);
         if (!context || !context.cy) return;
         const cyInstance = context.cy;
@@ -478,7 +543,7 @@ export default class CytoscapeEngine {
             }
         }
 
-        cyInstance.add({
+        const el = cyInstance.add({
             group: 'nodes',
             data: { id: sId, label: sText, fontFamily: sFontFamily || "Marker", bgColor: '#fff9c4', borderColor: '#fbc02d', isNote: true },
             classes: 'annotation-note',
@@ -486,14 +551,17 @@ export default class CytoscapeEngine {
         });
 
         if (aSelectedEntities.length > 0) {
-            aSelectedEntities.forEach((oEntity: any) => {
-                cyInstance.add({
-                    group: 'edges',
-                    data: { id: 'edge_' + sId + '_' + oEntity.id(), source: sId, target: oEntity.id() },
-                    classes: 'annotation-edge'
-                });
+            cyInstance.add({
+                group: 'edges',
+                data: { id: `edge_${sId}`, source: aSelectedEntities[0].id(), target: sId },
+                classes: 'annotation-edge'
             });
         }
+        
+        // Return JSON of all newly added elements so Undo commands can track them
+        const newEles = cyInstance.collection().add(el);
+        if (aSelectedEntities.length > 0) newEles.merge(cyInstance.getElementById(`edge_${sId}`));
+        return newEles.jsons();
     }
 
     /**

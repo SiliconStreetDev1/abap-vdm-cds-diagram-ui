@@ -23,6 +23,7 @@ import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
 import { UiState, ModelNames, DiagramData } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
+import ErrorHandler from "../ErrorHandler";
 
 
 export default class DiagramGenerationHandler {
@@ -135,7 +136,14 @@ export default class DiagramGenerationHandler {
             EventManager.getInstance().publish("diagram:renderFailed", { message: error.message });
             EventManager.getInstance().publish("video:autoResume", undefined);
             
-            MessageToast.show(this.getText(error.message) || error.message);
+            const translatedMsg = this.getText(error.message);
+            if (translatedMsg && translatedMsg !== error.message) {
+                // It's a localized validation error (e.g. "Please enter a CDS view")
+                MessageToast.show(translatedMsg);
+            } else {
+                // It's a real backend/OData error
+                ErrorHandler.handle(error, "Diagram Generation Failed");
+            }
         } finally {
             ViewStateHelper.setAppBusy(false, this.view);
         }

@@ -3,10 +3,11 @@ export interface ICanvasEventMap {
     "canvas:nodeClicked": { viewId?: string; nodeId?: string };
     "canvas:nodeDrillDownRequest": { viewId?: string; viewName?: string };
     "canvas:formatSliderUpdate": { viewId?: string; node_spacing?: number };
-    "canvas:nodePositionChanged": { viewId?: string; diagramId?: string; nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number } };
+    "canvas:nodePositionChanged": { viewId?: string; diagramId?: string; nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number }; engine: string };
+    "canvas:nodesPositionChanged": { viewId?: string; diagramId?: string; nodes: { nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number } }[]; engine: string };
     "canvas:nodeDragging": { viewId?: string; nodeId: string };
     "canvas:nodePinned": { viewId?: string };
-    "canvas:nodeHidden": { viewId?: string };
+    "canvas:nodeHidden": { viewId?: string; notesJson?: any; hiddenNodeIds?: string[] };
     "canvas:nodeUnhidden": { viewId?: string };
     "canvas:promptAddNoteRequest": { viewId?: string };
     "canvas:promptEditNoteRequest": { viewId?: string; noteId?: string; text?: string; fontFamily?: string };

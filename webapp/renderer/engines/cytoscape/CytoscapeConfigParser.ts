@@ -10,6 +10,7 @@ export interface IParsedCytoscapeConfig {
     theme: string;
     lineStyle: string;
     animate: boolean;
+    autoScale: boolean;
     nodeSpacing: number;
     snapGuides: boolean;
     isDrillDown: boolean;
@@ -34,6 +35,7 @@ export default class CytoscapeConfigParser {
             theme: format.theme || 'fiori_light',
             lineStyle: format.line_style || format.lineStyle || 'bezier',
             animate: format.animate !== false,
+            autoScale: format.autoScale !== false,
             nodeSpacing: parseInt(format.node_spacing || format.nodeSpacing || "200", 10),
             snapGuides: format.snapGuides === true,
             isDrillDown: format.isDrillDown === true,

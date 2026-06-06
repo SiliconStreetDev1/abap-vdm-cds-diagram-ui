@@ -1,5 +1,5 @@
 <core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
-    <VBox visible="{= ${ui>/activeEngine} === 'CYTOSCAPE' }" width="100%">
+    <VBox visible="{ui>/supportsAdvancedFormatting}" width="100%">
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Layout Algorithm" design="Bold"/>
             <Select width="240px" selectedKey="{ui>/formatCytoscape/layout_algorithm}" change=".onLiveFormatChange">
@@ -20,10 +20,18 @@
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
-            <Label text="SAP Theme" design="Bold"/>
+            <Label text="Visual Theme" design="Bold"/>
             <Select width="240px" selectedKey="{ui>/formatCytoscape/theme}" change=".onLiveFormatChange">
                 <core:Item key="fiori_light" text="Morning Horizon (Light)" />
                 <core:Item key="fiori_dark" text="Evening Horizon (Dark)" />
+                <core:Item key="solarized_light" text="Solarized (Light)" />
+                <core:Item key="solarized_dark" text="Solarized (Dark)" />
+                <core:Item key="pastel" text="Notion Pastel (Light)" />
+                <core:Item key="neon_inverted" text="Cyberpunk Neon (Dark)" />
+                <core:Item key="glassmorphism" text="Glassmorphism (Translucent)" />
+                <core:Item key="high_contrast" text="High Contrast (Accessibility)" />
+                <core:Item key="blueprint" text="Architectural Blueprint" />
+                <core:Item key="print_friendly" text="Print Friendly (Monochrome)" />
             </Select>
         </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
@@ -37,10 +45,14 @@
             <Label text="Focus Mode" design="Bold" tooltip="Dims unrelated entities when a single node is selected"/>
             <Switch state="{ui>/formatCytoscape/enableFocusMode}" change=".onLiveFormatChange" customTextOn="On" customTextOff="Off" enabled="{view>/hasNodeSelected}" />
         </HBox>
-    <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
+            <Label text="Smart Auto-Scale" design="Bold" tooltip="Dynamically tightens large diagrams to prevent massive line stretching"/>
+            <Switch state="{ui>/formatCytoscape/autoScale}" change=".onLiveFormatChange" customTextOn="On" customTextOff="Off" />
+        </HBox>
+        <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center" class="sapUiTinyMarginBottom">
             <Label text="Node Spacing" design="Bold"/>
-        <Slider width="240px" value="{ui>/formatCytoscape/node_spacing}" min="{ui>/nodeSpacingMin}" max="{ui>/nodeSpacingMax}" step="5" change=".onLiveFormatChange" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
-    </HBox>
+            <Slider width="240px" value="{ui>/formatCytoscape/node_spacing}" min="{ui>/nodeSpacingMin}" max="{ui>/nodeSpacingMax}" step="5" change=".onLiveFormatChange" enabled="{= ${ui>/formatCytoscape/layout_algorithm} !== 'preset' }" />
+        </HBox>
         <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
             <Label text="Animate Physics" />
             <Switch state="{ui>/formatCytoscape/animate}" change=".onLiveFormatChange" customTextOn="Yes" customTextOff="No"/>

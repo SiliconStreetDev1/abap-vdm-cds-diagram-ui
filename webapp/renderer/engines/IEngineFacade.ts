@@ -13,6 +13,10 @@ export interface IEngineFacade {
     supportsSourceExport?: boolean;
     supportsImageExport?: boolean;
     
+    isAsynchronousRenderer?: boolean;
+    supportsInteractiveMode?: boolean;
+    supportsAdvancedFormatting?: boolean;
+    
     /**
      * @public
      * @description Standardized method to retrieve the maximum allowable payload size (in KB) this engine can safely render.
@@ -46,7 +50,6 @@ export interface IEngineFacade {
     updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
     getCanvasState?(sViewId: string): any;
     moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
-    moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
     setNodesLocked?(sViewId: string, bLocked: boolean): void;
     runLayout?(sViewId: string): void;
     showHiddenNodes?(sViewId: string): void;
@@ -61,7 +64,7 @@ export interface IEngineFacade {
      * @public
      * @description Annotation Management 
      */
-    addNote?(sViewId: string, sText: string, sFontFamily: string): void;
+    addNote?(sViewId: string, sText: string, sFontFamily: string): any;
     editNote?(sViewId: string, sNoteId: string, sText: string, sFontFamily?: string): void;
     changeNoteColor?(sViewId: string, sNoteId: string, sBgColor: string, sBorderColor: string): void;
 

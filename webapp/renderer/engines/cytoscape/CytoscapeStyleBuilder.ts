@@ -5,6 +5,7 @@
  */
 import type { Core, NodeSingular, Stylesheet } from "cytoscape";
 import { IParsedCytoscapeConfig } from "./CytoscapeConfigParser";
+import ThemeRegistry from "./themes/ThemeRegistry";
 
 export default class CytoscapeStyleBuilder {
 
@@ -16,27 +17,19 @@ export default class CytoscapeStyleBuilder {
      * @returns {Stylesheet[]} An array of Cytoscape style definitions.
      */
     public static build(config: IParsedCytoscapeConfig): Stylesheet[] {
-        const isDark = config.theme === 'fiori_dark';
-        const colors = {
-            bg: isDark ? '#29313a' : '#ffffff',
-            border: isDark ? '#6b7a89' : '#89919a',
-            text: isDark ? '#fafafa' : '#32363a',
-            focalBg: isDark ? '#d84a38' : '#e05915',
-            focalText: '#ffffff',
-            edgeTextBg: isDark ? '#29313a' : '#ffffff',
-            edgeText: isDark ? '#fafafa' : '#32363a'
-        };
+        const theme = ThemeRegistry.getTheme(config.theme);
+        const colors = theme.getColors();
 
         const styles = [
             {
                 // Overrides the native loud blue selection box with a clean Fiori-styled glass pane
                 selector: 'core',
                 style: {
-                    'selection-box-color': '#0854a0',
-                    'selection-box-border-color': '#0854a0',
+                    'selection-box-color': colors.selectionHighlight || '#0854a0',
+                    'selection-box-border-color': colors.selectionHighlight || '#0854a0',
                     'selection-box-border-width': '1px',
                     'selection-box-opacity': 0.1,
-                    'active-bg-color': '#0854a0',
+                    'active-bg-color': colors.selectionHighlight || '#0854a0',
                     'active-bg-opacity': 0.15,
                     'active-bg-size': '15px'
                 }
@@ -54,6 +47,7 @@ export default class CytoscapeStyleBuilder {
                     'height': 'label',
                     'padding': '16px',
                     'background-color': colors.bg,
+                    'background-opacity': colors.nodeOpacity !== undefined ? colors.nodeOpacity : 1,
                     'color': colors.text,
                     'border-width': '1px',
                     'border-color': colors.border,
@@ -67,15 +61,22 @@ export default class CytoscapeStyleBuilder {
                 selector: 'node[?isFocal]',
                 style: {
                     'background-color': colors.focalBg,
+                    'background-opacity': colors.focalOpacity !== undefined ? colors.focalOpacity : 1,
                     'color': colors.focalText,
                     'border-width': '2px',
-                    'border-color': '#000000'
+                    'border-color': colors.focalBorder || '#000000',
+                    'shape': colors.focalShape || 'round-rectangle',
+                    'padding': colors.focalScale ? `${16 * colors.focalScale}px` : '16px',
+                    'font-size': colors.focalScale ? `${12 * colors.focalScale}px` : '12px',
+                    'underlay-color': colors.focalUnderlayColor || 'transparent',
+                    'underlay-padding': colors.focalUnderlayColor ? '12px' : '0px',
+                    'underlay-opacity': colors.focalUnderlayColor ? 0.6 : 0
                 }
             },
             {
                 selector: 'node.search-highlight',
                 style: {
-                    'underlay-color': '#0854a0',
+                    'underlay-color': colors.selectionHighlight || '#0854a0',
                     'underlay-padding': '12px',
                     'underlay-opacity': 0.6
                 }
@@ -84,7 +85,7 @@ export default class CytoscapeStyleBuilder {
                 selector: 'node[?isPinned]',
                 style: {
                     'border-width': '2px',
-                    'border-color': '#d32f2f',
+                    'border-color': colors.pinnedHighlight || '#d32f2f',
                     'border-style': 'solid',
                     // Base64 SVG hardened with explicit width="24" height="24" to prevent Canvas 0x0 clipping bugs
                     'background-image': 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjZDMyZjJmIiBkPSJNMTYgMTJWNGgxVjJIN3YyaDF2OGwtMiAydjJoNS4ydjZoMS42di02SDE4di0ybC0yLTJ6Ii8+PC9zdmc+',
@@ -100,8 +101,8 @@ export default class CytoscapeStyleBuilder {
                 selector: 'node[?isPinned]:selected',
                 style: {
                     'border-width': '4px',
-                    'border-color': '#d32f2f', // Retain the critical red anchor warning
-                    'underlay-color': '#0854a0', // Apply the Fiori selection blue as a glowing underlay
+                    'border-color': colors.pinnedHighlight || '#d32f2f', // Retain the critical red anchor warning
+                    'underlay-color': colors.selectionUnderlay || '#0854a0', // Apply the Fiori selection blue as a glowing underlay
                     'underlay-padding': '8px',
                     'underlay-opacity': 0.5
                 }
@@ -110,7 +111,7 @@ export default class CytoscapeStyleBuilder {
                 selector: 'node:selected',
                 style: {
                     'border-width': '4px',
-                    'border-color': '#0854a0'
+                    'border-color': colors.selectionHighlight || '#0854a0'
                 }
             },
             {

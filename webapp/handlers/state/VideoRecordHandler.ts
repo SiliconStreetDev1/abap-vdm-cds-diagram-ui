@@ -15,6 +15,7 @@ import VideoRecorder, { IRecordingConfig } from "../../video/VideoRecorder";
 import ScreenRecorder from "../../video/ScreenRecorder";
 import CanvasRecorder from "../../video/CanvasRecorder";
 import { UiState, DiagramData } from "../../constants/StateConstants";
+import Renderer from "../../renderer/Renderer";
 
 export default class VideoRecordHandler {
     private view: View;
@@ -109,8 +110,8 @@ export default class VideoRecordHandler {
         if (mode === "CANVAS") {
             const diagramModel = this.view.getModel("diagramData") as JSONModel;
             const sEngine = diagramModel ? diagramModel.getProperty(DiagramData.ENGINE) : "";
-            if (sEngine !== "CYTOSCAPE") {
-                this.handleRecordingError("Diagram Only mode is only supported for the interactive Cytoscape engine. Please use Entire Screen mode for SVG diagrams.");
+            if (!Renderer.supportsInteractiveMode(sEngine)) {
+                this.handleRecordingError("Diagram Only mode is only supported for interactive engines. Please use Entire Screen mode for SVG diagrams.");
                 return;
             }
 

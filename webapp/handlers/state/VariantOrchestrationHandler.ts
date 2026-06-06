@@ -20,6 +20,7 @@ import ViewStateHelper from "../../helpers/ViewStateHelper";
 import DiagramGenerationHandler from "./DiagramGenerationHandler";
 import { UiState } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
+import ErrorHandler from "../ErrorHandler";
 
 /**
  * @class VariantOrchestrationHandler
@@ -161,9 +162,7 @@ export default class VariantOrchestrationHandler {
             this.updateShareStateUI();
             MessageToast.show(this._fnGetText("msgVariantSaved", [intent.name]));
         } catch (error: any) {
-            if (error.message !== "CANCELLED") {
-                MessageBox.error(error.message || "Failed to save variant to backend.");
-            }
+            ErrorHandler.handle(error, "Failed to save variant to backend.");
         } finally {
             ViewStateHelper.setAppBusy(false, this._oView);
         }
@@ -204,9 +203,7 @@ export default class VariantOrchestrationHandler {
             this.updateShareStateUI();
             MessageToast.show(this._fnGetText("msgVariantDeleted", [variantToDelete ? variantToDelete.name : selectedId]));
         } catch (error: any) {
-            if (error.message !== "CANCELLED") {
-                MessageBox.error(error.message || "Failed to delete variant from server.");
-            }
+            ErrorHandler.handle(error, "Failed to delete variant from server.");
         } finally {
             ViewStateHelper.setAppBusy(false, this._oView);
         }
@@ -294,7 +291,7 @@ export default class VariantOrchestrationHandler {
                 this.updateShareStateUI();
             }
         } catch (error: any) {
-            MessageBox.error(error.message || "Failed to load variant configuration.");
+            ErrorHandler.handle(error, "Failed to load variant configuration.");
         } finally {
             ViewStateHelper.setAppBusy(false, this._oView);
         }
@@ -343,7 +340,7 @@ export default class VariantOrchestrationHandler {
                             this.updateShareStateUI();
                             await this._copyShareLink(variant.VariantId);
                         } catch (error: any) {
-                            MessageBox.error(error.message || "Failed to generate share link.");
+                            ErrorHandler.handle(error, "Failed to generate share link.");
                         } finally {
                             ViewStateHelper.setAppBusy(false, this._oView);
                         }
@@ -386,6 +383,11 @@ export default class VariantOrchestrationHandler {
             return;
         }
 
+        if (variant.IsGlobal) {
+            MessageToast.show("Cannot revoke share on a Global variant. Please uncheck 'Global' and save first.");
+            return;
+        }
+
         ViewStateHelper.setAppBusy(true, this._oView);
         try {
             await VariantService.revokeShareLink(this._odataModel, variant.VariantId);
@@ -398,7 +400,7 @@ export default class VariantOrchestrationHandler {
             this.updateShareStateUI();
             MessageToast.show(this._fnGetText("msgRevokeSuccess") || "Sharing revoked. Variant is now fully private.");
         } catch (error: any) {
-            MessageBox.error(error.message || "Failed to revoke share link.");
+            ErrorHandler.handle(error, "Failed to revoke share link.");
         } finally {
             ViewStateHelper.setAppBusy(false, this._oView);
         }

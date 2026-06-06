@@ -116,9 +116,9 @@ export default class DiagramRenderHandler {
         const oHtml = this._oView.byId("htmlRenderer") as HTML;
         this.handleRenderRequest(oEventData as IRenderRequestPayload, oHtml);
 
-        // Non-Cytoscape engines do not run asynchronous physics layouts or emit CANVAS_READY.
+        // Synchronous engines do not run asynchronous physics layouts or emit CANVAS_READY.
         // We safely resume the recording after a short deferral to allow the DOM to paint.
-        if (oEventData.engine !== "CYTOSCAPE") {
+        if (!Renderer.isAsynchronousRenderer(oEventData.engine)) {
             setTimeout(() => {
                 EventManager.getInstance().publish("video:autoResume", undefined);
             }, 500);

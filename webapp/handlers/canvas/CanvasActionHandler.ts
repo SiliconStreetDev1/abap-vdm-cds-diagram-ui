@@ -152,7 +152,7 @@ export default class CanvasActionHandler {
     public showSpacingPopover(oEvent: Event): void {
         if (!this.spacingPopover) {
             const oUiModel = this.view.getModel("ui") as JSONModel;
-            const sEngine = oUiModel ? oUiModel.getProperty("/activeEngine") : "CYTOSCAPE";
+            const sEngine = oUiModel ? oUiModel.getProperty("/activeEngine") : Renderer.getDefaultEngine();
             const oModelData = oUiModel ? oUiModel.getData() : {};
             const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
 

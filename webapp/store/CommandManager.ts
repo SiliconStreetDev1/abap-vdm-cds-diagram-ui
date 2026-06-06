@@ -11,6 +11,7 @@ export class CommandManager {
     private _redoStack: ICommand[] = [];
     private _maxLimit: number = 25;
     private _viewId: string;
+    private _lastActionTime: number = 0;
 
     constructor(viewId: string) {
         this._viewId = viewId;
@@ -36,34 +37,50 @@ export class CommandManager {
      * @public
      * @description Reverses the last executed command.
      */
-    public undo(): void {
-        if (this._undoStack.length === 0) return;
+    public undo(): boolean {
+        const now = Date.now();
+        if (now - this._lastActionTime < 150) return false;
+        this._lastActionTime = now;
+
+        if (this._undoStack.length === 0) return false;
 
         const command = this._undoStack.pop();
         if (command) {
             command.undo();
             this._redoStack.push(command);
             
-            // Trigger a render update to UI listeners
-            EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: "cytoscape", format: {} }); // Notify UI or Canvas
+            // Trigger a render update to UI listeners if an engine is associated with this command
+            if (command.engine) {
+                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: command.engine, format: {} }); // Notify UI or Canvas
+            }
+            return true;
         }
+        return false;
     }
 
     /**
      * @public
      * @description Re-applies a previously undone command.
      */
-    public redo(): void {
-        if (this._redoStack.length === 0) return;
+    public redo(): boolean {
+        const now = Date.now();
+        if (now - this._lastActionTime < 150) return false;
+        this._lastActionTime = now;
+
+        if (this._redoStack.length === 0) return false;
 
         const command = this._redoStack.pop();
         if (command) {
             command.execute();
             this._undoStack.push(command);
             
-            // Trigger a render update to UI listeners
-            EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: "cytoscape", format: {} });
+            // Trigger a render update to UI listeners if an engine is associated with this command
+            if (command.engine) {
+                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: command.engine, format: {} });
+            }
+            return true;
         }
+        return false;
     }
 
     /**

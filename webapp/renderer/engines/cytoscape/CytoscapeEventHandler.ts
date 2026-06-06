@@ -158,9 +158,10 @@ export default class CytoscapeEventHandler {
      */
     private static _attachDragEvents(sViewId: string, cyInstance: Core): void {
 
-        cyInstance.on('grab', 'node:not(.annotation-note)', (evt: EventObject) => {
+        cyInstance.on('grab', 'node', (evt: EventObject) => {
             const node = evt.target as NodeSingular;
-            node.scratch('_dragPos', { ...node.position() });
+            const toTrack = node.selected() ? cyInstance.nodes(':selected').union(node) : cyInstance.collection().add(node);
+            toTrack.forEach(n => { n.scratch('_dragPos', { ...n.position() }); });
         });
 
         cyInstance.on('drag', 'node', (evt: EventObject) => {
@@ -190,14 +191,27 @@ export default class CytoscapeEventHandler {
         
         cyInstance.on('free', 'node', (evt: EventObject) => {
             const node = evt.target as NodeSingular;
-            const prevPos = node.scratch('_dragPos');
-            const currPos = node.position();
-            if (prevPos && (prevPos.x !== currPos.x || prevPos.y !== currPos.y)) {
-                EventManager.getInstance().publish("canvas:nodePositionChanged", { 
+            const toCheck = node.selected() ? cyInstance.nodes(':selected').union(node) : cyInstance.collection().add(node);
+            const changes: any[] = [];
+            
+            toCheck.forEach(n => {
+                const prevPos = n.scratch('_dragPos');
+                const currPos = n.position();
+                if (prevPos && (prevPos.x !== currPos.x || prevPos.y !== currPos.y)) {
+                    changes.push({
+                        nodeId: n.id(),
+                        oldPos: { ...prevPos },
+                        newPos: { ...currPos }
+                    });
+                }
+                n.removeScratch('_dragPos');
+            });
+
+            if (changes.length > 0) {
+                EventManager.getInstance().publish("canvas:nodesPositionChanged", { 
                     viewId: sViewId,
-                    nodeId: node.id(), 
-                    oldPos: { ...prevPos }, 
-                    newPos: { ...currPos } 
+                    nodes: changes,
+                    engine: "CYTOSCAPE"
                 });
             }
         });

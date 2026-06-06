@@ -57,8 +57,12 @@ export default class DiagramService {
         try {
             const searchContexts = await searchBinding.requestContexts(0, 1);
             return searchContexts.length > 0;
-        } catch (e) {
-            return false;
+        } catch (e: any) {
+            let sErrorMsg = e.message || "Unknown error";
+            if (e.error && e.error.message) {
+                sErrorMsg = e.error.message;
+            }
+            throw new Error(`Backend Error: ${sErrorMsg}`);
         } finally {
             searchBinding.destroy();
         }

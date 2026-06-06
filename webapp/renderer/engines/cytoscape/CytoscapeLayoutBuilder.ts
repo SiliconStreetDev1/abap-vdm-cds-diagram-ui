@@ -31,16 +31,21 @@ export default class CytoscapeLayoutBuilder {
             nodeDimensionsIncludeLabels: true
         };
 
+        // Smart Auto-Scaling: Compress massive diagrams to prevent extreme edge stretching
+        const scaleMultiplier = (config.autoScale && nodeCount > 20) 
+            ? Math.max(0.4, 1.0 - (nodeCount / 200)) 
+            : 1.0;
+
         switch (config.layout) {
             case 'cose':
                 oBaseConfig.idealEdgeLength = (edge: EdgeSingular) => {
-                    return edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 3 : config.nodeSpacing * 1.5;
+                    return (edge.data('label')?.toLowerCase().includes('composition') ? config.nodeSpacing / 3 : config.nodeSpacing * 1.5) * scaleMultiplier;
                 };
                 oBaseConfig.edgeElasticity = (edge: EdgeSingular) => {
                     return edge.data('label')?.toLowerCase().includes('composition') ? 500 : 50;
                 };
                 oBaseConfig.nodeRepulsion = (node: NodeSingular) => {
-                    return config.nodeSpacing * 8000;
+                    return (config.nodeSpacing * 8000) * scaleMultiplier;
                 };
                 oBaseConfig.gravity = 0.15;
                 oBaseConfig.numIter = 3000;
@@ -52,22 +57,22 @@ export default class CytoscapeLayoutBuilder {
                 break;
             case 'dagre':
                 oBaseConfig.rankDir = config.rankDir;
-                oBaseConfig.rankSep = config.nodeSpacing * 1.5;
-                oBaseConfig.nodeSep = config.nodeSpacing / 1.5;
-                oBaseConfig.edgeSep = Math.max(AppConstants.NODE_SPACING_MIN, (config.nodeSpacing / 3) * 1.15);
+                oBaseConfig.rankSep = (config.nodeSpacing * 1.5) * scaleMultiplier;
+                oBaseConfig.nodeSep = (config.nodeSpacing / 1.5) * scaleMultiplier;
+                oBaseConfig.edgeSep = Math.max(AppConstants.NODE_SPACING_MIN, (config.nodeSpacing / 3) * 1.15) * scaleMultiplier;
                 oBaseConfig.ranker = 'network-simplex';
                 oBaseConfig.acyclicer = 'greedy';
-                oBaseConfig.spacingFactor = 1.0;
+                oBaseConfig.spacingFactor = scaleMultiplier;
                 break;
             case 'elk':
                 oBaseConfig.elk = {
                     'algorithm': 'layered',
                     'elk.direction': config.rankDir === 'LR' ? 'RIGHT' : 'DOWN',
-                    'elk.spacing.nodeNode': config.nodeSpacing,
-                    'elk.layered.spacing.nodeNodeBetweenLayers': config.nodeSpacing * 1.5,
-                    'elk.layered.spacing.edgeNodeBetweenLayers': config.nodeSpacing / 2,
-                    'elk.layered.spacing.edgeEdgeBetweenLayers': config.nodeSpacing * 0.575,
-                    'elk.spacing.edgeEdge': config.nodeSpacing * 0.575,
+                    'elk.spacing.nodeNode': config.nodeSpacing * scaleMultiplier,
+                    'elk.layered.spacing.nodeNodeBetweenLayers': (config.nodeSpacing * 1.5) * scaleMultiplier,
+                    'elk.layered.spacing.edgeNodeBetweenLayers': (config.nodeSpacing / 2) * scaleMultiplier,
+                    'elk.layered.spacing.edgeEdgeBetweenLayers': (config.nodeSpacing * 0.575) * scaleMultiplier,
+                    'elk.spacing.edgeEdge': (config.nodeSpacing * 0.575) * scaleMultiplier,
                     'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
                     'elk.layered.layering.strategy': 'NETWORK_SIMPLEX',
                     'elk.edgeRouting': config.lineStyle === 'taxi' ? 'ORTHOGONAL' : 'SPLINES'

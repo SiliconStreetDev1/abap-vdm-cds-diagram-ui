@@ -25,9 +25,12 @@ export default class ViewStateHelper {
      * @returns {JSONModel} The instantiated UI configuration model.
      */
     public static initializeUiModel(): JSONModel {
+        const defaultEngine = Renderer.getDefaultEngine();
         const oDefaults = {
             showHelp: false,
-            activeEngine: Renderer.getDefaultEngine(),
+            activeEngine: defaultEngine,
+            supportsInteractiveMode: Renderer.supportsInteractiveMode(defaultEngine),
+            supportsAdvancedFormatting: Renderer.supportsAdvancedFormatting(defaultEngine),
             isCanvasStale: false,
             isDrillDown: false,
             selectedVariant: "",
@@ -86,6 +89,8 @@ export default class ViewStateHelper {
         const sEngine = (oEvent.getSource() as Select).getSelectedKey();
         
         oUiModel.setProperty("/activeEngine", sEngine);
+        oUiModel.setProperty("/supportsInteractiveMode", Renderer.supportsInteractiveMode(sEngine));
+        oUiModel.setProperty("/supportsAdvancedFormatting", Renderer.supportsAdvancedFormatting(sEngine));
         
         // Reset all format configurations to their defaults
         Renderer.resetFormatConfigs(oUiModel);

@@ -203,6 +203,21 @@ export default class Renderer {
         return engine ? !!engine.supportsSearch : false;
     }
 
+    public static isAsynchronousRenderer(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.isAsynchronousRenderer : false;
+    }
+
+    public static supportsInteractiveMode(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsInteractiveMode : false;
+    }
+
+    public static supportsAdvancedFormatting(sEngine: string): boolean {
+        const engine = this._getEngine(sEngine);
+        return engine ? !!engine.supportsAdvancedFormatting : false;
+    }
+
     public static supportsSourceExport(sEngine: string): boolean {
         const engine = this._getEngine(sEngine);
         return engine ? !!engine.supportsSourceExport : false;
@@ -334,10 +349,15 @@ export default class Renderer {
      * @description Deletes selected notes and hides selected entities.
      */
     public static deleteSelection(sViewId: string, sEngine: string): void {
-        const engine = this._getEngine(sEngine);
-        if (engine && engine.deleteSelection) {
-            engine.deleteSelection(sViewId);
-        }
+        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.deleteSelection(sViewId); }
+    }
+
+    public static deleteSpecificElements(sViewId: string, sEngine: string, notesJson: any, hiddenNodeIds: string[]): void {
+        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.deleteSpecificElements(sViewId, notesJson, hiddenNodeIds); }
+    }
+
+    public static restoreSelection(sViewId: string, sEngine: string, notesJson: any, hiddenNodeIds: string[]): void {
+        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.restoreSelection(sViewId, notesJson, hiddenNodeIds); }
     }
 
     /**
@@ -357,11 +377,12 @@ export default class Renderer {
      * @static
      * @description Add a new sticky note to the active graph.
      */
-    public static addNote(sViewId: string, sEngine: string, sText: string, sFontFamily: string): void {
+    public static addNote(sViewId: string, sEngine: string, sText: string, sFontFamily: string): any {
         const engine = this._getEngine(sEngine);
         if (engine && engine.addNote) {
-            engine.addNote(sViewId, sText, sFontFamily);
+            return engine.addNote(sViewId, sText, sFontFamily);
         }
+        return null;
     }
 
     /**

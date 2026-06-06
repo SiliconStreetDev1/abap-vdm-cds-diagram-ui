@@ -13,4 +13,9 @@ export interface ICommand {
      * Reverses the command.
      */
     undo(): void;
+
+    /**
+     * Optional engine identifier if the command triggers engine-specific rendering updates.
+     */
+    engine?: string;
 }
