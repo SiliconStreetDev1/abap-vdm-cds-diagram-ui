@@ -59,6 +59,8 @@ export interface IEngineFacade {
     clearSelection?(sViewId: string): void;
     selectAll?(sViewId: string): void;
     deleteSelection?(sViewId: string): void;
+    deleteSpecificElements?(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void;
+    restoreSelection?(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void;
 
     /**
      * @public

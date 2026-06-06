@@ -70,6 +70,7 @@ export default class DialogManager {
     public static destroy(): void {
         if (!this._bIsAttached) return;
         this._bIsAttached = false;
+        this._subscriptions.forEach((sub: any) => sub.dispose());
         this._subscriptions = [];
         this._oView = null;
         this._oHiddenNodesDialog = null;

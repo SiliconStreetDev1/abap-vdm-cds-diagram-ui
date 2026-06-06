@@ -223,7 +223,7 @@ export default class DiagramGenerationHandler {
             throw new Error("msgNoMeta");
         }
 
-        return await DiagramService.fetchDiagram(odataModel, request, forceRefresh);
+        return await DiagramService.fetchDiagram(odataModel, request, forceRefresh, true);
     }
 
     /**

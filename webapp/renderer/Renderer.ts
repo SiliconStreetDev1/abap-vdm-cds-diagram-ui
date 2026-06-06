@@ -349,15 +349,18 @@ export default class Renderer {
      * @description Deletes selected notes and hides selected entities.
      */
     public static deleteSelection(sViewId: string, sEngine: string): void {
-        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.deleteSelection(sViewId); }
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.deleteSelection) { engine.deleteSelection(sViewId); }
     }
 
     public static deleteSpecificElements(sViewId: string, sEngine: string, notesJson: any, hiddenNodeIds: string[]): void {
-        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.deleteSpecificElements(sViewId, notesJson, hiddenNodeIds); }
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.deleteSpecificElements) { engine.deleteSpecificElements(sViewId, notesJson, hiddenNodeIds); }
     }
 
     public static restoreSelection(sViewId: string, sEngine: string, notesJson: any, hiddenNodeIds: string[]): void {
-        if (sEngine === "CYTOSCAPE") { CytoscapeEngine.restoreSelection(sViewId, notesJson, hiddenNodeIds); }
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.restoreSelection) { engine.restoreSelection(sViewId, notesJson, hiddenNodeIds); }
     }
 
     /**

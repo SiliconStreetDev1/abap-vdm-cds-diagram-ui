@@ -50,11 +50,9 @@ export default class SelectionStateHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            /* removed */
-            /* removed */
-            /* removed */
-            /* removed */
+            this._subscriptions.forEach((sub: any) => sub.dispose());
         }
+        this._subscriptions = [];
         this._bIsAttached = false;
     }
 
