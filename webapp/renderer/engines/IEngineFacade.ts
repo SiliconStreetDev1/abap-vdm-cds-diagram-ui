@@ -46,6 +46,7 @@ export interface IEngineFacade {
     updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
     getCanvasState?(sViewId: string): any;
     moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
+    moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
     setNodesLocked?(sViewId: string, bLocked: boolean): void;
     runLayout?(sViewId: string): void;
     showHiddenNodes?(sViewId: string): void;
@@ -55,6 +56,14 @@ export interface IEngineFacade {
     clearSelection?(sViewId: string): void;
     selectAll?(sViewId: string): void;
     deleteSelection?(sViewId: string): void;
+
+    /**
+     * @public
+     * @description Annotation Management 
+     */
+    addNote?(sViewId: string, sText: string, sFontFamily: string): void;
+    editNote?(sViewId: string, sNoteId: string, sText: string, sFontFamily?: string): void;
+    changeNoteColor?(sViewId: string, sNoteId: string, sBgColor: string, sBorderColor: string): void;
 
     /**
      * @public

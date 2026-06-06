@@ -4,6 +4,7 @@ export interface ICanvasEventMap {
     "canvas:nodeDrillDownRequest": { viewId?: string; viewName?: string };
     "canvas:formatSliderUpdate": { viewId?: string; node_spacing?: number };
     "canvas:nodePositionChanged": { viewId?: string; diagramId?: string; nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number } };
+    "canvas:nodeDragging": { viewId?: string; nodeId: string };
     "canvas:nodePinned": { viewId?: string };
     "canvas:nodeHidden": { viewId?: string };
     "canvas:nodeUnhidden": { viewId?: string };

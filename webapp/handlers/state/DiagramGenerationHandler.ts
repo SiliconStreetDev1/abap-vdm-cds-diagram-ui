@@ -209,13 +209,8 @@ export default class DiagramGenerationHandler {
         }
 
         // ENTERPRISE FIX: Validate CDS existence via the Search endpoint before triggering expensive rendering operations.
-        const searchBinding = odataModel.bindList("/Search", undefined, undefined, [
-            new Filter("CdsName", FilterOperator.EQ, cdsName)
-        ]);
-        const searchContexts = await searchBinding.requestContexts(0, 1);
-        searchBinding.destroy();
-        
-        if (searchContexts.length === 0) {
+        const bExists = await DiagramService.validateCds(odataModel, cdsName);
+        if (!bExists) {
             throw new Error("msgNoMeta");
         }
 

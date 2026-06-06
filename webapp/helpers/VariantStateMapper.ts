@@ -32,25 +32,27 @@ export default class VariantStateMapper {
         
         const sInstanceId = oView.getController()?.getOwnerComponent()?.getId() || oView.getId();
 
+        const reqConfig = oUiModel.getProperty("/diagramRequest") || {};
+
         // ENTERPRISE FIX: Use a strictly typed Dictionary to ensure safe dynamic format appending
         const oState: Record<string, any> = {
             name: sName,
             cdsName: (oView.byId("cmbCdsName") as Input).getValue().trim().toUpperCase(), // Normalizes to prevent the Uppercase Bug
             engine: sEngine,
             maxLevel: (oView.byId("stepMaxLevel") as StepInput).getValue(),
-            keys: (oView.byId("swKeys") as Switch).getState(),
-            fields: (oView.byId("swFields") as Switch).getState(),
-            assocFields: (oView.byId("swAssocFields") as Switch).getState(),
-            base: (oView.byId("swBase") as Switch).getState(),
-            customOnly: (oView.byId("swCustomOnly") as Switch).getState(),
+            keys: reqConfig.showKeys,
+            fields: reqConfig.showFields,
+            assocFields: reqConfig.showAssocFields,
+            base: reqConfig.showBase,
+            customOnly: reqConfig.customOnly,
             
-            relMode: (oView.byId("segRelMode") as SegmentedButton).getSelectedKey(),
-            discAssoc: (oView.byId("swDiscAssoc") as Switch).getState(),
-            discComp: (oView.byId("swDiscComp") as Switch).getState(),
-            discInherit: (oView.byId("swDiscInherit") as Switch).getState(),
-            lineAssoc: (oView.byId("swLineAssoc") as Switch).getState(),
-            lineComp: (oView.byId("swLineComp") as Switch).getState(),
-            lineInherit: (oView.byId("swLineInherit") as Switch).getState(),
+            relMode: reqConfig.relMode,
+            discAssoc: reqConfig.discAssoc,
+            discComp: reqConfig.discComp,
+            discInherit: reqConfig.discInherit,
+            lineAssoc: reqConfig.lineAssoc,
+            lineComp: reqConfig.lineComp,
+            lineInherit: reqConfig.lineInherit,
             
             includeCds: aIncTokens.map(t => t.getText()).join(","),
             excludeCds: aExcTokens.map(t => t.getText()).join(","),
@@ -92,11 +94,12 @@ export default class VariantStateMapper {
         // ENTERPRISE SAFETY: Coerce missing properties to prevent UI5 fatal crashes on older variants
         (oView.byId("selEngine") as Select).setSelectedKey(oVariant.engine || sDefaultEngine);
         (oView.byId("stepMaxLevel") as StepInput).setValue(oVariant.maxLevel || 1);
-        (oView.byId("swKeys") as Switch).setState(!!oVariant.keys);
-        (oView.byId("swFields") as Switch).setState(!!oVariant.fields);
-        (oView.byId("swAssocFields") as Switch).setState(!!oVariant.assocFields);
-        (oView.byId("swBase") as Switch).setState(!!oVariant.base);
-        (oView.byId("swCustomOnly") as Switch).setState(!!oVariant.customOnly);
+        
+        oUiModel.setProperty("/diagramRequest/showKeys", !!oVariant.keys);
+        oUiModel.setProperty("/diagramRequest/showFields", !!oVariant.fields);
+        oUiModel.setProperty("/diagramRequest/showAssocFields", !!oVariant.assocFields);
+        oUiModel.setProperty("/diagramRequest/showBase", !!oVariant.base);
+        oUiModel.setProperty("/diagramRequest/customOnly", !!oVariant.customOnly);
         
         oUiModel.setProperty("/activeEngine", oVariant.engine || sDefaultEngine);
         
@@ -118,16 +121,16 @@ export default class VariantStateMapper {
         }
 
         const sMode = oVariant.relMode || "LINES";
-        (oView.byId("segRelMode") as SegmentedButton).setSelectedKey(sMode);
+        oUiModel.setProperty("/diagramRequest/relMode", sMode);
         (oView.byId("boxLines") as VBox).setVisible(sMode === "LINES");
         (oView.byId("boxDiscovery") as VBox).setVisible(sMode !== "LINES");
 
-        (oView.byId("swDiscAssoc") as Switch).setState(oVariant.discAssoc ?? true);
-        (oView.byId("swDiscComp") as Switch).setState(oVariant.discComp ?? true);
-        (oView.byId("swDiscInherit") as Switch).setState(oVariant.discInherit ?? true);
-        (oView.byId("swLineAssoc") as Switch).setState(oVariant.lineAssoc ?? true);
-        (oView.byId("swLineComp") as Switch).setState(oVariant.lineComp ?? true);
-        (oView.byId("swLineInherit") as Switch).setState(oVariant.lineInherit ?? true);
+        oUiModel.setProperty("/diagramRequest/discAssoc", oVariant.discAssoc ?? true);
+        oUiModel.setProperty("/diagramRequest/discComp", oVariant.discComp ?? true);
+        oUiModel.setProperty("/diagramRequest/discInherit", oVariant.discInherit ?? true);
+        oUiModel.setProperty("/diagramRequest/lineAssoc", oVariant.lineAssoc ?? true);
+        oUiModel.setProperty("/diagramRequest/lineComp", oVariant.lineComp ?? true);
+        oUiModel.setProperty("/diagramRequest/lineInherit", oVariant.lineInherit ?? true);
         
         const oIncInput = oView.byId("inpInclude") as MultiInput;
         const oExcInput = oView.byId("inpExclude") as MultiInput;

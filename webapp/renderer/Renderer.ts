@@ -12,15 +12,22 @@ import GraphvizEngine from "./engines/GraphvizEngine";
 import PlantUmlEngine from "./engines/PlantUmlEngine";
 import CytoscapeEngine from "./engines/CytoscapeEngine";
 import D2Engine from "./engines/D2Engine";
+
 import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
 import SvgProcessor from "../helpers/SvgProcessor";
 import { EngineType } from "../types";
 import { IEngineFacade } from "./engines/IEngineFacade";
+import EngineRegistry from "./EngineRegistry";
+
+// Register default engines statically when Renderer is imported to ensure they are available
+EngineRegistry.registerEngine(EngineType.MERMAID, MermaidEngine);
+EngineRegistry.registerEngine(EngineType.GRAPHVIZ, GraphvizEngine);
+EngineRegistry.registerEngine(EngineType.PLANTUML, PlantUmlEngine);
+EngineRegistry.registerEngine(EngineType.CYTOSCAPE, CytoscapeEngine);
+EngineRegistry.registerEngine("D2", D2Engine);
 
 export default class Renderer {
-    private static _aEngines: IEngineFacade[] = [MermaidEngine, GraphvizEngine, PlantUmlEngine, CytoscapeEngine, D2Engine];
-
     /**
      * @public
      * @static
@@ -31,15 +38,7 @@ export default class Renderer {
     }
 
     private static _getEngine(sEngine: string): IEngineFacade | null {
-        const sNormalizedEngine = String(sEngine).toUpperCase();
-        switch (sNormalizedEngine) {
-            case String(EngineType.MERMAID).toUpperCase(): return MermaidEngine;
-            case String(EngineType.GRAPHVIZ).toUpperCase(): return GraphvizEngine;
-            case String(EngineType.PLANTUML).toUpperCase(): return PlantUmlEngine;
-            case String(EngineType.CYTOSCAPE).toUpperCase(): return CytoscapeEngine;
-            case "D2": return D2Engine;
-            default: return null;
-        }
+        return EngineRegistry.getEngine(sEngine);
     }
 
     /**
@@ -64,7 +63,7 @@ export default class Renderer {
 
         // Clean up previous engine instances to prevent memory leaks and duplicate UI artifacts
         if (sViewId) {
-            this._aEngines.forEach(eng => {
+            EngineRegistry.getAllEngines().forEach(eng => {
                 if (eng !== engine && eng.destroy) eng.destroy(sViewId);
             });
         }
@@ -174,7 +173,7 @@ export default class Renderer {
 
     public static getEngineDefaults(): Record<string, any> {
         const oDefaults: Record<string, any> = {};
-        this._aEngines.forEach(engine => {
+        EngineRegistry.getAllEngines().forEach(engine => {
             if (engine.configPath && engine.getDefaultConfig) {
                 const sKey = engine.configPath.replace("/", "");
                 oDefaults[sKey] = engine.getDefaultConfig();
@@ -184,7 +183,7 @@ export default class Renderer {
     }
 
     public static resetFormatConfigs(oUiModel: any): void {
-        this._aEngines.forEach(engine => {
+        EngineRegistry.getAllEngines().forEach(engine => {
             if (engine.configPath && engine.getDefaultConfig) {
                 oUiModel.setProperty(engine.configPath, engine.getDefaultConfig());
             }
@@ -373,11 +372,47 @@ export default class Renderer {
     /**
      * @public
      * @static
+     * @description Add a new sticky note to the active graph.
+     */
+    public static addNote(sViewId: string, sEngine: string, sText: string, sFontFamily: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.addNote) {
+            engine.addNote(sViewId, sText, sFontFamily);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Edit an existing sticky note on the active graph.
+     */
+    public static editNote(sViewId: string, sEngine: string, sNoteId: string, sText: string, sFontFamily?: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.editNote) {
+            engine.editNote(sViewId, sNoteId, sText, sFontFamily);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Change the color of an existing sticky note.
+     */
+    public static changeNoteColor(sViewId: string, sEngine: string, sNoteId: string, sBgColor: string, sBorderColor: string): void {
+        const engine = this._getEngine(sEngine);
+        if (engine && engine.changeNoteColor) {
+            engine.changeNoteColor(sViewId, sNoteId, sBgColor, sBorderColor);
+        }
+    }
+
+    /**
+     * @public
+     * @static
      * @description Safely destroys the active engine to prevent memory and event listener leaks on app exit.
      */
     public static destroyActiveEngine(sViewId: string): void {
         if (sViewId) {
-            this._aEngines.forEach(engine => {
+            EngineRegistry.getAllEngines().forEach(engine => {
                 if (engine.destroy) engine.destroy(sViewId);
             });
         }

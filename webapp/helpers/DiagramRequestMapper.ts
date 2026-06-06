@@ -27,13 +27,12 @@ export default class DiagramRequestMapper {
      * @returns {IDiagramRequest} The populated DTO for the DiagramService.
      */
     public static buildRequest(oView: View, sCdsName: string, sEngine: EngineType): IDiagramRequest {
-        const sRelMode = (oView.byId("segRelMode") as SegmentedButton).getSelectedKey();
-        const bIsLinesMode = (sRelMode === "LINES");
+        const oUiModel = oView.getModel("ui") as JSONModel;
+        const reqConfig = oUiModel.getProperty("/diagramRequest") || {};
+        const bIsLinesMode = (reqConfig.relMode === "LINES");
 
         const aIncTokens = (oView.byId("inpInclude") as MultiInput).getTokens();
         const aExcTokens = (oView.byId("inpExclude") as MultiInput).getTokens();
-
-        const oUiModel = oView.getModel("ui") as JSONModel;
         
         // Dynamically resolve the UI model path using reflection to avoid hardcoded switch maps
         const oModelData = oUiModel.getData();
@@ -47,19 +46,19 @@ export default class DiagramRequestMapper {
             cdsName: sCdsName,
             engine: sEngine,
             maxLevel: (oView.byId("stepMaxLevel") as StepInput).getValue(),
-            showKeys: (oView.byId("swKeys") as Switch).getState(),
-            showFields: (oView.byId("swFields") as Switch).getState(),
-            showAssocFields: (oView.byId("swAssocFields") as Switch).getState(),
-            showBase: (oView.byId("swBase") as Switch).getState(),
-            customOnly: (oView.byId("swCustomOnly") as Switch).getState(),
+            showKeys: reqConfig.showKeys,
+            showFields: reqConfig.showFields,
+            showAssocFields: reqConfig.showAssocFields,
+            showBase: reqConfig.showBase,
+            customOnly: reqConfig.customOnly,
             
-            lineAssoc: bIsLinesMode ? (oView.byId("swLineAssoc") as Switch).getState() : false,
-            lineComp: bIsLinesMode ? (oView.byId("swLineComp") as Switch).getState() : false,
-            lineInherit: bIsLinesMode ? (oView.byId("swLineInherit") as Switch).getState() : false,
+            lineAssoc: bIsLinesMode ? reqConfig.lineAssoc : false,
+            lineComp: bIsLinesMode ? reqConfig.lineComp : false,
+            lineInherit: bIsLinesMode ? reqConfig.lineInherit : false,
             
-            discAssoc: !bIsLinesMode ? (oView.byId("swDiscAssoc") as Switch).getState() : false,
-            discComp: !bIsLinesMode ? (oView.byId("swDiscComp") as Switch).getState() : false,
-            discInherit: !bIsLinesMode ? (oView.byId("swDiscInherit") as Switch).getState() : false,
+            discAssoc: !bIsLinesMode ? reqConfig.discAssoc : false,
+            discComp: !bIsLinesMode ? reqConfig.discComp : false,
+            discInherit: !bIsLinesMode ? reqConfig.discInherit : false,
             
             includeCds: aIncTokens.map(t => t.getText()).join(","),
             excludeCds: aExcTokens.map(t => t.getText()).join(","),

@@ -8,7 +8,6 @@ import BaseMenuStrategy from "./menu/BaseMenuStrategy";
 import ViewerMenuStrategy from "./menu/ViewerMenuStrategy";
 import DrillDownMenuStrategy from "./menu/DrillDownMenuStrategy";
 import BuilderEntityMenuStrategy from "./menu/BuilderEntityMenuStrategy";
-import BuilderNoteMenuStrategy from "./menu/BuilderNoteMenuStrategy";
 
 export default class CytoscapeContextMenu {
 
@@ -96,7 +95,8 @@ export default class CytoscapeContextMenu {
             if (getIsViewerMode()) {
                 strategy = new ViewerMenuStrategy(sViewId);
             } else if (bIsNote) {
-                strategy = new BuilderNoteMenuStrategy(sViewId);
+                this.removeAll(sViewId); // No context menu for notes currently
+                return;
             } else if (getIsDrillDown()) {
                 strategy = new DrillDownMenuStrategy(sViewId);
             } else {

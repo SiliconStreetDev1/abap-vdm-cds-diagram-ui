@@ -183,6 +183,9 @@ export default class CytoscapeEventHandler {
                     });
                 }
             }
+
+            // Enterprise UX: Dispatch a high-frequency dragging event for real-time haptics/audio
+            EventManager.getInstance().publish("canvas:nodeDragging", { viewId: sViewId, nodeId: node.id() });
         });
         
         cyInstance.on('free', 'node', (evt: EventObject) => {

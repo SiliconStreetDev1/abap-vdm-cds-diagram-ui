@@ -44,6 +44,28 @@ export default class DiagramService {
 
     /**
      * @public
+     * @description Validates whether a CDS View exists in the backend before running an expensive generation request.
+     * @param {ODataModel} oModel - The active OData V4 model instance.
+     * @param {string} cdsName - The CDS view name to validate.
+     * @returns {Promise<boolean>} True if the CDS view exists, false otherwise.
+     */
+    public static async validateCds(oModel: ODataModel, cdsName: string): Promise<boolean> {
+        const searchBinding = oModel.bindList("/Search", undefined, undefined, [
+            new Filter("CdsName", FilterOperator.EQ, cdsName)
+        ]);
+        
+        try {
+            const searchContexts = await searchBinding.requestContexts(0, 1);
+            return searchContexts.length > 0;
+        } catch (e) {
+            return false;
+        } finally {
+            searchBinding.destroy();
+        }
+    }
+
+    /**
+     * @public
      * @description Executes the OData V4 list binding request and parses the backend response.
      * Encapsulates all OData filter logic internally to decouple the UI from the protocol.
      * @param {ODataModel} oModel - The active OData V4 model instance.

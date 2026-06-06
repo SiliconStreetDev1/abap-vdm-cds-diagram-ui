@@ -32,7 +32,8 @@ export default class SoundscapeManager {
             eventManager.subscribe("canvas:nodePinned", this.onNodePinned.bind(this)),
             eventManager.subscribe("canvas:undoRequest", this.onUndoRequest.bind(this)),
             eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this)),
-            eventManager.subscribe("canvas:variantDirty", this.onNodeDragged.bind(this))
+            eventManager.subscribe("canvas:nodeDragging", this.onNodeDragged.bind(this)),
+            eventManager.subscribe("canvas:nodePositionChanged", this.onNodeDropped.bind(this))
         );
 
         this.isAttached = true;
@@ -203,17 +204,43 @@ export default class SoundscapeManager {
         if (this.engine) this.engine.playSFX(128, 50, 0.15, 0.08); 
     }
 
+    private static lastDragSoundTime: number = 0;
+
     /**
      * @private
      * @static
-     * @description Synthesizes a subtle, organic wooden tick when a node is dropped.
+     * @description Synthesizes a subtle, organic wooden tick when a node is dragged.
+     * Includes a throttle to prevent audio engine saturation during high-framerate pointer moves.
      * @returns {Promise<void>}
      */
     private static async onNodeDragged(): Promise<void> {
+        const now = Date.now();
+        if (now - this.lastDragSoundTime < 80) return; // 80ms throttle (~12Hz)
+        
+        if (!this.isAudioEnabled()) return;
+        
+        // Don't await ensureAudioContext to prevent blocking the high-frequency UI thread
+        if (!this.audioCtx || this.audioCtx.state === 'suspended') {
+            this.ensureAudioContext();
+            return;
+        }
+
+        this.lastDragSoundTime = now;
+        
+        if (this.engine) this.engine.playSFX(128, 400 + Math.random() * 50, 0.04, 0.05); 
+    }
+
+    /**
+     * @private
+     * @static
+     * @description Synthesizes a slightly deeper snap when a node is dropped.
+     * @returns {Promise<void>}
+     */
+    private static async onNodeDropped(): Promise<void> {
         if (!this.isAudioEnabled()) return;
         await this.ensureAudioContext();
         await this.lazyInitEngine();
         
-        if (this.engine) this.engine.playSFX(128, 400, 0.04, 0.05); 
+        if (this.engine) this.engine.playSFX(128, 300, 0.06, 0.08); 
     }
 }

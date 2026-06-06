@@ -55,6 +55,20 @@ export default class ViewStateHelper {
             enableAudio: localStorage.getItem("vdmAudioEnabled") !== "false",
             nodeSpacingMin: AppConstants.NODE_SPACING_MIN,
             nodeSpacingMax: AppConstants.NODE_SPACING_MAX,
+            diagramRequest: {
+                showKeys: true,
+                showFields: true,
+                showAssocFields: true,
+                showBase: true,
+                customOnly: false,
+                lineAssoc: true,
+                lineComp: true,
+                lineInherit: true,
+                discAssoc: true,
+                discComp: true,
+                discInherit: true,
+                relMode: "LINES"
+            },
             ...Renderer.getEngineDefaults()
         };
         return new JSONModel(oDefaults);

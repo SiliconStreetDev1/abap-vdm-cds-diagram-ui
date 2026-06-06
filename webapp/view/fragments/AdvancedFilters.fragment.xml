@@ -11,7 +11,7 @@
             <HBox alignItems="Center">
                 <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="ShowKeys" tooltip="{i18n>ttClickInfo}" />
-                <Switch id="swKeys" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swKeys" state="{ui>/diagramRequest/showKeys}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </HBox>
 
@@ -20,7 +20,7 @@
             <HBox alignItems="Center">
                 <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="ShowFields" tooltip="{i18n>ttClickInfo}" />
-                <Switch id="swFields" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swFields" state="{ui>/diagramRequest/showFields}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </HBox>
 
@@ -29,7 +29,7 @@
             <HBox alignItems="Center">
                 <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="ShowAssocFields" tooltip="{i18n>ttClickInfo}" />
-                <Switch id="swAssocFields" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swAssocFields" state="{ui>/diagramRequest/showAssocFields}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </HBox>
 
@@ -38,7 +38,7 @@
             <HBox alignItems="Center">
                 <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="ShowBase" tooltip="{i18n>ttClickInfo}" />
-                <Switch id="swBase" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swBase" state="{ui>/diagramRequest/showBase}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </HBox>
 
@@ -47,7 +47,7 @@
             <HBox alignItems="Center">
                 <core:Icon src="sap-icon://information" class="sapUiMediumMarginEnd" color="#0070f2" visible="{ui>/showHelp}"
                            press="onShowInfo" customData:infoType="CustomOnly" tooltip="{i18n>ttClickInfo}" />
-                <Switch id="swCustomOnly" state="false" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swCustomOnly" state="{ui>/diagramRequest/customOnly}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </HBox>
 
@@ -57,7 +57,7 @@
                        press="onShowInfo" customData:infoType="RelMode" tooltip="{i18n>ttClickInfo}" />
         </HBox>
         
-        <SegmentedButton id="segRelMode" selectedKey="LINES" selectionChange="onRelModeChange" width="100%" class="sapUiTinyMarginBottom">
+        <SegmentedButton id="segRelMode" selectedKey="{ui>/diagramRequest/relMode}" selectionChange="onRelModeChange" width="100%" class="sapUiTinyMarginBottom">
             <items>
                 <SegmentedButtonItem key="LINES" text="{i18n>optLines}" />
                 <SegmentedButtonItem key="DISCOVERY" text="{i18n>optDiscovery}" />
@@ -67,30 +67,30 @@
         <VBox id="boxLines" visible="true" width="100%">
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblLineAssoc}" />
-                <Switch id="swLineAssoc" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swLineAssoc" state="{ui>/diagramRequest/lineAssoc}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblLineComp}" />
-                <Switch id="swLineComp" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swLineComp" state="{ui>/diagramRequest/lineComp}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblLineInherit}" />
-                <Switch id="swLineInherit" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swLineInherit" state="{ui>/diagramRequest/lineInherit}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </VBox>
 
         <VBox id="boxDiscovery" visible="false" width="100%">
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblDiscAssoc}" />
-                <Switch id="swDiscAssoc" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swDiscAssoc" state="{ui>/diagramRequest/discAssoc}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblDiscComp}" />
-                <Switch id="swDiscComp" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swDiscComp" state="{ui>/diagramRequest/discComp}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
             <HBox justifyContent="SpaceBetween" width="100%" alignItems="Center">
                 <Label text="{i18n>lblDiscInherit}" />
-                <Switch id="swDiscInherit" state="true" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
+                <Switch id="swDiscInherit" state="{ui>/diagramRequest/discInherit}" customTextOn="{i18n>lblYes}" customTextOff="{i18n>lblNo}" change="onFormChange" />
             </HBox>
         </VBox>
 

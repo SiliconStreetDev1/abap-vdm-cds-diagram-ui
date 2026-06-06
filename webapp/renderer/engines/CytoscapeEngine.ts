@@ -20,7 +20,6 @@ import CytoscapeEventHandler from "./cytoscape/CytoscapeEventHandler";
 import CytoscapeDependencyLoader from "./cytoscape/CytoscapeDependencyLoader";
 import CytoscapeLayoutManager from "./cytoscape/CytoscapeLayoutManager";
 import CytoscapeContextMenu from "./cytoscape/CytoscapeContextMenu";
-import CytoscapeNoteManager from "./cytoscape/CytoscapeNoteManager";
 import CytoscapeStateManager from "./cytoscape/CytoscapeStateManager";
 import CytoscapeVisibilityManager from "./cytoscape/CytoscapeVisibilityManager";
 import CytoscapeInteractionManager from "./cytoscape/CytoscapeInteractionManager";
@@ -177,10 +176,6 @@ export default class CytoscapeEngine {
                     CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
                     CytoscapeContextMenu.attach(sViewId, cyInstance, () => this._cyContexts.get(sViewId)?.isDrillDown || false, () => this._cyContexts.get(sViewId)?.isViewerMode || false);
 
-                    if (!parsedConfig.isViewerMode) {
-                        CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
-                    }
-
                     MinimapManager.toggle(sViewId, cyInstance, MinimapManager.getShowState(sViewId));
 
                     // ENTERPRISE FIX: Trigger the layout engine AFTER event handlers are bound so UndoHandler catches CANVAS_READY
@@ -212,12 +207,6 @@ export default class CytoscapeEngine {
             context.snapGuides = parsedConfig.snapGuides;
             context.isViewerMode = !!parsedConfig.isViewerMode;
             context.isDrillDown = !!parsedConfig.isDrillDown;
-            
-            if (!parsedConfig.isViewerMode) {
-                CytoscapeNoteManager.attachEvents(sViewId, cyInstance);
-            } else {
-                CytoscapeNoteManager.detachEvents(sViewId);
-            }
             
             const bFocusModeChanged = cyInstance.scratch('_enableFocusMode') !== !!oConfig.enableFocusMode;
             cyInstance.scratch('_enableFocusMode', !!oConfig.enableFocusMode);
@@ -372,7 +361,6 @@ export default class CytoscapeEngine {
         const context = this._cyContexts.get(sViewId);
         if (context) {
             MinimapManager.destroy(sViewId);
-            CytoscapeNoteManager.detachEvents(sViewId);
             CytoscapeContextMenu.removeAll(sViewId);
             context.cy.destroy();
             this._cyContexts.delete(sViewId);
@@ -443,5 +431,98 @@ export default class CytoscapeEngine {
     public static getCanvasState(sViewId: string): Record<string, any> {
         const context = this._cyContexts.get(sViewId);
         return context ? CytoscapeStateManager.getCanvasState(context.cy) : {};
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Add a new sticky note to the graph.
+     */
+    public static addNote(sViewId: string, sText: string, sFontFamily: string): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context || !context.cy) return;
+        const cyInstance = context.cy;
+
+        const sId = "note_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        let iX = 0, iY = 0;
+        const aSelectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');
+
+        if (aSelectedEntities.length > 0) {
+            const oTargetPos = aSelectedEntities[0].position();
+            iX = oTargetPos.x + 150;
+            iY = oTargetPos.y - 100;
+        } else {
+            const oExtent = cyInstance.extent();
+            const iCenterX = oExtent.x1 + (oExtent.w / 2);
+            const iCenterY = oExtent.y1 + (oExtent.h / 2);
+            
+            const aExistingBoxes = cyInstance.nodes().map((n: any) => n.boundingBox());
+
+            let iRadius = 0;
+            let iAngle = 0;
+            let bFoundEmpty = false;
+            
+            while (!bFoundEmpty && iRadius < 3000) {
+                iX = iCenterX + iRadius * Math.cos(iAngle);
+                iY = iCenterY + iRadius * Math.sin(iAngle);
+                
+                const bOverlaps = aExistingBoxes.some((oBox: any) => {
+                    return !(iX + 90 < oBox.x1 || iX - 90 > oBox.x2 || iY + 50 < oBox.y1 || iY - 50 > oBox.y2);
+                });
+                
+                if (!bOverlaps) bFoundEmpty = true;
+                else {
+                    iAngle += 0.5;
+                    iRadius += 20;
+                }
+            }
+        }
+
+        cyInstance.add({
+            group: 'nodes',
+            data: { id: sId, label: sText, fontFamily: sFontFamily || "Marker", bgColor: '#fff9c4', borderColor: '#fbc02d', isNote: true },
+            classes: 'annotation-note',
+            position: { x: iX, y: iY }
+        });
+
+        if (aSelectedEntities.length > 0) {
+            aSelectedEntities.forEach((oEntity: any) => {
+                cyInstance.add({
+                    group: 'edges',
+                    data: { id: 'edge_' + sId + '_' + oEntity.id(), source: sId, target: oEntity.id() },
+                    classes: 'annotation-edge'
+                });
+            });
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Edit an existing sticky note.
+     */
+    public static editNote(sViewId: string, sNoteId: string, sText: string, sFontFamily?: string): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context || !context.cy) return;
+        const oNode = context.cy.getElementById(sNoteId);
+        if (oNode.length > 0) {
+            oNode.data('label', sText);
+            if (sFontFamily) oNode.data('fontFamily', sFontFamily);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Change the color of an existing sticky note.
+     */
+    public static changeNoteColor(sViewId: string, sNoteId: string, sBgColor: string, sBorderColor: string): void {
+        const context = this._cyContexts.get(sViewId);
+        if (!context || !context.cy) return;
+        const oNode = context.cy.getElementById(sNoteId);
+        if (oNode.length > 0) {
+            oNode.data('bgColor', sBgColor);
+            oNode.data('borderColor', sBorderColor);
+        }
     }
 }

@@ -22,6 +22,7 @@ import ExportHandler from "../handlers/state/ExportHandler";
 import FullScreenHandler from "../handlers/ui/FullScreenHandler";
 import CanvasActionHandler from "../handlers/canvas/CanvasActionHandler";
 import CanvasKeyboardHandler from "../handlers/canvas/CanvasKeyboardHandler";
+import AnnotationHandler from "../handlers/canvas/AnnotationHandler";
 import HiddenNodesHandler from "../handlers/ui/HiddenNodesHandler";
 import NoteDialogHandler from "../handlers/ui/NoteDialogHandler";
 import DiagramStateActionHandler from "../handlers/state/DiagramStateActionHandler";
@@ -39,6 +40,7 @@ export default class Diagram extends Controller {
     private _oExportHandler!: ExportHandler;
     private _oFullScreenHandler!: FullScreenHandler;
     private _oCanvasActionHandler!: CanvasActionHandler;
+    private _oAnnotationHandler!: AnnotationHandler;
     private _oCanvasKeyboardHandler!: CanvasKeyboardHandler;
     private _oHiddenNodesHandler!: HiddenNodesHandler;
     private _oNoteDialogHandler!: NoteDialogHandler;
@@ -100,6 +102,7 @@ export default class Diagram extends Controller {
         this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._oRenderHandler.showError.bind(this._oRenderHandler));
         this._oFullScreenHandler = new FullScreenHandler(oView);
         this._oCanvasActionHandler = new CanvasActionHandler(oView);
+        this._oAnnotationHandler = new AnnotationHandler(oView);
         this._oCanvasKeyboardHandler = new CanvasKeyboardHandler(oView);
         this._oHiddenNodesHandler = new HiddenNodesHandler(oView);
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
@@ -109,6 +112,7 @@ export default class Diagram extends Controller {
         this._oRenderHandler.attachEvents();
         this._oFullScreenHandler.attachEvents();
         this._oCanvasActionHandler.attachEvents();
+        this._oAnnotationHandler.attachEvents();
         this._oCanvasKeyboardHandler.attachEvents();
         this._oHiddenNodesHandler.attachEvents();
         this._oNoteDialogHandler.attachEvents();
@@ -124,6 +128,7 @@ export default class Diagram extends Controller {
         this._oRenderHandler.detachEvents();
         this._oFullScreenHandler.detachEvents();
         this._oCanvasActionHandler.detachEvents();
+        this._oAnnotationHandler.detachEvents();
         this._oCanvasKeyboardHandler.detachEvents();
         this._oHiddenNodesHandler.detachEvents();
         this._oNoteDialogHandler.detachEvents();
