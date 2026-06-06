@@ -24,7 +24,7 @@ import CanvasActionHandler from "../handlers/canvas/CanvasActionHandler";
 import CanvasKeyboardHandler from "../handlers/canvas/CanvasKeyboardHandler";
 import HiddenNodesHandler from "../handlers/ui/HiddenNodesHandler";
 import NoteDialogHandler from "../handlers/ui/NoteDialogHandler";
-import UndoHandler from "../handlers/canvas/UndoHandler";
+import DiagramStateActionHandler from "../handlers/state/DiagramStateActionHandler";
 import DiagramRenderHandler from "../handlers/canvas/DiagramRenderHandler";
 import VideoRecordHandler from "../handlers/state/VideoRecordHandler";
 import Renderer from "../renderer/Renderer";
@@ -42,7 +42,7 @@ export default class Diagram extends Controller {
     private _oCanvasKeyboardHandler!: CanvasKeyboardHandler;
     private _oHiddenNodesHandler!: HiddenNodesHandler;
     private _oNoteDialogHandler!: NoteDialogHandler;
-    private _oUndoHandler!: UndoHandler;
+    private _oStateActionHandler!: DiagramStateActionHandler;
     private _oRenderHandler!: DiagramRenderHandler;
     private _videoRecordHandler!: VideoRecordHandler;
     
@@ -103,7 +103,7 @@ export default class Diagram extends Controller {
         this._oCanvasKeyboardHandler = new CanvasKeyboardHandler(oView);
         this._oHiddenNodesHandler = new HiddenNodesHandler(oView);
         this._oNoteDialogHandler = new NoteDialogHandler(oView);
-        this._oUndoHandler = new UndoHandler(oView);
+        this._oStateActionHandler = new DiagramStateActionHandler(oView);
         this._videoRecordHandler = new VideoRecordHandler(oView, this._getText.bind(this));
         
         this._oRenderHandler.attachEvents();
@@ -112,7 +112,7 @@ export default class Diagram extends Controller {
         this._oCanvasKeyboardHandler.attachEvents();
         this._oHiddenNodesHandler.attachEvents();
         this._oNoteDialogHandler.attachEvents();
-        this._oUndoHandler.attachEvents();
+        this._oStateActionHandler.attachEvents();
         this._videoRecordHandler.attachEvents();
     }
 
@@ -127,7 +127,7 @@ export default class Diagram extends Controller {
         this._oCanvasKeyboardHandler.detachEvents();
         this._oHiddenNodesHandler.detachEvents();
         this._oNoteDialogHandler.detachEvents();
-        this._oUndoHandler.detachEvents();
+        this._oStateActionHandler.detachEvents();
 
         if (this._videoRecordHandler) {
             this._videoRecordHandler.detachEvents();

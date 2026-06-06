@@ -22,11 +22,11 @@ export default class BuilderNoteMenuStrategy extends BaseMenuStrategy {
                         if (cyInstance.getElementById(edgeId).length === 0) cyInstance.add({ group: 'edges', data: { id: edgeId, source: n.id(), target: e.id() }, classes: 'annotation-edge' });
                     });
                 });
-            EventManager.getInstance().publish("canvas:nodeDragged", { viewId: this._sViewId });
+            EventManager.getInstance().publish("canvas:variantDirty", { viewId: this._sViewId });
             }));
         }
-        menu.appendChild(this._createMenuItem("✂️", `Unlink${suffix}`, "#d32f2f", () => { targetNodes.connectedEdges('.annotation-edge').remove(); EventManager.getInstance().publish("canvas:nodeDragged", { viewId: this._sViewId }); }));
-        menu.appendChild(this._createMenuItem("🗑️", `Delete Note${suffix}`, "#d32f2f", () => { targetNodes.remove(); EventManager.getInstance().publish("canvas:nodeDragged", { viewId: this._sViewId }); }));
+        menu.appendChild(this._createMenuItem("✂️", `Unlink${suffix}`, "#d32f2f", () => { targetNodes.connectedEdges('.annotation-edge').remove(); EventManager.getInstance().publish("canvas:variantDirty", { viewId: this._sViewId }); }));
+        menu.appendChild(this._createMenuItem("🗑️", `Delete Note${suffix}`, "#d32f2f", () => { targetNodes.remove(); EventManager.getInstance().publish("canvas:variantDirty", { viewId: this._sViewId }); }));
         
         menu.appendChild(document.createElement("hr")).style.cssText = "margin: 0.25rem 0; border: none; border-top: 1px solid var(--sapContent_ForegroundBorderColor, #e5e5e5);";
 

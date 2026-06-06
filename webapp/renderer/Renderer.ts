@@ -246,6 +246,13 @@ export default class Renderer {
      * @static
      * @description Extracts the live X/Y canvas coordinates for layout persistence.
      */
+    public static moveNode(sViewId: string, sEngine: string, nodeId: string, position: {x: number, y: number}): void { const engine = this._getEngine(sEngine); if (engine && engine.moveNode) engine.moveNode(sViewId, nodeId, position); }
+
+    /**
+     * @public
+     * @static
+     * @description Extracts the live X/Y canvas coordinates for layout persistence.
+     */
     public static getCanvasState(sViewId: string, sEngine: string): Record<string, any> | null {
         const engine = this._getEngine(sEngine);
         return engine && engine.getCanvasState ? engine.getCanvasState(sViewId) : null;

@@ -130,7 +130,7 @@ export default class CytoscapeNoteManager {
             });
         }
 
-        if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
+        if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:variantDirty", { viewId: sViewId });
     }
 
     /**
@@ -154,7 +154,7 @@ export default class CytoscapeNoteManager {
             if (oNode.length > 0) {
                 oNode.data('label', sText);
                 if (sFontFamily) oNode.data('fontFamily', sFontFamily);
-                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
+                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:variantDirty", { viewId: sViewId });
             }
         }
     }
@@ -180,7 +180,7 @@ export default class CytoscapeNoteManager {
             if (oNode.length > 0) {
                 oNode.data('bgColor', sBgColor);
                 oNode.data('borderColor', sBorderColor);
-                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
+                if (typeof document !== "undefined") EventManager.getInstance().publish("canvas:variantDirty", { viewId: sViewId });
             }
         }
     }

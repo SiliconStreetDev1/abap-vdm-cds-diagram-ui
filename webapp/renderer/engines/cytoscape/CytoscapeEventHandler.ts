@@ -166,15 +166,14 @@ export default class CytoscapeEventHandler {
         cyInstance.on('drag', 'node', (evt: EventObject) => {
             const node = evt.target as NodeSingular;
             
+            const prevPos = node.scratch('_dragPos');
+            const currPos = node.position();
+            
             // Enterprise UX: Move linked sticky notes automatically with the entity
             if (!node.hasClass('annotation-note')) {
-                const prevPos = node.scratch('_dragPos');
-                const currPos = node.position();
-
                 if (prevPos) {
                     const dx = currPos.x - prevPos.x;
                     const dy = currPos.y - prevPos.y;
-
                     node.connectedEdges('.annotation-edge').connectedNodes('.annotation-note:unselected').forEach((note: NodeSingular) => {
                         // Prevent double-moving if a note is linked to multiple actively dragged entities
                         if (note.scratch('_lastDragTime') !== evt.timeStamp) {
@@ -182,12 +181,22 @@ export default class CytoscapeEventHandler {
                             note.scratch('_lastDragTime', evt.timeStamp);
                         }
                     });
-                    
-                    node.scratch('_dragPos', { ...currPos });
                 }
             }
-
-            EventManager.getInstance().publish("canvas:nodeDragged", { viewId: sViewId });
+        });
+        
+        cyInstance.on('free', 'node', (evt: EventObject) => {
+            const node = evt.target as NodeSingular;
+            const prevPos = node.scratch('_dragPos');
+            const currPos = node.position();
+            if (prevPos && (prevPos.x !== currPos.x || prevPos.y !== currPos.y)) {
+                EventManager.getInstance().publish("canvas:nodePositionChanged", { 
+                    viewId: sViewId,
+                    nodeId: node.id(), 
+                    oldPos: { ...prevPos }, 
+                    newPos: { ...currPos } 
+                });
+            }
         });
     }
 

@@ -433,6 +433,13 @@ export default class CytoscapeEngine {
      * @public
      * @description Returns the X/Y coordinates of all current nodes for variant persistence.
      */
+    public static moveNode(sViewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(sViewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
+
+    /**
+     * @public
+     * @static
+     * @description Extracts the live X/Y canvas coordinates for layout persistence.
+     */
     public static getCanvasState(sViewId: string): Record<string, any> {
         const context = this._cyContexts.get(sViewId);
         return context ? CytoscapeStateManager.getCanvasState(context.cy) : {};

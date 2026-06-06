@@ -45,6 +45,7 @@ export interface IEngineFacade {
     search?(sViewId: string, sQuery: string): void;
     updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
     getCanvasState?(sViewId: string): any;
+    moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
     setNodesLocked?(sViewId: string, bLocked: boolean): void;
     runLayout?(sViewId: string): void;
     showHiddenNodes?(sViewId: string): void;

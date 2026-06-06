@@ -17,7 +17,7 @@ import DiagramRequestMapper from "../../helpers/DiagramRequestMapper";
 import DiagramService from "../../services/DiagramService";
 import VariantService from "../../services/VariantService";
 import SearchHistoryService from "../../services/SearchHistoryService";
-import SessionStateCache from "../../helpers/SessionStateCache";
+import { DiagramStateStore } from "../../store/DiagramStateStore";
 import DiagramCache from "../../services/DiagramCache";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
@@ -178,13 +178,13 @@ export default class DiagramGenerationHandler {
         if (!isDrillDown) {
             this.rootCdsName = cdsName;
             this.breadcrumbs = [cdsName];
-            SessionStateCache.clear(this.getInstanceId()); 
+            DiagramStateStore.getInstance().clearDiagramState(this.getInstanceId()); 
         } else {
             const index = this.breadcrumbs.indexOf(cdsName);
             if (index > -1) {
                 for (let k = index + 1; k < this.breadcrumbs.length; k++) {
                     const orphanCds = this.breadcrumbs[k];
-                    SessionStateCache.remove(this.getInstanceId(), orphanCds);
+                    DiagramStateStore.getInstance().clearDiagramState(this.getInstanceId(), orphanCds);
                 }
                 this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
             } else {
@@ -263,11 +263,11 @@ export default class DiagramGenerationHandler {
             
             if (currentCds && !isRestore) {
                 const currentState = VariantStateMapper.captureState(this.view, currentCds, true);
-                SessionStateCache.set(this.getInstanceId(), currentCds, currentState);
+                DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentCds, currentState);
             }
 
             if (isRestore) {
-                const cachedState = SessionStateCache.get(this.getInstanceId(), viewName);
+                const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), viewName);
                 if (cachedState) {
                     VariantStateMapper.applyState(this.view, cachedState);
                 }
@@ -346,9 +346,9 @@ export default class DiagramGenerationHandler {
 
         if (currentCdsName && currentCdsName !== targetCdsName) {
             const currentState = VariantStateMapper.captureState(this.view, currentCdsName, true);
-            SessionStateCache.set(this.getInstanceId(), currentPath, currentState);
+            DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentPath, currentState);
         }
-        const cachedState = SessionStateCache.get(this.getInstanceId(), targetPath);
+        const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), targetPath);
         if (cachedState) {
             VariantStateMapper.applyState(this.view, cachedState);
             this.handleDrillDown(viewName, true);

@@ -3,7 +3,7 @@ export interface ICanvasEventMap {
     "canvas:nodeClicked": { viewId?: string; nodeId?: string };
     "canvas:nodeDrillDownRequest": { viewId?: string; viewName?: string };
     "canvas:formatSliderUpdate": { viewId?: string; node_spacing?: number };
-    "canvas:nodeDragged": { viewId?: string };
+    "canvas:nodePositionChanged": { viewId?: string; diagramId?: string; nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number } };
     "canvas:nodePinned": { viewId?: string };
     "canvas:nodeHidden": { viewId?: string };
     "canvas:nodeUnhidden": { viewId?: string };
@@ -17,4 +17,6 @@ export interface ICanvasEventMap {
     "canvas:focusModeChanged": { viewId?: string; isFocused?: boolean; nodeName?: string; hasNodeSelected?: boolean; tempFocusMode?: boolean };
     "canvas:ready": { viewId?: string };
     "canvas:undoRequest": { viewId?: string };
+    "canvas:redoRequest": { viewId?: string };
+    "canvas:variantDirty": { viewId?: string };
 }

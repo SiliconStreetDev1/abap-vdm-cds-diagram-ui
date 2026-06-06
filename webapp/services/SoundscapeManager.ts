@@ -32,7 +32,7 @@ export default class SoundscapeManager {
             eventManager.subscribe("canvas:nodePinned", this.onNodePinned.bind(this)),
             eventManager.subscribe("canvas:undoRequest", this.onUndoRequest.bind(this)),
             eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this)),
-            eventManager.subscribe("canvas:nodeDragged", this.onNodeDragged.bind(this))
+            eventManager.subscribe("canvas:variantDirty", this.onNodeDragged.bind(this))
         );
 
         this.isAttached = true;
