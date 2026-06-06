@@ -12,6 +12,11 @@ import Renderer from "../../renderer/Renderer";
 import { EngineType, IRenderRequestPayload } from "../../types";
 import { UiState, ViewState } from "../../constants/StateConstants";
 
+/**
+ * @class DiagramRenderHandler
+ * @description Encapsulates Diagram rendering lifecycle and View Model updates. 
+ * Relieves the main controller of massive payload parsing and state management tasks.
+ */
 export default class DiagramRenderHandler {
     private _oView: View;
     private _subscriptions: Subscription[] = [];
@@ -19,11 +24,20 @@ export default class DiagramRenderHandler {
     private _fnCanvasReadyBind!: any;
     private _bIsAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} oView - Reference to the active UI5 view.
+     * @param {Function} fnGetText - Delegate function for i18n translations.
+     */
     constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
         this._fnGetText = fnGetText;
     }
 
+    /**
+     * @public
+     * @description Subscribes to rendering-specific event channels.
+     */
     public attachEvents(): void {
         if (this._bIsAttached) return;
         this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderRequest", this._onRenderRequest.bind(this)));
@@ -37,6 +51,10 @@ export default class DiagramRenderHandler {
         this._bIsAttached = true;
     }
 
+    /**
+     * @public
+     * @description Detaches all local subscribers.
+     */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         this._subscriptions.forEach(sub => sub.dispose());
@@ -47,18 +65,37 @@ export default class DiagramRenderHandler {
         this._bIsAttached = false;
     }
 
+    /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
     private _getInstanceId(): string {
         return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId();
     }
 
+    /**
+     * @private
+     * @description Handles real-time format configuration pushes.
+     * @param {any} oData - The format configuration object.
+     */
     private _onLiveFormatUpdate(oData: any): void {
         this.handleLiveFormatUpdate(oData);
     }
 
+    /**
+     * @private
+     * @description Bubbles up rendering exceptions to the user.
+     * @param {any} oData - Error object.
+     */
     private _onRenderFailed(oData: any): void {
         this.showError(oData.message || "Rendering failed.");
     }
 
+    /**
+     * @private
+     * @description Indicates the generic viewer is initializing.
+     */
     private _onViewerLoading(): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
@@ -67,6 +104,11 @@ export default class DiagramRenderHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Top-level request handler interceptor. Dispatches the render request.
+     * @param {any} oEventData - Diagram execution payload.
+     */
     private _onRenderRequest(oEventData: any): void {
         // ENTERPRISE UX: Auto-pause the video loop during a Drill-Down network request
         EventManager.getInstance().publish("video:autoPause", undefined);
@@ -83,6 +125,11 @@ export default class DiagramRenderHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Resolves completion of internal engine Physics ticks or rendering sequences.
+     * @param {globalThis.Event} oEvent - Custom Event Manager payload.
+     */
     private _onCanvasReady(oEvent: globalThis.Event): void {
         const payload = oEvent as any;
         if (payload?.viewId && payload.viewId !== this._getInstanceId()) return;
@@ -91,6 +138,11 @@ export default class DiagramRenderHandler {
         EventManager.getInstance().publish("video:autoResume", undefined);
     }
 
+    /**
+     * @public
+     * @description Immediately propagates format configurations to the active Renderer.
+     * @param {any} oData - Configuration bundle payload.
+     */
     public handleLiveFormatUpdate(oData: any): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel && oViewModel.getProperty(ViewState.HAS_DIAGRAM)) {
@@ -102,6 +154,13 @@ export default class DiagramRenderHandler {
         }
     }
 
+    /**
+     * @public
+     * @description Main entry point for bootstrapping a UI update using a fresh backend graph payload.
+     * Parses payload configuration metadata into the `diagramData` model before routing it to WASM/JS adapters.
+     * @param {IRenderRequestPayload} oData - Complex object with graph topologies.
+     * @param {HTML} oHtmlControl - Physical HTML surface that will host the visual map.
+     */
     public handleRenderRequest(oData: IRenderRequestPayload, oHtmlControl: HTML): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         const oDataModel = this._oView.getModel("diagramData") as JSONModel;
@@ -170,6 +229,11 @@ export default class DiagramRenderHandler {
         }
     }
 
+    /**
+     * @public
+     * @description Helper to set generic UI into an exception state.
+     * @param {string} sMessage - Exception descriptor to present to the user.
+     */
     public showError(sMessage: string): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
@@ -178,6 +242,10 @@ export default class DiagramRenderHandler {
         }
     }
 
+    /**
+     * @public
+     * @description Cleans all contextual diagram variables back to their initial unrendered status.
+     */
     public resetState(): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {

@@ -13,7 +13,7 @@ import Select from "sap/m/Select";
 import Filter from "sap/ui/model/Filter";
 import FilterOperator from "sap/ui/model/FilterOperator";
 
-import DiagramRequestMapper from "../../helpers/DiagramRequestMapper";
+import StateSyncModule from "../../helpers/StateSyncModule";
 import DiagramService from "../../services/DiagramService";
 import VariantService from "../../services/VariantService";
 import SearchHistoryService from "../../services/SearchHistoryService";
@@ -23,7 +23,7 @@ import ViewStateHelper from "../../helpers/ViewStateHelper";
 import { EngineType, IRenderRequestPayload } from "../../types";
 import { UiState, ModelNames, DiagramData } from "../../constants/StateConstants";
 import Renderer from "../../renderer/Renderer";
-import VariantStateMapper from "../../helpers/VariantStateMapper";
+
 
 export default class DiagramGenerationHandler {
     private view: View;
@@ -59,7 +59,8 @@ export default class DiagramGenerationHandler {
      */
     public attachEvents(): void {
         if (this._bIsAttached) return;
-        this.subscriptions.push(EventManager.getInstance().subscribe("diagram:nodeDrillDown", this._onEventBusDrillDown.bind(this)));
+        const em = EventManager.getInstance();
+        this.subscriptions.push(em.subscribe("diagram:nodeDrillDown", this._onNodeDrillDown.bind(this)));
         this.subscriptions.push(EventManager.getInstance().subscribe("diagram:applyVariantState", this._restoreWorkspaceState.bind(this)));
         this._fnNodeDrillDownRequestBind = this._onNodeDrillDownDOM.bind(this) as any;
         this.subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeDrillDownRequest", this._fnNodeDrillDownRequestBind));
@@ -74,7 +75,6 @@ export default class DiagramGenerationHandler {
         if (!this._bIsAttached) return;
         this.subscriptions.forEach(sub => sub.dispose());
         this.subscriptions = [];
-        /* removed */
         this._bIsAttached = false;
     }
 
@@ -112,7 +112,8 @@ export default class DiagramGenerationHandler {
 
         EventManager.getInstance().publish("video:autoPause", undefined);
 
-        const request = DiagramRequestMapper.buildRequest(this.view, cdsName, engine);
+        const oUiModel = this.view.getModel("ui") as JSONModel;
+        const request = StateSyncModule.buildRequest(oUiModel, cdsName, engine, this.view);
         const cachedResult = forceRefresh ? null : DiagramCache.get(request);
 
         // ENTERPRISE UX: Suppress the busy dialog and Fiori blocking if the payload is already in RAM.
@@ -257,14 +258,16 @@ export default class DiagramGenerationHandler {
             const currentCds = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
             
             if (currentCds && !isRestore) {
-                const currentState = VariantStateMapper.captureState(this.view, currentCds, true);
+                const oUiModel = this.view.getModel("ui") as JSONModel;
+                const currentState = StateSyncModule.captureState(oUiModel, currentCds, true, this.view, this.getInstanceId());
                 DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentCds, currentState);
             }
 
             if (isRestore) {
                 const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), viewName);
                 if (cachedState) {
-                    VariantStateMapper.applyState(this.view, cachedState);
+                    const oUiModel = this.view.getModel("ui") as JSONModel;
+                    StateSyncModule.applyState(oUiModel, cachedState, this.view);
                 }
             }
 
@@ -275,9 +278,10 @@ export default class DiagramGenerationHandler {
 
     /**
      * @private
-     * @description EventBus listener for drill-down commands broadcasted across separated components.
+     * @description Event listener for drill-down commands broadcasted across separated components.
+     * @param {any} data - Drill-down request payload containing the target View Name.
      */
-    private _onEventBusDrillDown(data: any): void {
+    private _onNodeDrillDown(data: { viewName: string }): void {
         this.processDrillDown(data?.viewName);
     }
 
@@ -303,7 +307,8 @@ export default class DiagramGenerationHandler {
         if (variantState.cdsName) {
             (this.view.byId("cmbCdsName") as Input).setValue(variantState.cdsName);
         }
-        VariantStateMapper.applyState(this.view, variantState);
+        const oUiModel = this.view.getModel("ui") as JSONModel;
+        StateSyncModule.applyState(oUiModel, variantState, this.view);
         await this.generate(false, true, true);
     }
 
@@ -340,12 +345,14 @@ export default class DiagramGenerationHandler {
         const targetPath = index > -1 ? links.slice(0, index + 1).map((l: any) => l.name.toUpperCase()).join('|') : (currentPath ? currentPath + '|' : '') + targetCdsName;
 
         if (currentCdsName && currentCdsName !== targetCdsName) {
-            const currentState = VariantStateMapper.captureState(this.view, currentCdsName, true);
+            const oUiModel = this.view.getModel("ui") as JSONModel;
+            const currentState = StateSyncModule.captureState(oUiModel, currentCdsName, true, this.view, this.getInstanceId());
             DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentPath, currentState);
         }
         const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), targetPath);
         if (cachedState) {
-            VariantStateMapper.applyState(this.view, cachedState);
+            const oUiModel = this.view.getModel("ui") as JSONModel;
+            StateSyncModule.applyState(oUiModel, cachedState, this.view);
             this.handleDrillDown(viewName, true);
             return;
         }

@@ -11,19 +11,36 @@ import { Subscription } from "../../events/Subscription";
 import { DiagramData } from "../../constants/StateConstants";
 import View from "sap/ui/core/mvc/View";
 
+/**
+ * @class AnnotationHandler
+ * @description Orchestrates Sticky Note operations without tightly coupling to the rendering core.
+ */
 export default class AnnotationHandler {
     private view: View;
     private subscriptions: Subscription[] = [];
     private isAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} view - Reference to the active UI5 view.
+     */
     constructor(view: View) {
         this.view = view;
     }
 
+    /**
+     * @private
+     * @description Resolves the overarching Component ID to group Views in the same FCL.
+     * @returns {string} Unique Instance ID.
+     */
     private getInstanceId(): string {
         return this.view.getController()?.getOwnerComponent()?.getId() || this.view.getId();
     }
 
+    /**
+     * @public
+     * @description Subscribes to EventBus channels for Sticky Note actions.
+     */
     public attachEvents(): void {
         if (this.isAttached) return;
 
@@ -35,6 +52,10 @@ export default class AnnotationHandler {
         this.isAttached = true;
     }
 
+    /**
+     * @public
+     * @description Unsubscribes from all events to prevent memory leaks on View exit.
+     */
     public detachEvents(): void {
         if (!this.isAttached) return;
 
@@ -43,11 +64,21 @@ export default class AnnotationHandler {
         this.isAttached = false;
     }
 
+    /**
+     * @private
+     * @description Fetches the currently selected engine mode from the UI state.
+     * @returns {string} Active Engine identifier.
+     */
     private getActiveEngine(): string {
         const diagramData = this.view.getModel("diagramData") as JSONModel;
         return diagramData ? diagramData.getProperty(DiagramData.ENGINE) : "CYTOSCAPE";
     }
 
+    /**
+     * @private
+     * @description Handles requests to add a new sticky note to the canvas.
+     * @param {Object} oPayload - Payload containing text and font preferences.
+     */
     private onAddNoteRequest(oPayload: { viewId?: string; text?: string; fontFamily?: string }): void {
         if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
         const sText = oPayload?.text;
@@ -58,6 +89,11 @@ export default class AnnotationHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Handles requests to edit an existing sticky note.
+     * @param {Object} oPayload - Payload containing target Note ID and new text content.
+     */
     private onEditNoteRequest(oPayload: { viewId?: string; noteId?: string; text?: string; fontFamily?: string }): void {
         if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
         const sNoteId = oPayload?.noteId;
@@ -68,6 +104,11 @@ export default class AnnotationHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Handles requests to visually style an existing sticky note.
+     * @param {Object} oPayload - Payload containing note ID and color configuration.
+     */
     private onChangeNoteColorRequest(oPayload: { viewId?: string; noteId?: string; bgColor?: string; borderColor?: string }): void {
         if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
         const sNoteId = oPayload?.noteId;

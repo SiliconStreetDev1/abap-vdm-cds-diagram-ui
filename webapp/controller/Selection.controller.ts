@@ -1,7 +1,7 @@
 /**
- * @fileoverview Selection Controller for capturing user input.
- * @description Manages configuration state, triggers the OData backend service, 
- * orchestrates the Variant lifecycle workflow, and broadcasts payloads via the EventBus. 
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.controller
+ * @fileoverview Main Selection / Filter UI Controller.
+ * @description Manages all Variant state lifecycle workflows and formatting interactions.
  */
 
 import Controller from "sap/ui/core/mvc/Controller";
@@ -48,8 +48,8 @@ export default class Selection extends Controller {
 
     /**
      * @public
-     * Lifecycle hook. Bootstraps local handlers, validators, and default UI state.
-     * Sets up EventBus subscriptions for decoupled cross-pane communication.
+     * @description Lifecycle hook: Initializes models, FCL configurations, and generic helpers.
+     * Sets up EventManager subscriptions for decoupled cross-pane communication.
      */
     public onInit(): void {
         const view = this.getView();

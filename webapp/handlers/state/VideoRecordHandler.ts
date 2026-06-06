@@ -1,7 +1,8 @@
 /**
  * @namespace nz.co.siliconstreet.vdmdiagrammer.handlers
+ * @class VideoRecordHandler
  * @fileoverview Orchestrates Video Recording UI State and Native Browser Media Capture.
- * @description Decouples video state management and EventBus orchestration from the main controllers.
+ * @description Decouples video state management and EventManager orchestration from the main controllers.
  * Strictly adheres to the Single Responsibility Principle by managing its own lifecycle and UI state mappings.
  */
 import View from "sap/ui/core/mvc/View";
@@ -10,7 +11,6 @@ import MessageToast from "sap/m/MessageToast";
 import { EventManager } from "../../events/EventManager";
 import { Subscription } from "../../events/Subscription";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
-import FileDownloadUtility from "../../helpers/FileDownloadUtility";
 import VideoRecorder, { IRecordingConfig } from "../../video/VideoRecorder";
 import ScreenRecorder from "../../video/ScreenRecorder";
 import CanvasRecorder from "../../video/CanvasRecorder";
@@ -258,7 +258,14 @@ export default class VideoRecordHandler {
         const mimeType = blob.type || "";
         const extension = mimeType.includes("mp4") ? "mp4" : "webm";
         
-        FileDownloadUtility.downloadBlob(blob, `VDM_Architecture_${Date.now()}.${extension}`);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `VDM_Architecture_${Date.now()}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
         
         if (!this.view.isDestroyed()) {
             MessageToast.show(this.textFormatter("msgRecordingSaved"));

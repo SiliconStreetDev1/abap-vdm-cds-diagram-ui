@@ -6,7 +6,6 @@ import View from "sap/ui/core/mvc/View";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Event from "sap/ui/base/Event";
 import { EventManager } from "../../events/EventManager";
-import EventBus from "sap/ui/core/EventBus";
 import Control from "sap/ui/core/Control";
 import VBox from "sap/m/VBox";
 import Input from "sap/m/Input";
@@ -30,7 +29,6 @@ import { UiState, ModelNames } from "../../constants/StateConstants";
  */
 export default class SelectionUIHandler {
     private _oView: View;
-    
     private _oStateHandler: SelectionStateHandler;
     private _fnGetText: (k: string, args?: any[]) => string;
     private _oCdsValueHelpHandler?: CdsValueHelpHandler;
@@ -43,13 +41,11 @@ export default class SelectionUIHandler {
     /**
      * @constructor
      * @param {View} oView - The active UI5 View.
-     * @param {EventBus | undefined} oEventBus - Application event bus.
      * @param {SelectionStateHandler} oStateHandler - State handler reference to alert dirty tracking.
      * @param {Function} fnGetText - Delegate function for i18n translations.
      */
     constructor(oView: View, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
         this._oView = oView;
-        
         this._oStateHandler = oStateHandler;
         this._fnGetText = fnGetText;
     }
@@ -66,11 +62,6 @@ export default class SelectionUIHandler {
         }
         this._bIsAttached = true;
     }
-
-    /**
-     * @public
-     * @description Detaches custom DOM event listeners to prevent memory leaks on exit.
-     */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {

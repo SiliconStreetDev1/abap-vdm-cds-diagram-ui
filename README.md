@@ -167,14 +167,14 @@ The codebase adheres to **SOLID** principles, ensuring performance and memory sa
 * **Strategy Pattern (`Renderer.ts`):** Decouples the UI from the rendering logic, allowing dynamic switching between Cytoscape, Graphviz, Mermaid, PlantUML, and D2.
 * **Template Method Pattern (`VideoRecorder.ts`):** Enforces strict execution mutex locks and memory cleanup for native browser video capture.
 * **Memento Pattern (`UndoHandler.ts`):** Provides a 25-step undo/redo stack for layout changes and navigation history.
-* **Pub/Sub Orchestration (`EventBus`):** Fiori Flexible Column Layout (FCL) panes communicate entirely asynchronously, preventing tight coupling.
+* **Pub/Sub Orchestration (`EventManager`):** Fiori Flexible Column Layout (FCL) panes communicate entirely asynchronously, preventing tight coupling.
 * **LRU Caching (`DiagramCache.ts`):** Repeated OData backend requests are served from a memory cache to reduce network requests.
 
 ### Design Diagrams
 Detailed PlantUML architectural diagrams mapping the system's execution flows, class hierarchies, and state machines can be found in the `/design` directory:
 * `system_architecture_context.puml` - Full system execution boundaries.
 * `core_pipeline.puml` - Component Sequence Diagram.
-* `event_choreography.puml` - EventBus & DOM Pub/Sub flows.
+* `event_choreography.puml` - EventManager & DOM Pub/Sub flows.
 * `engine_facade_classes.puml` - Rendering Engine Class Diagram.
 * `video_recorder_classes.puml` & `video_state_machine.puml` - Video Engine logic.
 * `variant_persistence_pipeline.puml` - OData V4 Backend serialization flow.
@@ -213,5 +213,5 @@ Manage external endpoints, CDN paths, and performance limits.
 | **State** | `FullScreenHandler.ts` | Eliminates brittle `if/else` checks by encapsulating OS-level transitions and Fiori CSS injections into isolated state classes. |
 | **Template Method** | `VideoRecorder.ts` | Enforces strict execution mutex locks and memory cleanup invariants for native browser video capture. |
 | **Portal** | `MinimapManager.ts`, `ViewStateHelper.ts` | Dynamically reparents DOM elements to the HTML5 Fullscreen layer to defeat OS-level `z-index` trapping. |
-| **Pub/Sub** | `EventBus`, `SoundscapeManager.ts` | Ensures FCL panes and background UI haptics communicate entirely asynchronously, preventing tight memory coupling. |
+| **Pub/Sub** | `EventManager`, `SoundscapeManager.ts` | Ensures FCL panes and background UI haptics communicate entirely asynchronously, preventing tight memory coupling. |
 | **LRU Cache** | `DiagramCache.ts` | Intercepts repeated OData backend requests and serves immutable memory caches to eliminate network spam. |

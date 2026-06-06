@@ -4,8 +4,19 @@
  */
 import BaseKeyboardStrategy from "./BaseKeyboardStrategy";
 
+/**
+ * @class ViewerKeyboardStrategy
+ * @description Read-Only Keyboard Strategy. Strictly limits keyboard interactions to non-destructive viewport navigation.
+ */
 export default class ViewerKeyboardStrategy extends BaseKeyboardStrategy {
     
+    /**
+     * @public
+     * @description Maps keyboard inputs to viewport panning, selection clearing, and overlay toggles.
+     * Disallows destructive actions like deletion.
+     * @param {KeyboardEvent} e - Global keydown event.
+     * @param {boolean} bIsTyping - Flag indicating if the user is typing in a text field.
+     */
     public mapShortcuts(e: KeyboardEvent, bIsTyping: boolean): void {
         if (bIsTyping) return;
 
@@ -27,7 +38,6 @@ export default class ViewerKeyboardStrategy extends BaseKeyboardStrategy {
             if (sKey === "s" || sKey === "v") { e.preventDefault(); this.setMode("select"); return; }
             if (sKey === "p" || sKey === "h") { e.preventDefault(); this.setMode("pan"); return; }
             if (sRawKey === "Escape") { this._clearSelection(); return; }
-            if (sRawKey === "Delete" || sRawKey === "Backspace") { e.preventDefault(); this._deleteSelection(); return; }
         }
     }
 }

@@ -13,6 +13,11 @@ import BuilderKeyboardStrategy from "../keyboard/BuilderKeyboardStrategy";
 import ViewerKeyboardStrategy from "../keyboard/ViewerKeyboardStrategy";
 import { EventManager } from "../../events/EventManager";
 
+/**
+ * @class CanvasKeyboardHandler
+ * @description Manages DOM Event bindings for Keyboard Interactions. Acts as a polymorphic Context Manager, 
+ * delegating key mappings dynamically to the active Viewer or Builder strategy.
+ */
 export default class CanvasKeyboardHandler {
     private _oView: View;
     private _fnKeyDownBind!: EventListener;
@@ -27,18 +32,31 @@ export default class CanvasKeyboardHandler {
     private _builderStrategy: BuilderKeyboardStrategy;
     private _viewerStrategy: ViewerKeyboardStrategy;
 
+    /**
+     * @constructor
+     * @param {View} oView - Reference to the active UI5 view.
+     */
     constructor(oView: View) {
         this._oView = oView;
         this._builderStrategy = new BuilderKeyboardStrategy(oView);
         this._viewerStrategy = new ViewerKeyboardStrategy(oView);
     }
 
+    /**
+     * @private
+     * @description Fetches the appropriate strategy based on the current UI Mode (Viewer vs Builder).
+     * @returns {BaseKeyboardStrategy} The concrete strategy instance.
+     */
     private _getActiveStrategy(): BaseKeyboardStrategy {
         const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
         const isViewer = oUiModel ? oUiModel.getProperty(UiState.IS_VIEWER_MODE) : false;
         return isViewer ? this._viewerStrategy : this._builderStrategy;
     }
 
+    /**
+     * @public
+     * @description Attaches global DOM keyboard listeners.
+     */
     public attachEvents(): void {
         if (this._bIsAttached) return;
         this._fnKeyDownBind = this._onKeyDown.bind(this) as EventListener;
@@ -51,6 +69,10 @@ export default class CanvasKeyboardHandler {
         this._bIsAttached = true;
     }
 
+    /**
+     * @public
+     * @description Detaches global DOM keyboard listeners to prevent memory leaks.
+     */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         document.removeEventListener("keydown", this._fnKeyDownBind);
@@ -59,6 +81,12 @@ export default class CanvasKeyboardHandler {
         this._bIsAttached = false;
     }
 
+    /**
+     * @private
+     * @description Determines if the user is currently typing in an input field.
+     * @param {EventTarget | null} target - The DOM element targeted by the key event.
+     * @returns {boolean} True if typing in an input field.
+     */
     private _isInputActive(target: EventTarget | null): boolean {
         if (!target) return false;
         const element = target as HTMLElement;
@@ -66,6 +94,12 @@ export default class CanvasKeyboardHandler {
         return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || element.isContentEditable;
     }
 
+    /**
+     * @private
+     * @description Core Keydown handler. Bypasses execution if view is hidden or fetching.
+     * Processes holding modifiers and delegates single-stroke keys to the active strategy.
+     * @param {KeyboardEvent} e - Global keydown event.
+     */
     private _onKeyDown(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
 
@@ -107,6 +141,11 @@ export default class CanvasKeyboardHandler {
         this._getActiveStrategy().mapShortcuts(e, bIsTyping);
     }
 
+    /**
+     * @private
+     * @description Handles key releases to reset temporary mode modifiers (e.g. Space to Pan).
+     * @param {KeyboardEvent} e - Global keyup event.
+     */
     private _onKeyUp(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
         
@@ -128,6 +167,10 @@ export default class CanvasKeyboardHandler {
         }
     }
 
+    /**
+     * @private
+     * @description Cleans up dangling locks if the user alt-tabs away from the window while holding a modifier.
+     */
     private _onWindowBlur(): void {
         if (this._bSpaceLock) {
             this._bSpaceLock = false;

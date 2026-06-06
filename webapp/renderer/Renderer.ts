@@ -12,10 +12,7 @@ import GraphvizEngine from "./engines/GraphvizEngine";
 import PlantUmlEngine from "./engines/PlantUmlEngine";
 import CytoscapeEngine from "./engines/CytoscapeEngine";
 import D2Engine from "./engines/D2Engine";
-
-import ExportUtility from "./ExportUtility";
 import ConfigManager from "./ConfigManager";
-import SvgProcessor from "../helpers/SvgProcessor";
 import { EngineType } from "../types";
 import { IEngineFacade } from "./engines/IEngineFacade";
 import EngineRegistry from "./EngineRegistry";
@@ -92,7 +89,7 @@ export default class Renderer {
      * @param {string} sPayload - The source syntax or JSON payload.
      * @returns {Promise<string>} A promise resolving to the finalized, standard XML/SVG string.
      */
-    public static async generateExportSvg(sViewId: string, sEngine: EngineType | string, sPayload: string): Promise<string> {
+    public static async generateRawExportSvg(sViewId: string, sEngine: EngineType | string, sPayload: string): Promise<string> {
         await ConfigManager.initialize();
         
         const engine = this._getEngine(sEngine);
@@ -100,21 +97,7 @@ export default class Renderer {
             throw new Error(`Unsupported export engine or SVG export not supported: ${sEngine}`);
         }
 
-        const sRawSvg = await engine.exportSvg(sPayload, sViewId);
-
-        // Pipe the raw engine output through the enterprise XML standardizer
-        return SvgProcessor.standardize(sRawSvg);
-    }
-
-    /**
-     * @public
-     * @static
-     * @description Converts a standard SVG string to a PNG Blob.
-     * @param {string} sSvgData - The formatted SVG string.
-     * @returns {Promise<Blob>}
-     */
-    public static convertSvgStringToPng(sSvgData: string): Promise<Blob> {
-        return ExportUtility.convertSvgStringToPng(sSvgData);
+        return await engine.exportSvg(sPayload, sViewId);
     }
 
     /**

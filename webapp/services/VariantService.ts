@@ -167,6 +167,7 @@ export default class VariantService {
             if (contexts.length === 0) throw new Error("Variant not found on server.");
             const context = contexts[0];
             context.setProperty("isUnlisted", false);
+            context.setProperty("IsGlobal", false);
             await odataModel.submitBatch(this.UPDATE_GROUP);
 
             if (odataModel.hasPendingChanges(this.UPDATE_GROUP)) {

@@ -13,7 +13,7 @@ import MessageBox from "sap/m/MessageBox";
 import Event from "sap/ui/base/Event";
 
 import VariantHandler from "./VariantHandler";
-import VariantStateMapper from "../../helpers/VariantStateMapper";
+import StateSyncModule from "../../helpers/StateSyncModule";
 import VariantService from "../../services/VariantService";
 import DeepLinkService from "../../services/DeepLinkService";
 import ViewStateHelper from "../../helpers/ViewStateHelper";
@@ -67,6 +67,14 @@ export default class VariantOrchestrationHandler {
      */
     private get _odataModel(): ODataModel {
         return (this._oView.getModel() || this._oView.getController()?.getOwnerComponent()?.getModel()) as ODataModel;
+    }
+
+    /**
+     * @private
+     * @returns {string} The overarching Component ID or localized View ID.
+     */
+    private getInstanceId(): string {
+        return this._oView.getController()?.getOwnerComponent()?.getId() || this._oView.getId() || "";
     }
 
     /**
@@ -125,7 +133,8 @@ export default class VariantOrchestrationHandler {
 
             ViewStateHelper.setAppBusy(true, this._oView);
             
-            const state = VariantStateMapper.captureState(this._oView, intent.name, intent.savePositions);
+            const oUiModel = this._oView.getModel("ui") as JSONModel;
+            const state = StateSyncModule.captureState(oUiModel, intent.name, intent.savePositions, this._oView, this.getInstanceId());
             const targetVariant = existingVariants.find((v: any) => v.name === intent.name);
             const preserveUnlisted = targetVariant ? targetVariant.isUnlisted : false;
             
@@ -266,7 +275,8 @@ export default class VariantOrchestrationHandler {
             const variant = await VariantService.getVariantById(this._odataModel, selectedId);
 
             if (variant) {
-                VariantStateMapper.applyState(this._oView, variant);
+                const oUiModel = this._oView.getModel("ui") as JSONModel;
+                StateSyncModule.applyState(oUiModel, variant, this._oView);
                 MessageToast.show(this._fnGetText("msgVariantApplied", [variant.name]));
                 
                 if (this._uiModel) {
@@ -379,10 +389,14 @@ export default class VariantOrchestrationHandler {
         ViewStateHelper.setAppBusy(true, this._oView);
         try {
             await VariantService.revokeShareLink(this._odataModel, variant.VariantId);
+            
+            // Apply the privacy changes locally
             (variant as any).isUnlisted = false;
+            (variant as any).IsGlobal = false;
+            
             this._variantsModel.refresh(true);
             this.updateShareStateUI();
-            MessageToast.show(this._fnGetText("msgRevokeSuccess") || "Sharing revoked. Variant is now private.");
+            MessageToast.show(this._fnGetText("msgRevokeSuccess") || "Sharing revoked. Variant is now fully private.");
         } catch (error: any) {
             MessageBox.error(error.message || "Failed to revoke share link.");
         } finally {

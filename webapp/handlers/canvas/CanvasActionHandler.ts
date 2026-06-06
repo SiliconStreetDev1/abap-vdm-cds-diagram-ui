@@ -18,6 +18,10 @@ import { UiState, ViewState, DiagramData } from "../../constants/StateConstants"
 import { EventManager } from "../../events/EventManager";
 import { Subscription } from "../../events/Subscription";
 
+/**
+ * @class CanvasActionHandler
+ * @description Manages routing for user interactions on the UI toolbar to the active rendering engine.
+ */
 export default class CanvasActionHandler {
     private view: View;
 
@@ -25,6 +29,10 @@ export default class CanvasActionHandler {
     private subscriptions: Subscription[] = [];
     private isAttached: boolean = false;
 
+    /**
+     * @constructor
+     * @param {View} view - Reference to the active UI5 view.
+     */
     constructor(view: View) {
         this.view = view;
     }

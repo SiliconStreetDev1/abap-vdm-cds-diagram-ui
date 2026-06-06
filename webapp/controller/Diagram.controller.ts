@@ -18,16 +18,8 @@ import { SearchField$SearchEvent } from "sap/m/SearchField";
 import Link from "sap/m/Link";
 import UIComponent from "sap/ui/core/UIComponent";
 
-import ExportHandler from "../handlers/state/ExportHandler";
-import FullScreenHandler from "../handlers/ui/FullScreenHandler";
-import CanvasActionHandler from "../handlers/canvas/CanvasActionHandler";
-import CanvasKeyboardHandler from "../handlers/canvas/CanvasKeyboardHandler";
-import AnnotationHandler from "../handlers/canvas/AnnotationHandler";
-import HiddenNodesHandler from "../handlers/ui/HiddenNodesHandler";
-import NoteDialogHandler from "../handlers/ui/NoteDialogHandler";
-import DiagramStateActionHandler from "../handlers/state/DiagramStateActionHandler";
-import DiagramRenderHandler from "../handlers/canvas/DiagramRenderHandler";
-import VideoRecordHandler from "../handlers/state/VideoRecordHandler";
+import ToolboxManager from "../handlers/ToolboxManager";
+import ExportPipelineModule from "../services/ExportPipelineModule";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import { ViewState, UiState, ModelNames, DiagramData } from "../constants/StateConstants";
@@ -37,16 +29,7 @@ import { EventManager } from "../events/EventManager";
 
 export default class Diagram extends Controller {
     
-    private _oExportHandler!: ExportHandler;
-    private _oFullScreenHandler!: FullScreenHandler;
-    private _oCanvasActionHandler!: CanvasActionHandler;
-    private _oAnnotationHandler!: AnnotationHandler;
-    private _oCanvasKeyboardHandler!: CanvasKeyboardHandler;
-    private _oHiddenNodesHandler!: HiddenNodesHandler;
-    private _oNoteDialogHandler!: NoteDialogHandler;
-    private _oStateActionHandler!: DiagramStateActionHandler;
-    private _oRenderHandler!: DiagramRenderHandler;
-    private _videoRecordHandler!: VideoRecordHandler;
+    private _exportPipelineModule!: ExportPipelineModule;
     
     /**
      * @private
@@ -59,7 +42,7 @@ export default class Diagram extends Controller {
 
     /**
      * @public
-     * @description Bootstraps local models, EventBus subscriptions, and DOM event listeners.
+     * @description Bootstraps local models, EventManager subscriptions, and DOM event listeners.
      * @returns {void}
      */
     public onInit(): void {
@@ -97,27 +80,12 @@ export default class Diagram extends Controller {
             currentBreadcrumb: ""
         }), ModelNames.DIAGRAM_DATA);
 
-        // Initialize the export service
-        this._oRenderHandler = new DiagramRenderHandler(oView, this._getText.bind(this));
-        this._oExportHandler = new ExportHandler(oView, this._getText.bind(this), this._oRenderHandler.showError.bind(this._oRenderHandler));
-        this._oFullScreenHandler = new FullScreenHandler(oView);
-        this._oCanvasActionHandler = new CanvasActionHandler(oView);
-        this._oAnnotationHandler = new AnnotationHandler(oView);
-        this._oCanvasKeyboardHandler = new CanvasKeyboardHandler(oView);
-        this._oHiddenNodesHandler = new HiddenNodesHandler(oView);
-        this._oNoteDialogHandler = new NoteDialogHandler(oView);
-        this._oStateActionHandler = new DiagramStateActionHandler(oView);
-        this._videoRecordHandler = new VideoRecordHandler(oView, this._getText.bind(this));
-        
-        this._oRenderHandler.attachEvents();
-        this._oFullScreenHandler.attachEvents();
-        this._oCanvasActionHandler.attachEvents();
-        this._oAnnotationHandler.attachEvents();
-        this._oCanvasKeyboardHandler.attachEvents();
-        this._oHiddenNodesHandler.attachEvents();
-        this._oNoteDialogHandler.attachEvents();
-        this._oStateActionHandler.attachEvents();
-        this._videoRecordHandler.attachEvents();
+        // Initialize the Toolbox Manager for all canvas interaction handlers
+        ToolboxManager.bootstrap(oView, this._getText.bind(this));
+
+        // Initialize the new unified Export Pipeline
+        const oRenderHandler = ToolboxManager.getRenderHandler();
+        this._exportPipelineModule = new ExportPipelineModule(oView, this._getText.bind(this), oRenderHandler ? oRenderHandler.showError.bind(oRenderHandler) : () => {});
     }
 
     /**
@@ -125,19 +93,7 @@ export default class Diagram extends Controller {
      * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
      */
     public onExit(): void {
-        this._oRenderHandler.detachEvents();
-        this._oFullScreenHandler.detachEvents();
-        this._oCanvasActionHandler.detachEvents();
-        this._oAnnotationHandler.detachEvents();
-        this._oCanvasKeyboardHandler.detachEvents();
-        this._oHiddenNodesHandler.detachEvents();
-        this._oNoteDialogHandler.detachEvents();
-        this._oStateActionHandler.detachEvents();
-
-        if (this._videoRecordHandler) {
-            this._videoRecordHandler.detachEvents();
-            this._videoRecordHandler.stopRecording();
-        }
+        ToolboxManager.destroy();
 
         ContextHelpManager.destroy(this._getInstanceId());
 
@@ -203,20 +159,20 @@ export default class Diagram extends Controller {
         }
     }
 
-    public onToggleFullScreen(): void { this._oFullScreenHandler.toggleFullScreen(this.getView() as Control); }
-    public onToggleMinimap(oEvent: Event): void { this._oCanvasActionHandler.toggleMinimap(oEvent); }
-    public onChangeInteractionMode(oEvent: Event): void { this._oCanvasActionHandler.changeInteractionMode(oEvent); }
-    public onSpacingChange(): void { this._oCanvasActionHandler.changeSpacing(); }
-    public onToggleTempFocusMode(oEvent: Event): void { this._oCanvasActionHandler.toggleTempFocusMode(oEvent); }
-    public onClearFocus(): void { this._oCanvasActionHandler.clearSelection(); }
-    public onSelectAll(): void { this._oCanvasActionHandler.selectAll(); }
-    public onAddNote(): void { this._oNoteDialogHandler.promptAddNote(); }
+    public onToggleFullScreen(): void { ToolboxManager.getFullScreenHandler()?.toggleFullScreen(this.getView() as Control); }
+    public onToggleMinimap(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.toggleMinimap(oEvent); }
+    public onChangeInteractionMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.changeInteractionMode(oEvent); }
+    public onSpacingChange(): void { ToolboxManager.getCanvasActionHandler()?.changeSpacing(); }
+    public onToggleTempFocusMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.toggleTempFocusMode(oEvent); }
+    public onClearFocus(): void { ToolboxManager.getCanvasActionHandler()?.clearSelection(); }
+    public onSelectAll(): void { ToolboxManager.getCanvasActionHandler()?.selectAll(); }
+    public onAddNote(): void { EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() }); }
 
-    public onOpenHiddenNodes(): void { this._oHiddenNodesHandler.openDialog(); }
-    public onCloseHiddenNodes(): void { this._oHiddenNodesHandler.closeDialog(); }
-    public onRestoreSelectedNodes(): void { this._oHiddenNodesHandler.restoreSelected(); }
-    public onShowHiddenNodes(): void { this._oHiddenNodesHandler.showAll(); }
-    public onShowSpacing(oEvent: Event): void { this._oCanvasActionHandler.showSpacingPopover(oEvent); }
+    public onOpenHiddenNodes(): void { EventManager.getInstance().publish("ui:openDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
+    public onCloseHiddenNodes(): void { EventManager.getInstance().publish("ui:closeDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
+    public onRestoreSelectedNodes(): void { EventManager.getInstance().publish("ui:restoreSelectedNodes", { viewId: this._getInstanceId() }); }
+    public onShowHiddenNodes(): void { EventManager.getInstance().publish("ui:showAllHiddenNodes", { viewId: this._getInstanceId() }); }
+    public onShowSpacing(oEvent: Event): void { ToolboxManager.getCanvasActionHandler()?.showSpacingPopover(oEvent); }
 
     /**
      * @public
@@ -263,7 +219,7 @@ export default class Diagram extends Controller {
      * @public
      * @description Search handler for locating specific nodes in the active canvas.
      */
-    public onSearchCanvas(oEvent: SearchField$SearchEvent): void { this._oCanvasActionHandler.searchCanvas(oEvent); }
+    public onSearchCanvas(oEvent: SearchField$SearchEvent): void { ToolboxManager.getCanvasActionHandler()?.searchCanvas(oEvent); }
 
     /**
      * @private
@@ -282,19 +238,19 @@ export default class Diagram extends Controller {
     // EXPORT DELEGATIONS
     // ========================================================================
 
-    public onDownloadPng(): void   { this._oExportHandler.downloadPng(); }
-    public onDownloadImage(): void { this._oExportHandler.downloadSvg(); }
-    public onDownloadSource(): void{ this._oExportHandler.downloadSource(); }
-    public onCopySyntax(): void    { this._oExportHandler.copySyntax(); }
+    public onDownloadPng(): void   { this._exportPipelineModule.downloadPng(); }
+    public onDownloadImage(): void { this._exportPipelineModule.downloadSvg(); }
+    public onDownloadSource(): void{ this._exportPipelineModule.downloadSource(); }
+    public onCopySyntax(): void    { this._exportPipelineModule.copySyntax(); }
 
     // ========================================================================
     // VIDEO RECORDING DELEGATIONS
     // ========================================================================
 
-    public onStartRecording(): void  { this._videoRecordHandler.startRecording(); }
-    public onStopRecording(): void   { this._videoRecordHandler.stopRecording(); }
-    public onPauseRecording(): void  { this._videoRecordHandler.pauseRecording(); }
-    public onResumeRecording(): void { this._videoRecordHandler.resumeRecording(); }
+    public onStartRecording(): void  { ToolboxManager.getVideoRecordHandler()?.startRecording(); }
+    public onStopRecording(): void   { ToolboxManager.getVideoRecordHandler()?.stopRecording(); }
+    public onPauseRecording(): void  { ToolboxManager.getVideoRecordHandler()?.pauseRecording(); }
+    public onResumeRecording(): void { ToolboxManager.getVideoRecordHandler()?.resumeRecording(); }
 
     /**
      * @public

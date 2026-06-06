@@ -118,7 +118,7 @@ export default class RouteManager {
             // 4. Execute raw OData fetch to build the dynamic hierarchy
             const result = await DiagramService.fetchDiagram(odataModel, request);
 
-            // 5. Construct EventBus Payload with STRICT VIEWER LOCKDOWN rules
+            // 5. Construct Diagram Payload with STRICT VIEWER LOCKDOWN rules
             engineConfig.presetPositions = variantState.canvasState;
             if (variantState.canvasState) engineConfig.layout_algorithm = "preset";
             engineConfig.isViewerMode = true;
