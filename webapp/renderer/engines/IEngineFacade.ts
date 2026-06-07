@@ -22,7 +22,7 @@ export interface IEngineFacade {
      * @public
      * @description Exposes gamification and effect plugins specific to this engine.
      */
-    getAvailableEffects?(): { id: string; name: string; enabled: boolean }[];
+    getAvailableEffects?(): { id: string; name: string; description: string; enabled: boolean }[];
     toggleEffect?(effectId: string, isEnabled: boolean): void;
 
     /**
@@ -57,7 +57,6 @@ export interface IEngineFacade {
     search?(viewId: string, query: string): void;
     updateFormat?(viewId: string, format: Record<string, any>): void;
     getCanvasState?(viewId: string): any;
-    moveNode?(viewId: string, nodeId: string, position: {x: number, y: number}): void;
     moveNodes?(viewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void;
     setNodesLocked?(viewId: string, isLocked: boolean): void;
     runLayout?(viewId: string): void;

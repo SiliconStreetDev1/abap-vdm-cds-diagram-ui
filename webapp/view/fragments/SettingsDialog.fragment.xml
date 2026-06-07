@@ -13,11 +13,21 @@
                     <Switch state="{ui>/enableAudio}" change=".onToggleAudio" />
                 </HBox>
                 
-                <Label text="Gamification Plugins" design="Bold" class="sapUiTinyMarginBottom" visible="{= ${view>/hasEffects} }" />
-                <Text text="Selectively toggle individual interactive diagram effects." class="sapUiSmallMarginBottom" visible="{= ${view>/hasEffects} }" />
+                <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiTinyMarginBottom" visible="{= ${view>/hasEffects} }">
+                    <VBox>
+                        <Label text="Gamification Plugins" design="Bold" />
+                        <Text text="Selectively toggle individual interactive diagram effects." />
+                    </VBox>
+                    <Button icon="sap-icon://reset" text="Reset Defaults" press=".onResetPlugins" type="Transparent" />
+                </HBox>
                 
                 <List id="listEffects" mode="MultiSelect" items="{view>/availableEffects}" visible="{= ${view>/hasEffects} }">
-                    <StandardListItem title="{view>name}" />
+                    <CustomListItem>
+                        <VBox class="sapUiSmallMargin">
+                            <Label text="{view>name}" design="Bold" />
+                            <Text text="{view>description}" visible="{ui>/showHelp}" class="sapUiTinyMarginTop" wrapping="true" />
+                        </VBox>
+                    </CustomListItem>
                 </List>
                 
                 <MessageStrip text="No plugins are currently registered for this rendering engine." type="Information" showIcon="true" visible="{= !${view>/hasEffects} }" />

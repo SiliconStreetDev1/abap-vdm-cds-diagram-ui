@@ -9,7 +9,6 @@ import { EventManager } from "../../events/EventManager";
 import { Subscription } from "../../events/Subscription";
 import { DiagramData } from "../../constants/StateConstants";
 import { DiagramStateStore } from "../../store/DiagramStateStore";
-import { MoveNodeCommand } from "../../store/commands/MoveNodeCommand";
 import { MoveNodesCommand } from "../../store/commands/MoveNodesCommand";
 import { DeleteSelectionCommand } from "../../store/commands/DeleteSelectionCommand";
 import Renderer from "../../renderer/Renderer";
@@ -90,7 +89,8 @@ export default class DiagramStateActionHandler {
         if (payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
 
         const diagramId = payload.diagramId || this._getDiagramId();
-        const command = new MoveNodeCommand(this._getInstanceId(), diagramId, payload.nodeId, payload.oldPos, payload.newPos, payload.engine);
+        const batchPayload = [{ nodeId: payload.nodeId, oldPos: payload.oldPos, newPos: payload.newPos }];
+        const command = new MoveNodesCommand(this._getInstanceId(), diagramId, batchPayload, payload.engine);
         DiagramStateStore.getInstance().getDiagramState(this._getInstanceId(), diagramId).history.execute(command);
     }
 

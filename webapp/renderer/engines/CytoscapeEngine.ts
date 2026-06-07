@@ -63,7 +63,7 @@ export default class CytoscapeEngine {
      * @public
      * @description Exposes available gamification plugins from the EffectsManager.
      */
-    public static getAvailableEffects(): { id: string; name: string; enabled: boolean }[] {
+    public static getAvailableEffects(): { id: string; name: string; description: string; enabled: boolean }[] {
         return EffectsManager.getInstance().getRegisteredPlugins();
     }
 
@@ -504,11 +504,9 @@ export default class CytoscapeEngine {
         if (context) CytoscapeVisibilityManager.showSpecificNodes(viewId, context.cy, nodeIds);
     }
 
-    public static moveNode(viewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(viewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
-
     /**
      * @public
-     * @description Bulk updates multiple node coordinates in a single batched DOM repaint to eliminate O(N) performance bottlenecks.
+     * @description Translates multiple nodes iteratively in a single batched O(1) engine command.
      */
     public static moveNodes(viewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
         const ctx = this._cyContexts.get(viewId);
@@ -625,5 +623,14 @@ export default class CytoscapeEngine {
             oNode.data('bgColor', bgColor);
             oNode.data('borderColor', borderColor);
         }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Issues a factory reset for all gamification plugin configurations.
+     */
+    public static resetEffectsDefaults(): void {
+        EffectsManager.getInstance().resetToDefaults();
     }
 }

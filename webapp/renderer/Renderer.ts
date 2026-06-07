@@ -146,7 +146,7 @@ export default class Renderer {
      * @static
      * @description Exposes gamification and effect plugins specific to this engine.
      */
-    public static getAvailableEffects(engineId: string): { id: string; name: string; enabled: boolean }[] {
+    public static getAvailableEffects(engineId: string): { id: string; name: string; description: string; enabled: boolean }[] {
         const engine = this._getEngine(engineId);
         if (engine && engine.getAvailableEffects) {
             return engine.getAvailableEffects();
@@ -163,6 +163,18 @@ export default class Renderer {
         const engine = this._getEngine(engineId);
         if (engine && engine.toggleEffect) {
             engine.toggleEffect(effectId, enabled);
+        }
+    }
+
+    /**
+     * @public
+     * @static
+     * @description Issues a factory reset for all plugin configurations on the active engine.
+     */
+    public static resetEffectsDefaults(engineId: string): void {
+        const engine = this._getEngine(engineId);
+        if (engine && (engine as any).resetEffectsDefaults) {
+            (engine as any).resetEffectsDefaults();
         }
     }
 
@@ -265,15 +277,7 @@ export default class Renderer {
 
     /**
      * @public
-     * @static
-     * @description Extracts the live X/Y canvas coordinates for layout persistence.
-     */
-    public static moveNode(viewId: string, engineId: string, nodeId: string, position: {x: number, y: number}): void { const engine = this._getEngine(engineId); if (engine && engine.moveNode) engine.moveNode(viewId, nodeId, position); }
-
-    /**
-     * @public
-     * @static
-     * @description Translates multiple nodes iteratively in a single batched O(1) engine command.
+     * @description Repositions a batch of nodes bypassing the layout engine, critical for Marquee Drag optimization.
      */
     public static moveNodes(viewId: string, engineId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
         const engine = this._getEngine(engineId);

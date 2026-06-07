@@ -25,7 +25,8 @@ export default class WeightyDropPlugin implements IEffectPlugin {
      * @public
      * @returns {string} The localized display name for the Fiori UI.
      */
-    public getName(): string { return "Weighty Node Drop"; }
+    public getName(): string { return "Heavy Physics Drop"; }
+    public getDescription(): string { return "Plays a deep, cinematic thud sound whose volume scales based on how far the node was dragged."; }
 
     /**
      * @public

@@ -22,4 +22,6 @@ export interface ICanvasEventMap {
     "canvas:redoRequest": { viewId?: string };
     "canvas:variantDirty": { viewId?: string };
     "canvas:edgePlucked": { viewId?: string; nodeId?: string };
+    "canvas:cameraMoved": { viewId?: string; pan: { x: number; y: number }; zoom: number };
+    "canvas:selectionBoxEnded": { viewId?: string; selectedNodeIds: string[] };
 }

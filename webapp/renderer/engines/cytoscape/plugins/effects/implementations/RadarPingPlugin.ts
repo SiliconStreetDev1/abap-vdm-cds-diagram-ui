@@ -26,6 +26,12 @@ export default class RadarPingPlugin implements IEffectPlugin {
 
     /**
      * @public
+     * @returns {string} A brief description of the plugin's functionality.
+     */
+    public getDescription(): string { return "Plays an underwater sonar 'ping' when a search successfully locates nodes."; }
+
+    /**
+     * @public
      * @description Captures the cytoscape instance on initialization to query screen coordinates later.
      * @param {Core} cyInstance - The active Cytoscape graph container.
      */

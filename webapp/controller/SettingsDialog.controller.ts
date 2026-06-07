@@ -133,4 +133,21 @@ export default class SettingsDialogController extends Controller {
             settingsDialogControl.close();
         }
     }
+
+    /**
+     * @public
+     * @description Issues a factory reset for gamification plugins and refreshes the dialog UI.
+     */
+    public onResetPlugins(): void {
+        const diagramDataModel = this.parentView.getModel(ModelNames.DIAGRAM_DATA) as JSONModel;
+        if (!diagramDataModel) return;
+
+        const engineId = diagramDataModel.getProperty(DiagramData.ENGINE) as string;
+        Renderer.resetEffectsDefaults(engineId);
+        
+        MessageToast.show("Gamification plugins reset to default Enterprise values.");
+        
+        // Re-read available effects and update UI checkboxes immediately
+        this.onBeforeOpen();
+    }
 }

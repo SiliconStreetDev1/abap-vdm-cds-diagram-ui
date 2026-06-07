@@ -63,28 +63,10 @@ export class DiagramStateStore {
 
     /**
      * @public
-     * @description Updates or initializes a specific node's state within a specific diagram.
-     */
-    public setNodeState(viewId: string, diagramId: string, nodeId: string, stateUpdate: Partial<INodeState>): void {
-        const diagramState = this.getDiagramState(viewId, diagramId);
-        let nodeState = diagramState.nodes.get(nodeId);
-        
-        if (!nodeState) {
-            nodeState = {
-                id: nodeId,
-                position: { x: 0, y: 0 },
-                isPinned: false,
-                isHidden: false
-            };
-        }
-        
-        Object.assign(nodeState, stateUpdate);
-        diagramState.nodes.set(nodeId, nodeState);
-    }
-
-    /**
-     * @public
-     * @description Bulk updates multiple nodes in a single O(1) operation array iteration.
+     * @description Bulk updates states for multiple nodes simultaneously, ensuring atomic history processing.
+     * @param {string} viewId - The component ID.
+     * @param {string} diagramId - The diagram tracking ID.
+     * @param {Array<{nodeId: string, stateUpdate: Partial<INodeState>}>} updates - Batch of updates.
      */
     public setNodeStates(viewId: string, diagramId: string, updates: { nodeId: string; stateUpdate: Partial<INodeState> }[]): void {
         const diagramState = this.getDiagramState(viewId, diagramId);

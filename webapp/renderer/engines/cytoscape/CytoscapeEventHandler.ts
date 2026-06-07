@@ -36,6 +36,14 @@ export default class CytoscapeEventHandler {
         cyInstance.on('boxend', () => requestAnimationFrame(() => {
             if (cyInstance && !cyInstance.destroyed()) {
                 cyInstance.scratch('_isBoxSelecting', false);
+                
+                const selectedNodes = cyInstance.elements('node:selected');
+                if (selectedNodes.length > 0) {
+                    EventManager.getInstance().publish("canvas:selectionBoxEnded", { 
+                        viewId: viewId, 
+                        selectedNodeIds: selectedNodes.map(n => n.id()) 
+                    });
+                }
             }
         }));
 
@@ -50,45 +58,55 @@ export default class CytoscapeEventHandler {
             }
         }));
 
+        let selectThrottle: any = null;
         cyInstance.on('select unselect', (evt: EventObject) => {
-            const selected = cyInstance.elements('node:selected');
-            
-            cyInstance.elements().removeClass('faded highlighted');
-            
-            let bFocus = false;
-            let sFocusName = "";
-            
-            // Detect if the user is holding a modifier key to perform a multi-select operation
+            // Capture modifier key instantly, as the evt context may not exist inside the timeout
             const bIsMultiSelectModifier = cyInstance.scratch('_isMultiSelectModifier') || (evt.originalEvent && (evt.originalEvent.ctrlKey || evt.originalEvent.metaKey || evt.originalEvent.shiftKey));
             
-            // Detect if the selection was triggered via Marquee Box Selection
-            const bIsBoxSelecting = cyInstance.scratch('_isBoxSelecting');
+            if (selectThrottle) clearTimeout(selectThrottle);
+            
+            // Debounce the select/unselect event by 10ms.
+            // When a Marquee Box Selection hits 100 nodes, Cytoscape fires 100 synchronous select events.
+            // This debounce coalesces those 100 expensive style recalculations into exactly 1 execution.
+            selectThrottle = setTimeout(() => {
+                selectThrottle = null;
+                if (!cyInstance || cyInstance.destroyed()) return;
 
-            // Enterprise UX: Focus Mode is strictly for single-entity discovery.
-            // If > 1 node is selected (Mass Selection), we instantly abort the fade to retain full visual context.
-            // We also suppress focus if a modifier key is held, or if the user is actively using the box selection tool.
-            const bHasSingleNode = selected.length === 1 && !selected.hasClass('annotation-note');
-            
-            if (!bHasSingleNode && !cyInstance.scratch('_ignoreTempFocusWipe')) {
-                cyInstance.scratch('_tempFocusMode', false);
-            }
-            
-            const bFocumodeEnabled = cyInstance.scratch('_enableFocumode') || cyInstance.scratch('_tempFocusMode');
-            
-            if (bFocumodeEnabled && bHasSingleNode && !bIsMultiSelectModifier && !bIsBoxSelecting) {
-                const neighborhood = selected.closedNeighborhood();
-                cyInstance.elements().difference(neighborhood).addClass('faded');
-                neighborhood.addClass('highlighted');
+                const selected = cyInstance.elements('node:selected');
                 
-                bFocus = true;
-                sFocusName = selected[0].data('label') || selected[0].id();
-            }
-            
-            if (typeof document !== "undefined") {
-                EventManager.getInstance().publish("canvas:focusModeChanged", { 
-                    viewId: viewId, isFocused: bFocus, nodeName: sFocusName, hasNodeSelected: bHasSingleNode, tempFocusMode: cyInstance.scratch('_tempFocusMode') || false 
-                });
-            }
+                // Extremely expensive graph-wide DOM/CSS update
+                cyInstance.elements().removeClass('faded highlighted');
+                
+                let bFocus = false;
+                let sFocusName = "";
+                
+                const bIsBoxSelecting = cyInstance.scratch('_isBoxSelecting');
+
+                // Enterprise UX: Focus Mode is strictly for single-entity discovery.
+                // If > 1 node is selected (Mass Selection), we instantly abort the fade to retain full visual context.
+                const bHasSingleNode = selected.length === 1 && !selected.hasClass('annotation-note');
+                
+                if (!bHasSingleNode && !cyInstance.scratch('_ignoreTempFocusWipe')) {
+                    cyInstance.scratch('_tempFocusMode', false);
+                }
+                
+                const bFocumodeEnabled = cyInstance.scratch('_enableFocumode') || cyInstance.scratch('_tempFocusMode');
+                
+                if (bFocumodeEnabled && bHasSingleNode && !bIsMultiSelectModifier && !bIsBoxSelecting) {
+                    const neighborhood = selected.closedNeighborhood();
+                    cyInstance.elements().difference(neighborhood).addClass('faded');
+                    neighborhood.addClass('highlighted');
+                    
+                    bFocus = true;
+                    sFocusName = selected[0].data('label') || selected[0].id();
+                }
+                
+                if (typeof document !== "undefined") {
+                    EventManager.getInstance().publish("canvas:focusModeChanged", { 
+                        viewId: viewId, isFocused: bFocus, nodeName: sFocusName, hasNodeSelected: bHasSingleNode, tempFocusMode: cyInstance.scratch('_tempFocusMode') || false 
+                    });
+                }
+            }, 10);
         });
     }
 
@@ -161,13 +179,17 @@ export default class CytoscapeEventHandler {
         cyInstance.on('grab', 'node', (evt: EventObject) => {
             const node = evt.target as NodeSingular;
             const toTrack = node.selected() ? cyInstance.nodes(':selected').union(node) : cyInstance.collection().add(node);
+            
             toTrack.forEach(n => { 
                 n.scratch('_dragPos', { ...n.position() });
-                n.scratch('_intersectedEdges', new Set<string>()); // Initialize physics tracking
                 
-                // Track initial positions for linked notes to prevent exponential delta compounding
+                // PRE-CACHE: Track initial positions for linked notes to prevent exponential delta compounding
+                // We cache the selected notes collection so we don't query the entire graph live during dragging
                 if (!n.hasClass('annotation-note')) {
-                    n.connectedEdges('.annotation-edge').connectedNodes('.annotation-note:unselected').forEach((note: NodeSingular) => {
+                    const linkedNotes = n.connectedEdges('.annotation-edge').connectedNodes('.annotation-note:unselected');
+                    n.scratch('_linkedNotesCache', linkedNotes);
+                    
+                    linkedNotes.forEach((note: NodeSingular) => {
                         note.scratch('_noteDragPos', { ...note.position() });
                     });
                 }
@@ -180,68 +202,31 @@ export default class CytoscapeEventHandler {
             const prevPos = node.scratch('_dragPos');
             const currPos = node.position();
             
-            // Enterprise UX: Move linked sticky notes automatically with the entity
+            // Enterprise UX: Move linked sticky notes automatically with the entity using the cached collection
             if (!node.hasClass('annotation-note')) {
                 if (prevPos) {
                     const dx = currPos.x - prevPos.x;
                     const dy = currPos.y - prevPos.y;
-                    node.connectedEdges('.annotation-edge').connectedNodes('.annotation-note:unselected').forEach((note: NodeSingular) => {
-                        const initialNotePos = note.scratch('_noteDragPos');
-                        if (initialNotePos && note.scratch('_lastDragTime') !== evt.timeStamp) {
-                            note.position({ x: initialNotePos.x + dx, y: initialNotePos.y + dy });
-                            note.scratch('_lastDragTime', evt.timeStamp);
-                        }
-                    });
+                    const linkedNotes = node.scratch('_linkedNotesCache');
+                    if (linkedNotes) {
+                        linkedNotes.forEach((note: NodeSingular) => {
+                            const initialNotePos = note.scratch('_noteDragPos');
+                            if (initialNotePos && note.scratch('_lastDragTime') !== evt.timeStamp) {
+                                note.position({ x: initialNotePos.x + dx, y: initialNotePos.y + dy });
+                                note.scratch('_lastDragTime', evt.timeStamp);
+                            }
+                        });
+                    }
                 }
             }
 
             // Enterprise UX: Dispatch a high-frequency dragging event for real-time haptics/audio
             EventManager.getInstance().publish("canvas:nodeDragging", { viewId: viewId, nodeId: node.id(), position: { x: currPos.x, y: currPos.y } });
-
-            // Acoustic Edge Plucking Physics
-            // Calculate point-to-line-segment distance to detect if the node crosses a foreign edge
-            const nodePos = node.position();
-            const nodeRadius = (node.width() / 2) + 5; // Collision boundary
-            
-            const connectedEdges = node.connectedEdges();
-            const foreignEdges = cyInstance.edges().difference(connectedEdges);
-            
-            const previouslyIntersected = node.scratch('_intersectedEdges') as Set<string> || new Set<string>();
-            const currentlyIntersected = new Set<string>();
-            let didPluck = false;
-
-            foreignEdges.forEach(edge => {
-                const src = edge.source().position();
-                const tgt = edge.target().position();
-                
-                // Fast Euclidean distance to line segment
-                const l2 = Math.pow(tgt.x - src.x, 2) + Math.pow(tgt.y - src.y, 2);
-                let dist = 0;
-                if (l2 === 0) {
-                    dist = Math.sqrt(Math.pow(nodePos.x - src.x, 2) + Math.pow(nodePos.y - src.y, 2));
-                } else {
-                    let t = ((nodePos.x - src.x) * (tgt.x - src.x) + (nodePos.y - src.y) * (tgt.y - src.y)) / l2;
-                    t = Math.max(0, Math.min(1, t));
-                    dist = Math.sqrt(Math.pow(nodePos.x - (src.x + t * (tgt.x - src.x)), 2) + Math.pow(nodePos.y - (src.y + t * (tgt.y - src.y)), 2));
-                }
-                
-                if (dist < nodeRadius) {
-                    currentlyIntersected.add(edge.id());
-                    if (!previouslyIntersected.has(edge.id())) {
-                        didPluck = true;
-                    }
-                }
-            });
-            
-            node.scratch('_intersectedEdges', currentlyIntersected);
-            
-            if (didPluck) {
-                EventManager.getInstance().publish("canvas:edgePlucked", { viewId: viewId, nodeId: node.id() });
-            }
         });
         
         cyInstance.on('free', 'node', (evt: EventObject) => {
             const node = evt.target as NodeSingular;
+            
             const toCheck = node.selected() ? cyInstance.nodes(':selected').union(node) : cyInstance.collection().add(node);
             const changes: any[] = [];
             
@@ -256,14 +241,17 @@ export default class CytoscapeEventHandler {
                     });
                 }
                 n.removeScratch('_dragPos');
-                n.removeScratch('_intersectedEdges');
                 
                 // Cleanup note drag tracking
                 if (!n.hasClass('annotation-note')) {
-                    n.connectedEdges('.annotation-edge').connectedNodes('.annotation-note').forEach((note: NodeSingular) => {
-                        note.removeScratch('_noteDragPos');
-                        note.removeScratch('_lastDragTime');
-                    });
+                    const linkedNotes = n.scratch('_linkedNotesCache');
+                    if (linkedNotes) {
+                        linkedNotes.forEach((note: NodeSingular) => {
+                            note.removeScratch('_noteDragPos');
+                            note.removeScratch('_lastDragTime');
+                        });
+                    }
+                    n.removeScratch('_linkedNotesCache');
                 }
             });
 
@@ -294,6 +282,20 @@ export default class CytoscapeEventHandler {
                 }
             }
         }));
+
+        let cameraThrottle: any = null;
+        cyInstance.on('pan zoom', () => {
+            if (cameraThrottle) return;
+            cameraThrottle = requestAnimationFrame(() => {
+                cameraThrottle = null;
+                if (!cyInstance || cyInstance.destroyed()) return;
+                EventManager.getInstance().publish("canvas:cameraMoved", {
+                    viewId: viewId,
+                    pan: cyInstance.pan(),
+                    zoom: cyInstance.zoom()
+                });
+            });
+        });
     }
 
     /**
