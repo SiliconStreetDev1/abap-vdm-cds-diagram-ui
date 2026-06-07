@@ -1,9 +1,18 @@
 import { BaseTheme } from "./BaseTheme";
 import { IThemeColors } from "./ITheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class HighContrastTheme
+ * @description Enterprise definition for HighContrastTheme.
+ */
 export default class HighContrastTheme extends BaseTheme {
     public id = "high_contrast";
 
+    /**
+     * @public
+     * @description Executes getColors functionality.
+     */
     public getColors(): IThemeColors {
         return {
             bg: '#000000',

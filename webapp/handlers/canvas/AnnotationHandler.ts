@@ -77,10 +77,10 @@ export default class AnnotationHandler {
     }
 
     private _getDiagramId(): string {
-        const oDataModel = this.view.getModel("diagramData") as JSONModel;
-        if (!oDataModel) return "DEFAULT";
-        const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
-        const sCurrent = oDataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || oDataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
+        const dataModel = this.view.getModel("diagramData") as JSONModel;
+        if (!dataModel) return "DEFAULT";
+        const aLinks = dataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+        const sCurrent = dataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || dataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
         const aPath = aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase());
         return aPath.join('|');
     }

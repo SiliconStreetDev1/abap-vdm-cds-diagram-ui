@@ -2,6 +2,11 @@ import Opa5 from "sap/ui/test/Opa5";
 
 const sViewName = "Main";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.test.integration.pages
+ * @class MainPage
+ * @description Enterprise definition for MainPage.
+ */
 export default class MainPage extends Opa5 {
 	// Actions
 

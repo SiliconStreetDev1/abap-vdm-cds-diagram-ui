@@ -17,9 +17,9 @@ export default class D2Engine {
         return 1000;
     }
 
-    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
-        fnOnError("msgD2Warning");
+    public static render(viewId: string, payload: string, renderId: string, onError: (msg: string) => void): void {
+        onError("msgD2Warning");
     }
     
-    public static destroy(sViewId: string): void {}
+    public static destroy(viewId: string): void {}
 }

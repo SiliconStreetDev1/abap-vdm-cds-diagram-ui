@@ -1,9 +1,18 @@
 import { BaseTheme } from "./BaseTheme";
 import { IThemeColors } from "./ITheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class PrintFriendlyTheme
+ * @description Enterprise definition for PrintFriendlyTheme.
+ */
 export default class PrintFriendlyTheme extends BaseTheme {
     public id = "print_friendly";
 
+    /**
+     * @public
+     * @description Executes getColors functionality.
+     */
     public getColors(): IThemeColors {
         return {
             bg: '#ffffff',

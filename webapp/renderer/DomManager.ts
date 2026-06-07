@@ -16,10 +16,10 @@ export default class DomManager {
      * @public
      * @description Polls the browser DOM until the UI5 framework physically paints the container.
      * @param {HTML} oHtml - The SAP UI5 HTML control.
-     * @param {(msg: string) => void} fnOnError - Executed if DOM fails to mount.
+     * @param {(msg: string) => void} onError - Executed if DOM fails to mount.
      * @param {(sRenderId: string) => void} fnCallback - Executed with a unique epoch ID upon success.
      */
-    public static setupCanvas(oHtml: HTML, fnOnError: (msg: string) => void, fnCallback: (sRenderId: string) => void): void {
+    public static setupCanvas(oHtml: HTML, onError: (msg: string) => void, fnCallback: (sRenderId: string) => void): void {
         
         const sParentId = oHtml.getId() + "-vdmCanvasContainer";
         const config = ConfigManager.get();
@@ -58,7 +58,7 @@ export default class DomManager {
                 // Ensure DOM has physically updated before Cytoscape attempts to attach WebGL
                 requestAnimationFrame(() => fnCallback(sRenderId));
             } else {
-                fnOnError("Renderer Error: Target DOM container not found.");
+                onError("Renderer Error: Target DOM container not found.");
             }
         };
 

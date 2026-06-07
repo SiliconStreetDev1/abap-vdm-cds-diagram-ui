@@ -40,14 +40,14 @@ export default class SelectionUIHandler {
 
     /**
      * @constructor
-     * @param {View} oView - The active UI5 View.
+     * @param {View} activeView - The active UI5 View.
      * @param {SelectionStateHandler} oStateHandler - State handler reference to alert dirty tracking.
-     * @param {Function} fnGetText - Delegate function for i18n translations.
+     * @param {Function} getTextDelegate - Delegate function for i18n translations.
      */
-    constructor(oView: View, oStateHandler: SelectionStateHandler, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
+    constructor(activeView: View, oStateHandler: SelectionStateHandler, getTextDelegate: (k: string, args?: any[]) => string) {
+        this._oView = activeView;
         this._oStateHandler = oStateHandler;
-        this._fnGetText = fnGetText;
+        this._fnGetText = getTextDelegate;
     }
 
     /**
@@ -62,6 +62,10 @@ export default class SelectionUIHandler {
         }
         this._bIsAttached = true;
     }
+    /**
+     * @public
+     * @description Executes detachEvents functionality.
+     */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
@@ -98,15 +102,15 @@ export default class SelectionUIHandler {
      */
     public onLiveFormatChange(): void {
         this._oStateHandler.markDirtyState(false);
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        const sEngine = oUiModel.getProperty(UiState.ACTIVE_ENGINE) || "";
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        const engineId = uiModel.getProperty(UiState.ACTIVE_ENGINE) || "";
 
-        if (Renderer.supportsLiveUpdate(sEngine)) {
-            const oModelData = oUiModel.getData();
-            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
-            const oFormatConfig = sFormatKey ? Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`)) : {};
+        if (Renderer.supportsLiveUpdate(engineId)) {
+            const oModelData = uiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`);
+            const oFormatConfig = sFormatKey ? Object.assign({}, uiModel.getProperty(`/${sFormatKey}`)) : {};
             
-            EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: sEngine, format: oFormatConfig });
+            EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: engineId, format: oFormatConfig });
         } else {
             // Other engines require a full rendering cycle for format changes
             this._oStateHandler.markStaleState();
@@ -134,12 +138,12 @@ export default class SelectionUIHandler {
         const payload = oEvent as any;
         if (payload?.viewId && payload.viewId !== this._getInstanceId()) return;
         if (payload?.node_spacing) {
-            const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-            if (oUiModel) {
-                const sEngine = oUiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine();
-                const oModelData = oUiModel.getData();
-                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
-                oUiModel.setProperty(`/${sFormatKey}/node_spacing`, payload.node_spacing);
+            const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+            if (uiModel) {
+                const engineId = uiModel.getProperty("/activeEngine") || Renderer.getDefaultEngine();
+                const oModelData = uiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`) || "formatCytoscape";
+                uiModel.setProperty(`/${sFormatKey}/node_spacing`, payload.node_spacing);
                 this._oStateHandler.markDirtyState(false);
             }
         }
@@ -203,10 +207,10 @@ export default class SelectionUIHandler {
      */
     public showSpacingPopover(oEvent: Event): void {
         if (!this._oSpacingPopover) {
-            const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-            const sEngine = oUiModel ? (oUiModel.getProperty(UiState.ACTIVE_ENGINE) || Renderer.getDefaultEngine()) : Renderer.getDefaultEngine();
-            const oModelData = oUiModel ? oUiModel.getData() : {};
-            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
+            const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+            const engineId = uiModel ? (uiModel.getProperty(UiState.ACTIVE_ENGINE) || Renderer.getDefaultEngine()) : Renderer.getDefaultEngine();
+            const oModelData = uiModel ? uiModel.getData() : {};
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`) || "formatCytoscape";
 
             this._oSpacingPopover = new ResponsivePopover({
                 showHeader: false,

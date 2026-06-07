@@ -37,25 +37,25 @@ abstract class BaseScreenState implements IFullScreenState {
     protected _oView: View;
     protected _handler: FullScreenHandler;
 
-    constructor(oView: View, handler: FullScreenHandler) {
-        this._oView = oView;
+    constructor(activeView: View, handler: FullScreenHandler) {
+        this._oView = activeView;
         this._handler = handler;
     }
 
     public abstract toggle(): void;
     public abstract handleChange(): void;
 
-    protected _setUiState(bIsFullScreen: boolean): void {
+    protected _setUiState(isFullScreen: boolean): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) {
-            oViewModel.setProperty("/fullScreenIcon", bIsFullScreen ? "sap-icon://exit-full-screen" : "sap-icon://full-screen");
-            oViewModel.setProperty("/isFullScreen", bIsFullScreen);
+            oViewModel.setProperty("/fullScreenIcon", isFullScreen ? "sap-icon://exit-full-screen" : "sap-icon://full-screen");
+            oViewModel.setProperty("/isFullScreen", isFullScreen);
         }
 
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/fclLayout", bIsFullScreen ? "MidColumnFullScreen" : "TwoColumnsMidExpanded");
+        const uiModel = this._oView.getModel("ui") as JSONModel;
+        if (uiModel) uiModel.setProperty("/fclLayout", isFullScreen ? "MidColumnFullScreen" : "TwoColumnsMidExpanded");
 
-        if (bIsFullScreen) {
+        if (isFullScreen) {
             document.body.classList.add("vdm-fullscreen-active");
             if (!document.getElementById("vdm-fullscreen-styles")) {
                 const style = document.createElement("style");
@@ -77,6 +77,10 @@ abstract class BaseScreenState implements IFullScreenState {
  * Concrete State: Normal Windowed Mode
  */
 class NormalScreenState extends BaseScreenState {
+    /**
+     * @public
+     * @description Executes toggle functionality.
+     */
     public toggle(): void {
         const target = document.documentElement as FullscreenElement;
         if (!target) return;
@@ -90,10 +94,14 @@ class NormalScreenState extends BaseScreenState {
         }
     }
 
+    /**
+     * @public
+     * @description Executes handleChange functionality.
+     */
     public handleChange(): void {
         const doc = document as FullscreenDoc;
-        const bIsFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
-        if (bIsFullScreen) {
+        const isFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+        if (isFullScreen) {
             this._setUiState(true);
             this._handler.setState(new FullScreenActiveState(this._oView, this._handler));
         }
@@ -104,6 +112,10 @@ class NormalScreenState extends BaseScreenState {
  * Concrete State: Active Fullscreen Mode
  */
 class FullScreenActiveState extends BaseScreenState {
+    /**
+     * @public
+     * @description Executes toggle functionality.
+     */
     public toggle(): void {
         const doc = document as FullscreenDoc;
         if (doc.exitFullscreen) {
@@ -116,10 +128,14 @@ class FullScreenActiveState extends BaseScreenState {
         }
     }
 
+    /**
+     * @public
+     * @description Executes handleChange functionality.
+     */
     public handleChange(): void {
         const doc = document as FullscreenDoc;
-        const bIsFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
-        if (!bIsFullScreen) {
+        const isFullScreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+        if (!isFullScreen) {
             this._setUiState(false);
             this._handler.setState(new NormalScreenState(this._oView, this._handler));
         }
@@ -134,13 +150,17 @@ export default class FullScreenHandler {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the main SAPUI5 View to access models.
+     * @param {View} activeView - Reference to the main SAPUI5 View to access models.
      */
-    constructor(oView: View) {
-        this._oView = oView;
-        this._activeState = new NormalScreenState(oView, this);
+    constructor(activeView: View) {
+        this._oView = activeView;
+        this._activeState = new NormalScreenState(activeView, this);
     }
 
+    /**
+     * @public
+     * @description Executes setState functionality.
+     */
     public setState(state: IFullScreenState): void {
         this._activeState = state;
     }

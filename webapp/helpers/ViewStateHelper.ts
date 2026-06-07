@@ -14,7 +14,8 @@ import Event from "sap/ui/base/Event";
 import Renderer from "../renderer/Renderer";
 import UIComponent from "sap/ui/core/UIComponent";
 import BusyDialog from "sap/m/BusyDialog";
-import { AppConstants } from "../constants/StateConstants";
+import { AppConstants, ModelNames } from "../constants/StateConstants";
+import { StorageKeys } from "../constants/StorageConstants";
 
 export default class ViewStateHelper {
     private static _busyDialog?: BusyDialog;
@@ -52,10 +53,11 @@ export default class ViewStateHelper {
             isCountingDown: false,
             isWaitingForPermission: false,
             isFetching: false,
-            countdownTime: 5,
+            countdownTime: 3,
             enableVideoRecording: false,
             stealthMode: false,
-            enableAudio: localStorage.getItem("vdmAudioEnabled") !== "false",
+            enableAudio: localStorage.getItem(StorageKeys.AUDIO_ENABLED) !== "false",
+            loadedVariantState: null,
             nodeSpacingMin: AppConstants.NODE_SPACING_MIN,
             nodeSpacingMax: AppConstants.NODE_SPACING_MAX,
             diagramRequest: {
@@ -82,20 +84,20 @@ export default class ViewStateHelper {
      * @description Syncs the active engine state and safely resets formatting configurations 
      * to prevent parameter bleed when switching between rendering engines.
      * @param {Event} oEvent - The Select change event.
-     * @param {JSONModel} oUiModel - The bound UI configuration model.
+     * @param {JSONModel} uiModel - The bound UI configuration model.
      * @returns {string} The newly selected engine ID.
      */
-    public static handleEngineChange(oEvent: Event, oUiModel: JSONModel): string {
-        const sEngine = (oEvent.getSource() as Select).getSelectedKey();
+    public static handleEngineChange(oEvent: Event, uiModel: JSONModel): string {
+        const engineId = (oEvent.getSource() as Select).getSelectedKey();
         
-        oUiModel.setProperty("/activeEngine", sEngine);
-        oUiModel.setProperty("/supportsInteractiveMode", Renderer.supportsInteractiveMode(sEngine));
-        oUiModel.setProperty("/supportsAdvancedFormatting", Renderer.supportsAdvancedFormatting(sEngine));
+        uiModel.setProperty("/activeEngine", engineId);
+        uiModel.setProperty("/supportsInteractiveMode", Renderer.supportsInteractiveMode(engineId));
+        uiModel.setProperty("/supportsAdvancedFormatting", Renderer.supportsAdvancedFormatting(engineId));
         
         // Reset all format configurations to their defaults
-        Renderer.resetFormatConfigs(oUiModel);
+        Renderer.resetFormatConfigs(uiModel);
 
-        return sEngine;
+        return engineId;
     }
 
     /**
@@ -136,12 +138,12 @@ export default class ViewStateHelper {
      * @static
      * @description Checks if the View's DOM element is physically painted and visible.
      * Protects global event listeners from firing when the Fiori Launchpad suspends the app in the background.
-     * @param {View} oView - The active UI5 view.
+     * @param {View} activeView - The active UI5 view.
      * @returns {boolean} True if the view is actively visible on the screen.
      */
-    public static isViewVisible(oView: View): boolean {
-        if (!oView) return false;
-        const oDomRef = oView.getDomRef() as HTMLElement;
+    public static isViewVisible(activeView: View): boolean {
+        if (!activeView) return false;
+        const oDomRef = activeView.getDomRef() as HTMLElement;
         // Ensure the element is actually painted and takes up physical space
         return !!oDomRef && oDomRef.offsetWidth > 0 && oDomRef.offsetHeight > 0;
     }
@@ -161,8 +163,8 @@ export default class ViewStateHelper {
             
         const oRootControl = oComponent?.getRootControl();
         
-        const oUiModel = oComponent?.getModel("ui") as JSONModel;
-        if (oUiModel) oUiModel.setProperty("/isFetching", bBusy); // Engage/Release the global keyboard hardware lock
+        const uiModel = oComponent?.getModel("ui") as JSONModel;
+        if (uiModel) uiModel.setProperty("/isFetching", bBusy); // Engage/Release the global keyboard hardware lock
 
         if (bBusy) {
             let sDisplayText = typeof sTextOptions === "string" ? sTextOptions : undefined;

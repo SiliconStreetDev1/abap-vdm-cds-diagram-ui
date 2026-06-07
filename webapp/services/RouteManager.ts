@@ -41,6 +41,10 @@ export default class RouteManager {
         window.addEventListener("hashchange", this.hashChangeBind);
     }
 
+    /**
+     * @public
+     * @description Executes detachRoutes functionality.
+     */
     public detachRoutes(): void {
         const router = this.component.getRouter();
         if (router) {

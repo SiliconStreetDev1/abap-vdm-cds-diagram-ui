@@ -1,6 +1,7 @@
 /**
  * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines
  * @fileoverview Unified interface for all diagram rendering engines.
+ * @description Adheres to strict Enterprise Clean Code standards with pure typings and no Hungarian notation.
  */
 
 export interface IEngineFacade {
@@ -19,6 +20,13 @@ export interface IEngineFacade {
     
     /**
      * @public
+     * @description Exposes gamification and effect plugins specific to this engine.
+     */
+    getAvailableEffects?(): { id: string; name: string; enabled: boolean }[];
+    toggleEffect?(effectId: string, isEnabled: boolean): void;
+
+    /**
+     * @public
      * @description Standardized method to retrieve the maximum allowable payload size (in KB) this engine can safely render.
      */
     getMaxPayloadSize(): number;
@@ -27,7 +35,7 @@ export interface IEngineFacade {
      * @public
      * @description Formats and sanitizes the raw UI configuration into the backend-expected structure.
      */
-    formatBackendConfig?(oRawConfig: Record<string, any>): Record<string, any>;
+    formatBackendConfig?(rawConfig: Record<string, any>): Record<string, any>;
 
     /**
      * @public
@@ -39,41 +47,41 @@ export interface IEngineFacade {
      * @public
      * @description State hydration and extraction overrides for Variant and Undo persistence.
      */
-    applyStateToConfig?(oConfig: Record<string, any>, oState: any): Record<string, any>;
-    extractStateForVariant?(oConfig: Record<string, any>, oCanvasState: any, bSavePositions: boolean): Record<string, any>;
+    applyStateToConfig?(config: Record<string, any>, state: any): Record<string, any>;
+    extractStateForVariant?(config: Record<string, any>, canvasState: any, savePositions: boolean): Record<string, any>;
 
-    render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: Record<string, any>): void | Promise<void>;
-    exportSvg?(sPayload: string, sViewId?: string): string | Promise<string>;
-    exportPng?(sViewId: string): string;
-    toggleMinimap?(sViewId: string, bShow: boolean): void;
-    search?(sViewId: string, sQuery: string): void;
-    updateFormat?(sViewId: string, oFormat: Record<string, any>): void;
-    getCanvasState?(sViewId: string): any;
-    moveNode?(sViewId: string, nodeId: string, position: {x: number, y: number}): void;
-    moveNodes?(sViewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void;
-    setNodesLocked?(sViewId: string, bLocked: boolean): void;
-    runLayout?(sViewId: string): void;
-    showHiddenNodes?(sViewId: string): void;
-    showSpecificNodes?(sViewId: string, aNodeIds: string[]): void;
-    setInteractionMode?(sViewId: string, sMode: "pan" | "select"): void;
-    setTempFocusMode?(sViewId: string, bEnable: boolean): void;
-    clearSelection?(sViewId: string): void;
-    selectAll?(sViewId: string): void;
-    deleteSelection?(sViewId: string): void;
-    deleteSpecificElements?(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void;
-    restoreSelection?(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void;
+    render(viewId: string, payload: string, renderId: string, onError: (msg: string) => void, config?: Record<string, any>): void | Promise<void>;
+    exportSvg?(payload: string, viewId?: string): string | Promise<string>;
+    exportPng?(viewId: string): string;
+    toggleMinimap?(viewId: string, show: boolean): void;
+    search?(viewId: string, query: string): void;
+    updateFormat?(viewId: string, format: Record<string, any>): void;
+    getCanvasState?(viewId: string): any;
+    moveNode?(viewId: string, nodeId: string, position: {x: number, y: number}): void;
+    moveNodes?(viewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void;
+    setNodesLocked?(viewId: string, isLocked: boolean): void;
+    runLayout?(viewId: string): void;
+    showHiddenNodes?(viewId: string): void;
+    showSpecificNodes?(viewId: string, nodeIds: string[]): void;
+    setInteractionMode?(viewId: string, mode: "pan" | "select"): void;
+    setTempFocusMode?(viewId: string, enable: boolean): void;
+    clearSelection?(viewId: string): void;
+    selectAll?(viewId: string): void;
+    deleteSelection?(viewId: string): void;
+    deleteSpecificElements?(viewId: string, notesJson: any, hiddenNodeIds: string[]): void;
+    restoreSelection?(viewId: string, notesJson: any, hiddenNodeIds: string[]): void;
 
     /**
      * @public
      * @description Annotation Management 
      */
-    addNote?(sViewId: string, sText: string, sFontFamily: string): any;
-    editNote?(sViewId: string, sNoteId: string, sText: string, sFontFamily?: string): void;
-    changeNoteColor?(sViewId: string, sNoteId: string, sBgColor: string, sBorderColor: string): void;
+    addNote?(viewId: string, text: string, fontFamily: string): any;
+    editNote?(viewId: string, noteId: string, text: string, fontFamily?: string): void;
+    changeNoteColor?(viewId: string, noteId: string, bgColor: string, borderColor: string): void;
 
     /**
      * @public
      * @description Safely destroys the engine instance and cleans up memory.
      */
-    destroy?(sViewId: string): void;
+    destroy?(viewId: string): void;
 }

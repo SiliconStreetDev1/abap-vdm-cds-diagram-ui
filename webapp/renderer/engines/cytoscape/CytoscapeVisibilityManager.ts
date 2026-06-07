@@ -13,11 +13,11 @@ export default class CytoscapeVisibilityManager {
      * @static
      * @description Restores all hidden nodes to the canvas and notifies the UI.
      */
-    public static showHiddenNodes(sViewId: string, cyInstance: Core): void {
+    public static showHiddenNodes(viewId: string, cyInstance: Core): void {
         if (!cyInstance) return;
         cyInstance.nodes('.hidden').removeClass('hidden').data('isHidden', false);
-        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: sViewId, hasHidden: false, hiddenNodes: [] });
-        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: sViewId });
+        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: viewId, hasHidden: false, hiddenNodes: [] });
+        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: viewId });
     }
 
     /**
@@ -25,9 +25,9 @@ export default class CytoscapeVisibilityManager {
      * @static
      * @description Selectively restores specifically identified nodes to the canvas.
      */
-    public static showSpecificNodes(sViewId: string, cyInstance: Core, aNodeIds: string[]): void {
-        if (!cyInstance || !aNodeIds || aNodeIds.length === 0) return;
-        const selector = aNodeIds.map(id => `#${id}`).join(', ');
+    public static showSpecificNodes(viewId: string, cyInstance: Core, nodeIds: string[]): void {
+        if (!cyInstance || !nodeIds || nodeIds.length === 0) return;
+        const selector = nodeIds.map(id => `#${id}`).join(', ');
         
         let targetNodes = cyInstance.nodes(selector);
         
@@ -39,7 +39,7 @@ export default class CytoscapeVisibilityManager {
         
         const remainingHidden = cyInstance.nodes('.hidden');
         const hiddenList = remainingHidden.map((n: NodeSingular) => ({ id: n.data('id'), label: n.data('label') || n.data('id') }));
-        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: sViewId, hasHidden: remainingHidden.length > 0, hiddenNodes: hiddenList });
-        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: sViewId });
+        EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: viewId, hasHidden: remainingHidden.length > 0, hiddenNodes: hiddenList });
+        EventManager.getInstance().publish("canvas:nodeUnhidden", { viewId: viewId });
     }
 }

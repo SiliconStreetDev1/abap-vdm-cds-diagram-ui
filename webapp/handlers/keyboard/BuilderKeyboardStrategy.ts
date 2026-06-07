@@ -50,8 +50,8 @@ export default class BuilderKeyboardStrategy extends ViewerKeyboardStrategy {
      * @description Opens the dialog prompt to add a new Sticky Note to the canvas.
      */
     private _addNote(): void {
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel && !oUiModel.getProperty(UiState.IS_DRILL_DOWN)) EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() });
+        const uiModel = this._oView.getModel("ui") as JSONModel;
+        if (uiModel && !uiModel.getProperty(UiState.IS_DRILL_DOWN)) EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() });
     }
 
     /**
@@ -59,13 +59,13 @@ export default class BuilderKeyboardStrategy extends ViewerKeyboardStrategy {
      * @description Activates or deactivates the temporary Focus Mode on the currently selected node.
      */
     private _toggleTempFocus(): void {
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
+        const uiModel = this._oView.getModel("ui") as JSONModel;
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        if (oViewModel && oUiModel && oViewModel.getProperty(ViewState.HAS_NODE_SELECTED) && !oUiModel.getProperty("/formatCytoscape/enableFocusMode")) {
+        if (oViewModel && uiModel && oViewModel.getProperty(ViewState.HAS_NODE_SELECTED) && !uiModel.getProperty("/formatCytoscape/enableFocusMode")) {
             const bCurrentFocus = oViewModel.getProperty(ViewState.TEMP_FOCUS_MODE);
             oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, !bCurrentFocus);
-            const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-            Renderer.setTempFocusMode(this._getInstanceId(), sEngine, !bCurrentFocus);
+            const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+            Renderer.setTempFocusMode(this._getInstanceId(), engineId, !bCurrentFocus);
         }
     }
 }

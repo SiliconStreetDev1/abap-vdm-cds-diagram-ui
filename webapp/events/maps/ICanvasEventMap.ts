@@ -5,7 +5,7 @@ export interface ICanvasEventMap {
     "canvas:formatSliderUpdate": { viewId?: string; node_spacing?: number };
     "canvas:nodePositionChanged": { viewId?: string; diagramId?: string; nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number }; engine: string };
     "canvas:nodesPositionChanged": { viewId?: string; diagramId?: string; nodes: { nodeId: string; oldPos: { x: number; y: number }; newPos: { x: number; y: number } }[]; engine: string };
-    "canvas:nodeDragging": { viewId?: string; nodeId: string };
+    "canvas:nodeDragging": { viewId?: string; nodeId: string; position?: { x: number; y: number } };
     "canvas:nodePinned": { viewId?: string };
     "canvas:nodeHidden": { viewId?: string; notesJson?: any; hiddenNodeIds?: string[] };
     "canvas:nodeUnhidden": { viewId?: string };
@@ -21,4 +21,5 @@ export interface ICanvasEventMap {
     "canvas:undoRequest": { viewId?: string };
     "canvas:redoRequest": { viewId?: string };
     "canvas:variantDirty": { viewId?: string };
+    "canvas:edgePlucked": { viewId?: string; nodeId?: string };
 }

@@ -19,8 +19,8 @@ export default class MinimapManager {
      * @static
      * @description Retrieves the stored visibility state of the minimap.
      */
-    public static getShowState(sViewId: string): boolean {
-        return this.showMinimaps.get(sViewId) || false;
+    public static getShowState(viewId: string): boolean {
+        return this.showMinimaps.get(viewId) || false;
     }
 
     /**
@@ -28,25 +28,25 @@ export default class MinimapManager {
      * @static
      * @description Instantiates, toggles, or destroys the cytoscape-navigator plugin based on user UI commands.
      */
-    public static toggle(sViewId: string, cyInstance: Core | undefined, bShow: boolean): void {
-        this.showMinimaps.set(sViewId, bShow);
+    public static toggle(viewId: string, cyInstance: Core | undefined, show: boolean): void {
+        this.showMinimaps.set(viewId, show);
         if (!cyInstance) return;
         
-        let navInstance = this.navInstances.get(sViewId);
-        if (bShow) {
+        let navInstance = this.navInstances.get(viewId);
+        if (show) {
             if (!navInstance && typeof (cyInstance as any).navigator === "function") {
                 navInstance = (cyInstance as any).navigator({ container: false });
-                this.navInstances.set(sViewId, navInstance);
+                this.navInstances.set(viewId, navInstance);
                 const navElem = navInstance.$panel;
                 if (navElem) {
-                    this.minimapCleanups.set(sViewId, this.enhancePanel(sViewId, navElem, cyInstance));
+                    this.minimapCleanups.set(viewId, this.enhancePanel(viewId, navElem, cyInstance));
                 }
                 cyInstance.one("render", () => cyInstance.resize());
             }
         } else if (navInstance) {
-            this.destroy(sViewId);
+            this.destroy(viewId);
         }
-        if (bShow) cyInstance.emit('render');
+        if (show) cyInstance.emit('render');
     }
 
     /**
@@ -54,17 +54,17 @@ export default class MinimapManager {
      * @static
      * @description Safely destroys the minimap plugin instance and cleans up its DOM hooks.
      */
-    public static destroy(sViewId: string): void {
-        const navInstance = this.navInstances.get(sViewId);
+    public static destroy(viewId: string): void {
+        const navInstance = this.navInstances.get(viewId);
         if (navInstance) {
             navInstance.destroy(); // Let the plugin perform its native teardown first
             
-            const fnCleanup = this.minimapCleanups.get(sViewId);
+            const fnCleanup = this.minimapCleanups.get(viewId);
             if (fnCleanup) {
                 fnCleanup();
-                this.minimapCleanups.delete(sViewId);
+                this.minimapCleanups.delete(viewId);
             }
-            this.navInstances.delete(sViewId);
+            this.navInstances.delete(viewId);
         }
     }
 
@@ -76,7 +76,7 @@ export default class MinimapManager {
      * @param {Core} cy - The active Cytoscape.js instance.
      * @returns {() => void} A teardown closure to safely destroy the event listeners.
      */
-    public static enhancePanel(sViewId: string, navElem: unknown, cy: Core): () => void {
+    public static enhancePanel(viewId: string, navElem: unknown, cy: Core): () => void {
         this.ensureDefaultStyles();
 
         // cytoscape-navigator often returns a jQuery object. Extract the raw HTMLElement.
@@ -128,7 +128,7 @@ export default class MinimapManager {
         // Hook into the central Event Bus / DOM Event system to actually close it
         closeHandle.addEventListener("click", (e: MouseEvent) => { 
             e.stopPropagation(); 
-            EventManager.getInstance().publish("canvas:closeMinimapRequest", { viewId: sViewId });
+            EventManager.getInstance().publish("canvas:closeMinimapRequest", { viewId: viewId });
         });
 
         const dragCleanup = this.attachDragLogic(dragHandle, domElem);

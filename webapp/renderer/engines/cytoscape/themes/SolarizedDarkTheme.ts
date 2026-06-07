@@ -1,9 +1,18 @@
 import { BaseTheme } from "./BaseTheme";
 import { IThemeColors } from "./ITheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class SolarizedDarkTheme
+ * @description Enterprise definition for SolarizedDarkTheme.
+ */
 export default class SolarizedDarkTheme extends BaseTheme {
     public id = "solarized_dark";
 
+    /**
+     * @public
+     * @description Executes getColors functionality.
+     */
     public getColors(): IThemeColors {
         return {
             bg: '#002b36',

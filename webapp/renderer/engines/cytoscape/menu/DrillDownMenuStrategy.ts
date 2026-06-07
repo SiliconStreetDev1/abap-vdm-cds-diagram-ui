@@ -7,6 +7,10 @@ import type { Core, NodeCollection, NodeSingular } from "cytoscape";
 import BaseMenuStrategy from "./BaseMenuStrategy";
 
 export default class DrillDownMenuStrategy extends BaseMenuStrategy {
+    /**
+     * @public
+     * @description Executes build functionality.
+     */
     public build(menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string, totalCount: number): void {
         this._buildExplorationTools(menu, targetNodes, cyInstance, suffix, totalCount);
     }

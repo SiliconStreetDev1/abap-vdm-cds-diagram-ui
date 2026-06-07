@@ -33,10 +33,18 @@ export class CommandManager {
         this._redoStack = [];
     }
 
+    /**
+     * @public
+     * @description Executes hasUndo functionality.
+     */
     public hasUndo(): boolean {
         return this._undoStack.length > 0;
     }
 
+    /**
+     * @public
+     * @description Executes hasRedo functionality.
+     */
     public hasRedo(): boolean {
         return this._redoStack.length > 0;
     }

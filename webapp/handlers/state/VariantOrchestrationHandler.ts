@@ -34,16 +34,16 @@ export default class VariantOrchestrationHandler {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
+     * @param {View} activeView - Reference to the active UI5 view.
      * @param {VariantHandler} variantHandler - Handler for variant dialog prompts.
      * @param {DiagramGenerationHandler} generationHandler - Handler for triggering diagram renders.
-     * @param {Function} fnGetText - Delegate function for i18n translations.
+     * @param {Function} getTextDelegate - Delegate function for i18n translations.
      */
-    constructor(oView: View, variantHandler: VariantHandler, generationHandler: DiagramGenerationHandler, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
+    constructor(activeView: View, variantHandler: VariantHandler, generationHandler: DiagramGenerationHandler, getTextDelegate: (k: string, args?: any[]) => string) {
+        this._oView = activeView;
         this._variantHandler = variantHandler;
         this._generationHandler = generationHandler;
-        this._fnGetText = fnGetText;
+        this._fnGetText = getTextDelegate;
     }
 
     /**
@@ -134,8 +134,8 @@ export default class VariantOrchestrationHandler {
 
             ViewStateHelper.setAppBusy(true, this._oView);
             
-            const oUiModel = this._oView.getModel("ui") as JSONModel;
-            const state = StateSyncModule.captureState(oUiModel, intent.name, intent.savePositions, this._oView, this.getInstanceId());
+            const uiModel = this._oView.getModel("ui") as JSONModel;
+            const state = StateSyncModule.captureState(uiModel, intent.name, intent.savePositions, this._oView, this.getInstanceId());
             const targetVariant = existingVariants.find((v: any) => v.name === intent.name);
             const preserveUnlisted = targetVariant ? targetVariant.isUnlisted : false;
             
@@ -272,8 +272,8 @@ export default class VariantOrchestrationHandler {
             const variant = await VariantService.getVariantById(this._odataModel, selectedId);
 
             if (variant) {
-                const oUiModel = this._oView.getModel("ui") as JSONModel;
-                StateSyncModule.applyState(oUiModel, variant, this._oView);
+                const uiModel = this._oView.getModel("ui") as JSONModel;
+                StateSyncModule.applyState(uiModel, variant, this._oView);
                 MessageToast.show(this._fnGetText("msgVariantApplied", [variant.name]));
                 
                 if (this._uiModel) {

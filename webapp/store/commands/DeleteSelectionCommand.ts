@@ -1,6 +1,11 @@
 import { ICommand } from "./ICommand";
 import Renderer from "../../renderer/Renderer";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.store.commands
+ * @class DeleteSelectionCommand
+ * @description Enterprise definition for DeleteSelectionCommand.
+ */
 export class DeleteSelectionCommand implements ICommand {
     public viewId: string;
     public diagramId: string;
@@ -23,6 +28,10 @@ export class DeleteSelectionCommand implements ICommand {
         this._engine = engine;
     }
 
+    /**
+     * @public
+     * @description Executes execute functionality.
+     */
     public execute(): void {
         if (this.isFirstRun) {
             this.isFirstRun = false;
@@ -31,6 +40,10 @@ export class DeleteSelectionCommand implements ICommand {
         Renderer.deleteSpecificElements(this.viewId, this._engine, this.notesJson, this.hiddenNodeIds);
     }
 
+    /**
+     * @public
+     * @description Executes undo functionality.
+     */
     public undo(): void {
         Renderer.restoreSelection(this.viewId, this._engine, this.notesJson, this.hiddenNodeIds);
     }

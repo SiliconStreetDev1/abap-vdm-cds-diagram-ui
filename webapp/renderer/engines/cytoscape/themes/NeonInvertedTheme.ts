@@ -1,9 +1,18 @@
 import { BaseTheme } from "./BaseTheme";
 import { IThemeColors } from "./ITheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class NeonInvertedTheme
+ * @description Enterprise definition for NeonInvertedTheme.
+ */
 export default class NeonInvertedTheme extends BaseTheme {
     public id = "neon_inverted";
 
+    /**
+     * @public
+     * @description Executes getColors functionality.
+     */
     public getColors(): IThemeColors {
         return {
             bg: '#121212',

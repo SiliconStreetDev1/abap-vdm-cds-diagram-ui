@@ -1,0 +1,32 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    
+    <Dialog id="dlgSettings" title="App Configuration" contentWidth="400px" resizable="false" draggable="true" beforeOpen=".onBeforeOpen">
+        <content>
+            <VBox class="sapUiSmallMargin">
+                <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBottom">
+                    <VBox>
+                        <Label text="Global UI Soundscapes" design="Bold" />
+                        <Text text="Enable or disable all overarching atmospheric audio." class="sapUiTinyMarginTop" />
+                    </VBox>
+                    <Switch state="{ui>/enableAudio}" change=".onToggleAudio" />
+                </HBox>
+                
+                <Label text="Gamification Plugins" design="Bold" class="sapUiTinyMarginBottom" visible="{= ${view>/hasEffects} }" />
+                <Text text="Selectively toggle individual interactive diagram effects." class="sapUiSmallMarginBottom" visible="{= ${view>/hasEffects} }" />
+                
+                <List id="listEffects" mode="MultiSelect" items="{view>/availableEffects}" visible="{= ${view>/hasEffects} }">
+                    <StandardListItem title="{view>name}" />
+                </List>
+                
+                <MessageStrip text="No plugins are currently registered for this rendering engine." type="Information" showIcon="true" visible="{= !${view>/hasEffects} }" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button text="Save &amp; Apply" type="Emphasized" press=".onSaveSettings" />
+            <Button text="Cancel" press=".onCloseSettings" />
+        </buttons>
+    </Dialog>
+
+</core:FragmentDefinition>

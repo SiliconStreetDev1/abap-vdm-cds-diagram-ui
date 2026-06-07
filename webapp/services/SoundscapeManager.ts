@@ -6,6 +6,7 @@
 import { EventManager } from "../events/EventManager";
 import { Subscription } from "../events/Subscription";
 import ConfigManager from "../renderer/ConfigManager";
+import { StorageKeys } from "../constants/StorageConstants";
 
 export default class SoundscapeManager {
     private static engine: any = null;
@@ -29,11 +30,7 @@ export default class SoundscapeManager {
 
         this.subscriptions.push(
             eventManager.subscribe("diagram:renderRequest", this.onRenderRequest.bind(this), { attachEventOnce: () => {} }),
-            eventManager.subscribe("canvas:nodePinned", this.onNodePinned.bind(this), { attachEventOnce: () => {} }),
-            eventManager.subscribe("canvas:undoRequest", this.onUndoRequest.bind(this), { attachEventOnce: () => {} }),
-            eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this), { attachEventOnce: () => {} }),
-            eventManager.subscribe("canvas:nodeDragging", this.onNodeDragged.bind(this), { attachEventOnce: () => {} }),
-            eventManager.subscribe("canvas:nodePositionChanged", this.onNodeDropped.bind(this), { attachEventOnce: () => {} })
+            eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this), { attachEventOnce: () => {} })
         );
 
         // ENTERPRISE FIX: The ultimate Autoplay Policy resolution.
@@ -86,7 +83,7 @@ export default class SoundscapeManager {
      * @returns {boolean} True if audio is enabled.
      */
     private static isAudioEnabled(): boolean {
-        return localStorage.getItem("vdmAudioEnabled") !== "false";
+        return localStorage.getItem(StorageKeys.AUDIO_ENABLED) !== "false";
     }
 
     /**
@@ -289,43 +286,23 @@ export default class SoundscapeManager {
         if (this.engine) this.engine.playSFX(128, 50, 0.15, 0.08); 
     }
 
-    private static lastDragSoundTime: number = 0;
-
     /**
-     * @private
+     * @public
      * @static
-     * @description Synthesizes a subtle, organic wooden tick when a node is dragged.
-     * Includes a throttle to prevent audio engine saturation during high-framerate pointer moves.
-     * @returns {Promise<void>}
+     * @description Exposes the internal synthesizer so decoupled plugins can trigger sounds without managing AudioContext.
      */
-    private static async onNodeDragged(): Promise<void> {
-        const now = Date.now();
-        if (now - this.lastDragSoundTime < 80) return; // 80ms throttle (~12Hz)
-        
+    public static async playSFX(waveform: number, frequency: number, volume: number, duration: number): Promise<void> {
         if (!this.isAudioEnabled()) return;
         
-        // Don't await ensureAudioContext to prevent blocking the high-frequency UI thread
         if (!this.audioCtx || this.audioCtx.state === 'suspended') {
-            this.ensureAudioContext();
-            return;
+            await this.ensureAudioContext();
+            await this.lazyInitEngine();
         }
 
-        this.lastDragSoundTime = now;
-        
-        if (this.engine) this.engine.playSFX(128, 400 + Math.random() * 50, 0.04, 0.05); 
-    }
-
-    /**
-     * @private
-     * @static
-     * @description Synthesizes a slightly deeper snap when a node is dropped.
-     * @returns {Promise<void>}
-     */
-    private static async onNodeDropped(): Promise<void> {
-        if (!this.isAudioEnabled()) return;
-        await this.ensureAudioContext();
-        await this.lazyInitEngine();
-        
-        if (this.engine) this.engine.playSFX(128, 300, 0.06, 0.08); 
+        if (this.engine) {
+            // RLO-Engine signature: playSFX(instrumentId, freq, duration, velocity)
+            // 'velocity' determines the note's amplitude/volume in MIDI-style synthesis
+            this.engine.playSFX(waveform, frequency, duration, volume);
+        }
     }
 }

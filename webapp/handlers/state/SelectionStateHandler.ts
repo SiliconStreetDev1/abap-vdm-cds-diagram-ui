@@ -18,12 +18,12 @@ export default class SelectionStateHandler {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
-     * @param {Function} fnGetText - Delegate function for i18n translations.
+     * @param {View} activeView - Reference to the active UI5 view.
+     * @param {Function} getTextDelegate - Delegate function for i18n translations.
      */
-    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
-        this._fnGetText = fnGetText;
+    constructor(activeView: View, getTextDelegate: (k: string, args?: any[]) => string) {
+        this._oView = activeView;
+        this._fnGetText = getTextDelegate;
     }
 
     /**
@@ -93,21 +93,21 @@ export default class SelectionStateHandler {
     public onCanvasStateChanged(oEvent?: globalThis.Event): void {
         const payload = oEvent as any;
         if (payload && payload?.viewId && payload?.viewId !== this._getInstanceId()) return;
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel) {
-            oUiModel.setProperty(UiState.NODES_DRAGGED, true);
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel) {
+            uiModel.setProperty(UiState.NODES_DRAGGED, true);
             this.markDirtyState(false); // <--- Triggers the Warning state on the dropdown
             
-            const sEngine = oUiModel.getProperty(UiState.ACTIVE_ENGINE);
-            const bIsDrillDown = oUiModel.getProperty(UiState.IS_DRILL_DOWN);
+            const engineId = uiModel.getProperty(UiState.ACTIVE_ENGINE);
+            const bIsDrillDown = uiModel.getProperty(UiState.IS_DRILL_DOWN);
             
-            if (sEngine && Renderer.supportsStateCapture(sEngine) && !bIsDrillDown) {
-                const oModelData = oUiModel.getData();
-                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            if (engineId && Renderer.supportsStateCapture(engineId) && !bIsDrillDown) {
+                const oModelData = uiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`);
                 if (sFormatKey) {
-                    oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
-                    const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), sEngine);
-                    oUiModel.setProperty(`/${sFormatKey}/presetPositions`, oCanvasState);
+                    uiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
+                    const oCanvasState = Renderer.getCanvasState(this._getInstanceId(), engineId);
+                    uiModel.setProperty(`/${sFormatKey}/presetPositions`, oCanvasState);
                 }
             }
         }
@@ -120,8 +120,8 @@ export default class SelectionStateHandler {
      * @returns {void}
      */
     public markDirtyState(bResetLayout: boolean): void {
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel) oUiModel.setProperty(UiState.VARIANT_DIRTY, true);
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel) uiModel.setProperty(UiState.VARIANT_DIRTY, true);
 
         const oVariantSelect = this._oView.byId("selVariant") as Select;
         if (oVariantSelect && oVariantSelect.getSelectedKey()) {
@@ -129,13 +129,13 @@ export default class SelectionStateHandler {
             oVariantSelect.setValueStateText(this._fnGetText("msgUnsavedChanges") || "Unsaved changes");
         }
 
-        const sEngine = oUiModel?.getProperty(UiState.ACTIVE_ENGINE);
-        if (bResetLayout && oUiModel && sEngine && Renderer.supportsStateCapture(sEngine)) {
-            const oModelData = oUiModel.getData();
-            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
-            if (sFormatKey && oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
-                oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
-                oUiModel.setProperty(`/${sFormatKey}/presetPositions`, null);
+        const engineId = uiModel?.getProperty(UiState.ACTIVE_ENGINE);
+        if (bResetLayout && uiModel && engineId && Renderer.supportsStateCapture(engineId)) {
+            const oModelData = uiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`);
+            if (sFormatKey && uiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
+                uiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
+                uiModel.setProperty(`/${sFormatKey}/presetPositions`, null);
             }
         }
     }
@@ -146,9 +146,9 @@ export default class SelectionStateHandler {
      * @returns {void}
      */
     public markStaleState(): void {
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel) {
-            oUiModel.setProperty(UiState.IS_CANVAS_STALE, true);
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel) {
+            uiModel.setProperty(UiState.IS_CANVAS_STALE, true);
         }
     }
 }

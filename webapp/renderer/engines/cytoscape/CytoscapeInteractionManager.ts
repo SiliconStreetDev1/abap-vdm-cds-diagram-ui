@@ -11,9 +11,9 @@ export default class CytoscapeInteractionManager {
      * @static
      * @description Modifies internal event listeners to switch between standard canvas panning and node selection mode.
      */
-    public static setInteractionMode(cyInstance: Core, sMode: "pan" | "select"): void {
+    public static setInteractionMode(cyInstance: Core, mode: "pan" | "select"): void {
         if (!cyInstance) return;
-        if (sMode === "select") {
+        if (mode === "select") {
             cyInstance.userPanningEnabled(false);
             cyInstance.boxSelectionEnabled(true);
             cyInstance.autoungrabify(false);

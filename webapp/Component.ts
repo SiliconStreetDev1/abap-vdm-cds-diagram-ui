@@ -14,6 +14,10 @@ export default class Component extends BaseComponent {
         ]
 	};
 
+    /**
+     * @public
+     * @description Executes init functionality.
+     */
     public init() : void {
         // call the base component's init function
         super.init();
@@ -28,6 +32,10 @@ export default class Component extends BaseComponent {
         this.getRouter().initialize();
     }
 
+    /**
+     * @public
+     * @description Executes destroy functionality.
+     */
     public destroy(): void {
         EventManager.getInstance().detachUi5Bridge();
         super.destroy();

@@ -2,6 +2,11 @@ import { ICommand } from "./ICommand";
 import { DiagramStateStore, IPosition } from "../DiagramStateStore";
 import Renderer from "../../renderer/Renderer";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.store.commands
+ * @class MoveNodesCommand
+ * @description Enterprise definition for MoveNodesCommand.
+ */
 export class MoveNodesCommand implements ICommand {
     public viewId: string;
     public diagramId: string;
@@ -20,6 +25,10 @@ export class MoveNodesCommand implements ICommand {
         this._engine = engine;
     }
 
+    /**
+     * @public
+     * @description Executes execute functionality.
+     */
     public execute(): void {
         const stateUpdates = this.nodes.map(n => ({ nodeId: n.nodeId, stateUpdate: { position: n.newPos } }));
         DiagramStateStore.getInstance().setNodeStates(this.viewId, this.diagramId, stateUpdates);
@@ -28,6 +37,10 @@ export class MoveNodesCommand implements ICommand {
         Renderer.moveNodes(this.viewId, this._engine, movePayload);
     }
 
+    /**
+     * @public
+     * @description Executes undo functionality.
+     */
     public undo(): void {
         const stateUpdates = this.nodes.map(n => ({ nodeId: n.nodeId, stateUpdate: { position: n.oldPos } }));
         DiagramStateStore.getInstance().setNodeStates(this.viewId, this.diagramId, stateUpdates);

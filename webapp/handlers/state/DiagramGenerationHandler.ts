@@ -113,8 +113,8 @@ export default class DiagramGenerationHandler {
 
         EventManager.getInstance().publish("video:autoPause", undefined);
 
-        const oUiModel = this.view.getModel("ui") as JSONModel;
-        const request = StateSyncModule.buildRequest(oUiModel, cdsName, engine, this.view);
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        const request = StateSyncModule.buildRequest(uiModel, cdsName, engine, this.view);
         const bIsCached = forceRefresh ? false : DiagramCache.has(request);
 
         // ENTERPRISE UX: Suppress the busy dialog and Fiori blocking if the payload is already in RAM.
@@ -266,16 +266,16 @@ export default class DiagramGenerationHandler {
             const currentCds = uiModel.getProperty(UiState.LAST_GENERATED_CDS);
             
             if (currentCds && !isRestore) {
-                const oUiModel = this.view.getModel("ui") as JSONModel;
-                const currentState = StateSyncModule.captureState(oUiModel, currentCds, true, this.view, this.getInstanceId());
+                const uiModel = this.view.getModel("ui") as JSONModel;
+                const currentState = StateSyncModule.captureState(uiModel, currentCds, true, this.view, this.getInstanceId());
                 DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentCds, currentState);
             }
 
             if (isRestore) {
                 const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), viewName);
                 if (cachedState) {
-                    const oUiModel = this.view.getModel("ui") as JSONModel;
-                    StateSyncModule.applyState(oUiModel, cachedState, this.view);
+                    const uiModel = this.view.getModel("ui") as JSONModel;
+                    StateSyncModule.applyState(uiModel, cachedState, this.view);
                 }
             }
 
@@ -315,8 +315,8 @@ export default class DiagramGenerationHandler {
         if (variantState.cdsName) {
             (this.view.byId("cmbCdsName") as Input).setValue(variantState.cdsName);
         }
-        const oUiModel = this.view.getModel("ui") as JSONModel;
-        StateSyncModule.applyState(oUiModel, variantState, this.view);
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        StateSyncModule.applyState(uiModel, variantState, this.view);
         await this.generate(false, true, true);
     }
 
@@ -353,14 +353,14 @@ export default class DiagramGenerationHandler {
         const targetPath = index > -1 ? links.slice(0, index + 1).map((l: any) => l.name.toUpperCase()).join('|') : (currentPath ? currentPath + '|' : '') + targetCdsName;
 
         if (currentCdsName && currentCdsName !== targetCdsName) {
-            const oUiModel = this.view.getModel("ui") as JSONModel;
-            const currentState = StateSyncModule.captureState(oUiModel, currentCdsName, true, this.view, this.getInstanceId());
+            const uiModel = this.view.getModel("ui") as JSONModel;
+            const currentState = StateSyncModule.captureState(uiModel, currentCdsName, true, this.view, this.getInstanceId());
             DiagramStateStore.getInstance().setVariantState(this.getInstanceId(), currentPath, currentState);
         }
         const cachedState = DiagramStateStore.getInstance().getVariantState(this.getInstanceId(), targetPath);
         if (cachedState) {
-            const oUiModel = this.view.getModel("ui") as JSONModel;
-            StateSyncModule.applyState(oUiModel, cachedState, this.view);
+            const uiModel = this.view.getModel("ui") as JSONModel;
+            StateSyncModule.applyState(uiModel, cachedState, this.view);
             this.handleDrillDown(viewName, true);
             return;
         }

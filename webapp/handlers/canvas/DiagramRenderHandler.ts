@@ -26,12 +26,12 @@ export default class DiagramRenderHandler {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
-     * @param {Function} fnGetText - Delegate function for i18n translations.
+     * @param {View} activeView - Reference to the active UI5 view.
+     * @param {Function} getTextDelegate - Delegate function for i18n translations.
      */
-    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string) {
-        this._oView = oView;
-        this._fnGetText = fnGetText;
+    constructor(activeView: View, getTextDelegate: (k: string, args?: any[]) => string) {
+        this._oView = activeView;
+        this._fnGetText = getTextDelegate;
     }
 
     /**
@@ -159,13 +159,13 @@ export default class DiagramRenderHandler {
      * @description Main entry point for bootstrapping a UI update using a fresh backend graph payload.
      * Parses payload configuration metadata into the `diagramData` model before routing it to WASM/JS adapters.
      * @param {IRenderRequestPayload} oData - Complex object with graph topologies.
-     * @param {HTML} oHtmlControl - Physical HTML surface that will host the visual map.
+     * @param {HTML} htmlControl - Physical HTML surface that will host the visual map.
      */
-    public handleRenderRequest(oData: IRenderRequestPayload, oHtmlControl: HTML): void {
+    public handleRenderRequest(oData: IRenderRequestPayload, htmlControl: HTML): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
-        const oDataModel = this._oView.getModel("diagramData") as JSONModel;
+        const dataModel = this._oView.getModel("diagramData") as JSONModel;
 
-        if (!oViewModel || !oDataModel) return;
+        if (!oViewModel || !dataModel) return;
 
         const bSupportsMinimap = Renderer.supportsMinimap(oData.engine);
         if (!bSupportsMinimap) {
@@ -178,7 +178,7 @@ export default class DiagramRenderHandler {
         this.resetState();
 
         // 1. Persist the payload for export operations
-        oDataModel.setData({
+        dataModel.setData({
             payload: oData.payload,
             extension: oData.extension,
             cdsName: oData.cdsName,
@@ -199,18 +199,18 @@ export default class DiagramRenderHandler {
         const bIsDrillDown = !!(oData.rootCdsName && oData.cdsName !== oData.rootCdsName);
         oViewModel.setProperty(ViewState.IS_SELECT_MODE, false); // Re-enforce default tool on new renders
 
-        const oUiModel = this._oView.getModel("ui") as JSONModel;
-        if (oUiModel) {
-            oUiModel.setProperty(UiState.IS_DRILL_DOWN, bIsDrillDown);
+        const uiModel = this._oView.getModel("ui") as JSONModel;
+        if (uiModel) {
+            uiModel.setProperty(UiState.IS_DRILL_DOWN, bIsDrillDown);
             
             if (Renderer.supportsStateCapture(oData.engine)) {
-                const oModelData = oUiModel.getData();
+                const oModelData = uiModel.getData();
                 const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${oData.engine}`);
                 if (sFormatKey) {
                     if (oData.engineConfig?.presetPositions && (!bIsDrillDown || oData.engineConfig.isRestore)) {
-                        oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
-                    } else if (bIsDrillDown && !oData.engineConfig?.isRestore && oUiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
-                        oUiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
+                        uiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "preset");
+                    } else if (bIsDrillDown && !oData.engineConfig?.isRestore && uiModel.getProperty(`/${sFormatKey}/layout_algorithm`) === "preset") {
+                        uiModel.setProperty(`/${sFormatKey}/layout_algorithm`, "dagre");
                     }
                 }
             }
@@ -222,7 +222,7 @@ export default class DiagramRenderHandler {
 
         // 4. Trigger the WASM/JS rendering engine
         try {
-            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, oHtmlControl, (sMsg: string) => this.showError(sMsg), oData.engineConfig)
+            Renderer.renderDiagram(this._getInstanceId(), oData.engine, oData.payload, htmlControl, (sMsg: string) => this.showError(sMsg), oData.engineConfig)
                 .catch((oError: any) => this.showError(oError.message || "Asynchronous rendering failure."));
         } catch (oError: any) {
             this.showError(oError.message);

@@ -20,13 +20,13 @@ export default class ExportPipelineModule {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
-     * @param {Function} fnGetText - Delegate function for i18n translations.
+     * @param {View} activeView - Reference to the active UI5 view.
+     * @param {Function} getTextDelegate - Delegate function for i18n translations.
      * @param {Function} fnShowError - Delegate function for error handling.
      */
-    constructor(oView: View, fnGetText: (k: string, args?: any[]) => string, fnShowError: (m: string) => void) {
-        this._oView = oView;
-        this._fnGetText = fnGetText;
+    constructor(activeView: View, getTextDelegate: (k: string, args?: any[]) => string, fnShowError: (m: string) => void) {
+        this._oView = activeView;
+        this._fnGetText = getTextDelegate;
         this._fnShowError = fnShowError;
     }
 
@@ -99,9 +99,9 @@ export default class ExportPipelineModule {
      * @description Copies the raw backend payload to the user's system clipboard.
      */
     public copySyntax(): void {
-        const sPayload: string = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.PAYLOAD);
+        const payload: string = (this._oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.PAYLOAD);
         if (navigator?.clipboard) {
-            navigator.clipboard.writeText(sPayload)
+            navigator.clipboard.writeText(payload)
                 .then(() => MessageToast.show(this._fnGetText("msgCopied")))
                 .catch((e: any) => this._fnShowError("Clipboard Access Denied: " + (e.message || "Check browser permissions.")));
         } else {

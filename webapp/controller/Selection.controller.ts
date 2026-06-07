@@ -171,6 +171,10 @@ export default class Selection extends Controller {
         await this.variantOrchestrator.changeVariant(e); 
     }
     public async onRevertVariant(): Promise<void> { await this.variantOrchestrator.revertVariant(); }
+    /**
+     * @public
+     * @description Executes onClearVariant functionality.
+     */
     public onClearVariant(): void { this.variantOrchestrator.clearVariant(); }
     public async onShareVariant(): Promise<void> { await this.variantOrchestrator.shareVariant(); }
     public async onRevokeShare(): Promise<void> { await this.variantOrchestrator.revokeShare(); }

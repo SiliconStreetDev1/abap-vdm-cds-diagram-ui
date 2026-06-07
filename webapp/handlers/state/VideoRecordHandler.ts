@@ -109,8 +109,8 @@ export default class VideoRecordHandler {
         // 1. Polymorphic Factory Instantiation
         if (mode === "CANVAS") {
             const diagramModel = this.view.getModel("diagramData") as JSONModel;
-            const sEngine = diagramModel ? diagramModel.getProperty(DiagramData.ENGINE) : "";
-            if (!Renderer.supportsInteractiveMode(sEngine)) {
+            const engineId = diagramModel ? diagramModel.getProperty(DiagramData.ENGINE) : "";
+            if (!Renderer.supportsInteractiveMode(engineId)) {
                 this.handleRecordingError("Diagram Only mode is only supported for interactive engines. Please use Entire Screen mode for SVG diagrams.");
                 return;
             }

@@ -24,8 +24,8 @@ export default class Main extends Controller {
      * @returns {void}
      */
     public onInit(): void {
-        const oView = this.getView();
-        if (!oView) return;
+        const activeView = this.getView();
+        if (!activeView) return;
 
         // Initialize the base UI state from your helper
         const oUiModel = ViewStateHelper.initializeUiModel();
@@ -55,7 +55,7 @@ export default class Main extends Controller {
             this._routeManager = new RouteManager(component);
             this._routeManager.attachRoutes();
         } else {
-            oView.setModel(oUiModel, ModelNames.UI);
+            activeView.setModel(oUiModel, ModelNames.UI);
         }
     }
 

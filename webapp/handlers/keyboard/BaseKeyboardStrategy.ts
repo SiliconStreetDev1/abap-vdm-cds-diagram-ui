@@ -20,10 +20,10 @@ export default abstract class BaseKeyboardStrategy {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
+     * @param {View} activeView - Reference to the active UI5 view.
      */
-    constructor(oView: View) {
-        this._oView = oView;
+    constructor(activeView: View) {
+        this._oView = activeView;
     }
 
     /**
@@ -52,8 +52,8 @@ export default abstract class BaseKeyboardStrategy {
     public setMode(sMode: "pan" | "select"): void {
         const oViewModel = this._oView.getModel("view") as JSONModel;
         if (oViewModel) oViewModel.setProperty(ViewState.IS_SELECT_MODE, sMode === "select");
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-        Renderer.setInteractionMode(this._getInstanceId(), sEngine, sMode);
+        const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+        Renderer.setInteractionMode(this._getInstanceId(), engineId, sMode);
     }
 
     /**
@@ -61,8 +61,8 @@ export default abstract class BaseKeyboardStrategy {
      * @description Drops all current selections from the canvas.
      */
     protected _clearSelection(): void {
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-        Renderer.clearSelection(this._getInstanceId(), sEngine);
+        const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+        Renderer.clearSelection(this._getInstanceId(), engineId);
     }
 
     /**
@@ -70,8 +70,8 @@ export default abstract class BaseKeyboardStrategy {
      * @description Selects all interactable entities on the canvas.
      */
     protected _selectAll(): void {
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-        Renderer.selectAll(this._getInstanceId(), sEngine);
+        const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+        Renderer.selectAll(this._getInstanceId(), engineId);
     }
 
     /**
@@ -83,8 +83,8 @@ export default abstract class BaseKeyboardStrategy {
         if (oViewModel && oViewModel.getProperty(ViewState.HAS_DIAGRAM) && oViewModel.getProperty(ViewState.CAN_SHOW_MINIMAP)) {
             const bShow = !oViewModel.getProperty(ViewState.SHOW_MINIMAP);
             oViewModel.setProperty(ViewState.SHOW_MINIMAP, bShow);
-            const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-            Renderer.toggleMinimap(this._getInstanceId(), sEngine, bShow);
+            const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+            Renderer.toggleMinimap(this._getInstanceId(), engineId, bShow);
         }
     }
 
@@ -94,8 +94,8 @@ export default abstract class BaseKeyboardStrategy {
      * Propagates a deletion request to the EventManager for State tracking.
      */
     protected _deleteSelection(): void {
-        const sEngine = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
-        Renderer.deleteSelection(this._getInstanceId(), sEngine);
+        const engineId = (this._oView.getModel("diagramData") as JSONModel)?.getProperty(DiagramData.ENGINE);
+        Renderer.deleteSelection(this._getInstanceId(), engineId);
         EventManager.getInstance().publish("canvas:deleteSelectionRequest", { viewId: this._getInstanceId() });
     }
 

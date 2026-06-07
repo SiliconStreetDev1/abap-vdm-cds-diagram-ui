@@ -1,9 +1,18 @@
 import { BaseTheme } from "./BaseTheme";
 import { IThemeColors } from "./ITheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class GlassmorphismTheme
+ * @description Enterprise definition for GlassmorphismTheme.
+ */
 export default class GlassmorphismTheme extends BaseTheme {
     public id = "glassmorphism";
 
+    /**
+     * @public
+     * @description Executes getColors functionality.
+     */
     public getColors(): IThemeColors {
         return {
             bg: '#1c1c1c', // Fallback, usually overridden by full UI gradient

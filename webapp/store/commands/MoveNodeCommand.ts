@@ -24,6 +24,10 @@ export class MoveNodeCommand implements ICommand {
         this._engine = engine;
     }
 
+    /**
+     * @public
+     * @description Executes execute functionality.
+     */
     public execute(): void {
         DiagramStateStore.getInstance().setNodeState(this._viewId, this._diagramId, this._nodeId, { position: this._newPos });
         
@@ -31,6 +35,10 @@ export class MoveNodeCommand implements ICommand {
         Renderer.moveNode(this._viewId, this._engine, this._nodeId, this._newPos);
     }
 
+    /**
+     * @public
+     * @description Executes undo functionality.
+     */
     public undo(): void {
         DiagramStateStore.getInstance().setNodeState(this._viewId, this._diagramId, this._nodeId, { position: this._oldPos });
         

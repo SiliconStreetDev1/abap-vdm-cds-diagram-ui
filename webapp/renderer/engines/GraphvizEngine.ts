@@ -41,19 +41,19 @@ export default class GraphvizEngine {
      * @static
      * @description Formats the raw UI configuration for the backend payload.
      */
-    public static formatBackendConfig(oRawConfig: Record<string, any>): Record<string, any> {
-        const oFormatConfig = Object.assign({}, oRawConfig);
-        oFormatConfig.ortho = (oFormatConfig.lineStyle === "ortho");
-        oFormatConfig.polyline = (oFormatConfig.lineStyle === "polyline");
-        delete oFormatConfig.lineStyle;
-        return oFormatConfig;
+    public static formatBackendConfig(rawConfig: Record<string, any>): Record<string, any> {
+        const formatConfig = Object.assign({}, rawConfig);
+        formatConfig.ortho = (formatConfig.lineStyle === "ortho");
+        formatConfig.polyline = (formatConfig.lineStyle === "polyline");
+        delete formatConfig.lineStyle;
+        return formatConfig;
     }
 
     /**
      * @public
      * @description Handled by the UI5 Fiori DomManager clearing the innerHTML.
      */
-    public static destroy(sViewId: string): void {
+    public static destroy(viewId: string): void {
         // No explicit persistent memory instances required for D3 selections.
     }
 
@@ -61,12 +61,12 @@ export default class GraphvizEngine {
      * @public
      * @static
      * @description Executes DOT syntax against the Graphviz engine in the active view.
-     * @param {string} sPayload - DOT Syntax
-     * @param {string} sRenderId - DOM Element target
-     * @param {Function} fnOnError - Error handler
+     * @param {string} payload - DOT Syntax
+     * @param {string} renderId - DOM Element target
+     * @param {Function} onError - Error handler
      * @returns {Promise<void>}
      */
-    public static async render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): Promise<void> {
+    public static async render(viewId: string, payload: string, renderId: string, onError: (msg: string) => void): Promise<void> {
         const config = ConfigManager.get();
 
         try {
@@ -78,7 +78,7 @@ export default class GraphvizEngine {
                 throw new Error("d3-graphviz plugin failed to bind to global D3 object.");
             }
 
-            d3.select(`#${sRenderId}`)
+            d3.select(`#${renderId}`)
                 .graphviz({ useWorker: false })
                 .tweenPaths(false)  
                 .tweenShapes(false)
@@ -89,7 +89,7 @@ export default class GraphvizEngine {
                     // The standard zoom manager attaches a d3 zoom behavior which overwrites the transform 
                     // of the first <g> element upon the first zoom/pan, causing the diagram to jump.
                     // We wrap graph0 in an identity <g> so the zoom manager targets the wrapper instead.
-                    const oSvg = document.querySelector(`#${sRenderId} svg`);
+                    const oSvg = document.querySelector(`#${renderId} svg`);
                     const oGraph = oSvg?.querySelector("#graph0");
                     if (oSvg && oGraph && oGraph.parentNode) {
                         const oWrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -100,12 +100,12 @@ export default class GraphvizEngine {
 
                     // Delegate zoom and pan to the standard DOM Manager
                     // so it can seamlessly sync with the custom minimap
-                    DomManager.attachStandardZoom(sRenderId);
+                    DomManager.attachStandardZoom(renderId);
                 })
-                .renderDot(sPayload);
+                .renderDot(payload);
 
         } catch (e: any) {
-            fnOnError(`Graphviz Engine Error: ${e.message}`);
+            onError(`Graphviz Engine Error: ${e.message}`);
         }
     }
 
@@ -114,10 +114,10 @@ export default class GraphvizEngine {
      * @static
      * @description Headless execution context for Graphviz. Spawns an isolated D3 instance 
      * in an unattached DOM fragment to generate a clean, independent SVG string.
-     * @param {string} sPayload - The raw DOT syntax.
+     * @param {string} payload - The raw DOT syntax.
      * @returns {Promise<string>} A promise resolving to the raw SVG string.
      */
-    public static async exportSvg(sPayload: string, sViewId?: string): Promise<string> {
+    public static async exportSvg(payload: string, viewId?: string): Promise<string> {
         const config = ConfigManager.get();
         await NetworkManager.loadScript(config.localPaths?.d3, config.cdnPaths?.d3);
         await NetworkManager.loadScript(config.localPaths?.graphvizWasm, config.cdnPaths?.graphvizWasm);
@@ -140,7 +140,7 @@ export default class GraphvizEngine {
                     .on("end", () => {
                         resolve(oDetachedDiv.innerHTML);
                     })
-                    .renderDot(sPayload);
+                    .renderDot(payload);
                     
             } catch (e: any) {
                 reject(new Error(`Graphviz Export Error: ${e.message}`));

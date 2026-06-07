@@ -13,15 +13,18 @@ import Event from "sap/ui/base/Event";
 import ResourceModel from "sap/ui/model/resource/ResourceModel";
 import ResourceBundle from "sap/base/i18n/ResourceBundle";
 import Control from "sap/ui/core/Control";
-import MessageToast from "sap/m/MessageToast";
-import { SearchField$SearchEvent } from "sap/m/SearchField";
+import Fragment from "sap/ui/core/Fragment";
 import Link from "sap/m/Link";
+import { SearchField$SearchEvent } from "sap/m/SearchField";
 import UIComponent from "sap/ui/core/UIComponent";
 
 import ToolboxManager from "../handlers/ToolboxManager";
 import ExportPipelineModule from "../services/ExportPipelineModule";
 import Renderer from "../renderer/Renderer";
 import ContextHelpManager from "../helpers/ContextHelpManager";
+import SettingsDialogController from "./SettingsDialog.controller";
+import DiagramModelInit from "../helpers/DiagramModelInit";
+import DiagramRoutingManager from "../helpers/DiagramRoutingManager";
 import { ViewState, UiState, ModelNames, DiagramData } from "../constants/StateConstants";
 
 import SoundscapeManager from "../services/SoundscapeManager";
@@ -30,7 +33,8 @@ import { DiagramStateStore } from "../store/DiagramStateStore";
 
 export default class Diagram extends Controller {
     
-    private _exportPipelineModule!: ExportPipelineModule;
+    private exportPipelineModule!: ExportPipelineModule;
+    private _pSettingsDialog?: Promise<Control>;
     
     /**
      * @private
@@ -47,62 +51,45 @@ export default class Diagram extends Controller {
      * @returns {void}
      */
     public onInit(): void {
-        const oView = this.getView();
-        if (!oView) return;
+        const activeView = this.getView();
+        if (!activeView) {
+            return;
+        }
 
-        // Local UI state model (controls Toolbar visibility and icons)
-        oView.setModel(new JSONModel({ 
-            hasDiagram: false, 
-            hasError: false, 
-            errorText: "", 
-            canExportImg: false,
-            canExportSource: false,
-            showMinimap: false,
-            canShowMinimap: false,
-            canSearch: false,
-            fullScreenIcon: "sap-icon://full-screen", // Default icon state
-            isFullScreen: false,
-            hasHiddenNodes: false,
-            isSelectMode: true,
-            isFocusMode: false,
-            focusNodeName: "",
-            hasNodeSelected: false,
-            tempFocusMode: false
-        }), ModelNames.VIEW);
-        
-        // Data model storage required for ExportHandler operations
-        oView.setModel(new JSONModel({ 
-            payload: "", 
-            extension: "", 
-            cdsName: "", 
-            engine: "",
-            rootCdsName: "",
-            breadcrumbLinks: [],
-            currentBreadcrumb: ""
-        }), ModelNames.DIAGRAM_DATA);
+        DiagramModelInit.bootstrapModels(activeView);
 
         // Initialize the Toolbox Manager for all canvas interaction handlers
-        ToolboxManager.bootstrap(this._getInstanceId(), oView, this._getText.bind(this));
+        ToolboxManager.bootstrap(this._getInstanceId(), activeView, this._getText.bind(this));
 
         // Initialize the new unified Export Pipeline
-        const oRenderHandler = ToolboxManager.getRenderHandler(this._getInstanceId());
-        this._exportPipelineModule = new ExportPipelineModule(oView, this._getText.bind(this), oRenderHandler ? oRenderHandler.showError.bind(oRenderHandler) : () => {});
+        const renderHandler = ToolboxManager.getRenderHandler(this._getInstanceId());
+        this.exportPipelineModule = new ExportPipelineModule(activeView, this._getText.bind(this), renderHandler ? renderHandler.showError.bind(renderHandler) : () => {});
     }
 
     /**
      * @public
-     * @description Cleans up global event listeners to prevent memory leaks when the controller is destroyed.
+     * @description Cleans up global event listeners and explicitly destroys asynchronous UI5 
+     * components to guarantee deterministic garbage collection and prevent memory leaks.
      */
     public onExit(): void {
         ToolboxManager.destroy(this._getInstanceId());
-
         ContextHelpManager.destroy(this._getInstanceId());
 
-        // CLEANUP: Destroy static engine instances and WebGL contexts to prevent memory leaks in the Fiori Launchpad
+        // CLEANUP: Destroy static engine instances and WebGL contexts
         Renderer.destroyActiveEngine(this._getInstanceId());
         
         // CLEANUP: Free the Redux-like state store for this view instance
         DiagramStateStore.getInstance().clearDiagramState(this._getInstanceId());
+
+        // CLEANUP: Explicitly destroy the dynamically loaded Settings Fragment
+        if (this._pSettingsDialog) {
+            this._pSettingsDialog.then((settingsDialogControl: any) => {
+                if (settingsDialogControl && !settingsDialogControl.bIsDestroyed) {
+                    settingsDialogControl.destroy();
+                }
+            });
+            this._pSettingsDialog = undefined;
+        }
     }
 
     // ========================================================================
@@ -115,67 +102,91 @@ export default class Diagram extends Controller {
      * @returns {void}
      */
     public onCloneToWorkspace(): void {
-        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
-        if (!oUiModel) return;
-
-        // 1. Detach the original creator's Variant UUID from memory
-        oUiModel.setProperty(UiState.SELECTED_VARIANT, "");
-        oUiModel.setProperty(UiState.VARIANT_DIRTY, true);
-
-        // 2. Restore Builder interaction constraints
-        oUiModel.setProperty(UiState.IS_VIEWER_MODE, false);
-        oUiModel.setProperty(UiState.FCL_LAYOUT, "TwoColumnsMidExpanded");
-
-        // 3. Purge the deep link from the URL without triggering an OS-level page reload
-        const oRouter = (this.getOwnerComponent() as UIComponent)?.getRouter();
-        if (oRouter) {
-            oRouter.navTo("RouteMain", {}, undefined, true);
-        }
+        const activeView = this.getView();
+        const ownerComponent = this.getOwnerComponent() as UIComponent;
         
-        // Re-hydrate the Selection pane with the cloned variant's state
-        const variantState = oUiModel.getProperty("/loadedVariantState");
-        if (variantState) {
-            
-            // ENTERPRISE FIX: Capture LIVE viewer changes (pins, hidden nodes, pan/zoom) before cloning
-            const oDataModel = this.getView()?.getModel(ModelNames.DIAGRAM_DATA) as JSONModel;
-            if (oDataModel) {
-                const sEngine = oDataModel.getProperty(DiagramData.ENGINE);
-                if (sEngine && Renderer.supportsStateCapture(sEngine)) {
-                    const liveState = Renderer.getCanvasState(this._getInstanceId(), sEngine);
-                    if (liveState) {
-                        variantState.canvasState = liveState;
-                    }
-                }
-            }
-
-            oUiModel.setProperty("/clonedVariantName", variantState.name ? `Copy of ${variantState.name}` : "");
-            EventManager.getInstance().publish("diagram:applyVariantState", variantState);
+        if (activeView) {
+            DiagramRoutingManager.cloneToWorkspace(activeView, ownerComponent, this._getInstanceId());
         }
-
-        MessageToast.show(this._getText("msgClonedToWorkspace"));
     }
     // CANVAS ACTION DELEGATIONS
     // ========================================================================
     
+    /**
+     * @public
+     * @description Executes onUndo functionality.
+     */
     public onUndo(): void {
         if (typeof document !== "undefined") {
             EventManager.getInstance().publish("canvas:undoRequest", { viewId: this._getInstanceId() });
         }
     }
 
+    /**
+     * @public
+     * @description Executes onToggleFullScreen functionality.
+     */
     public onToggleFullScreen(): void { ToolboxManager.getFullScreenHandler(this._getInstanceId())?.toggleFullScreen(this.getView() as Control); }
+    /**
+     * @public
+     * @description Executes onToggleMinimap functionality.
+     */
     public onToggleMinimap(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.toggleMinimap(oEvent); }
+    /**
+     * @public
+     * @description Executes onChangeInteractionMode functionality.
+     */
     public onChangeInteractionMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.changeInteractionMode(oEvent); }
+    /**
+     * @public
+     * @description Executes onSpacingChange functionality.
+     */
     public onSpacingChange(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.changeSpacing(); }
+    /**
+     * @public
+     * @description Executes onToggleTempFocusMode functionality.
+     */
     public onToggleTempFocusMode(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.toggleTempFocusMode(oEvent); }
+    /**
+     * @public
+     * @description Executes onClearFocus functionality.
+     */
     public onClearFocus(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.clearSelection(); }
+    /**
+     * @public
+     * @description Executes onSelectAll functionality.
+     */
     public onSelectAll(): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.selectAll(); }
+    /**
+     * @public
+     * @description Executes onAddNote functionality.
+     */
     public onAddNote(): void { EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._getInstanceId() }); }
 
+    /**
+     * @public
+     * @description Executes onOpenHiddenNodes functionality.
+     */
     public onOpenHiddenNodes(): void { EventManager.getInstance().publish("ui:openDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
+    /**
+     * @public
+     * @description Executes onCloseHiddenNodes functionality.
+     */
     public onCloseHiddenNodes(): void { EventManager.getInstance().publish("ui:closeDialog", { viewId: this._getInstanceId(), dialogType: "HiddenNodes" }); }
+    /**
+     * @public
+     * @description Executes onRestoreSelectedNodes functionality.
+     */
     public onRestoreSelectedNodes(): void { EventManager.getInstance().publish("ui:restoreSelectedNodes", { viewId: this._getInstanceId() }); }
+    /**
+     * @public
+     * @description Executes onShowHiddenNodes functionality.
+     */
     public onShowHiddenNodes(): void { EventManager.getInstance().publish("ui:showAllHiddenNodes", { viewId: this._getInstanceId() }); }
+    /**
+     * @public
+     * @description Executes onShowSpacing functionality.
+     */
     public onShowSpacing(oEvent: Event): void { ToolboxManager.getCanvasActionHandler(this._getInstanceId())?.showSpacingPopover(oEvent); }
 
     /**
@@ -194,8 +205,8 @@ export default class Diagram extends Controller {
      */
     public onBreadcrumbPress(oEvent: Event): void {
         // ENTERPRISE SECURE: Block breadcrumb drill-downs in read-only Viewer Mode
-        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel && oUiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
+        const uiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel && uiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
 
         const oLink = oEvent.getSource() as Link;
         const sViewName = oLink.getText();
@@ -210,8 +221,8 @@ export default class Diagram extends Controller {
      */
     public onFocusDrillDown(): void {
         // ENTERPRISE SECURE: Block popup drill-downs in read-only Viewer Mode
-        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel && oUiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
+        const uiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel && uiModel.getProperty(UiState.IS_VIEWER_MODE)) return;
 
         const sViewName = (this.getView()?.getModel(ModelNames.VIEW) as JSONModel)?.getProperty(ViewState.FOCUS_NODE_NAME);
         if (sViewName) {
@@ -254,31 +265,80 @@ export default class Diagram extends Controller {
     // EXPORT DELEGATIONS
     // ========================================================================
 
-    public onDownloadPng(): void   { this._exportPipelineModule.downloadPng(); }
-    public onDownloadImage(): void { this._exportPipelineModule.downloadSvg(); }
-    public onDownloadSource(): void{ this._exportPipelineModule.downloadSource(); }
-    public onCopySyntax(): void    { this._exportPipelineModule.copySyntax(); }
+    /**
+     * @public
+     * @description Executes onDownloadPng functionality.
+     */
+    public onDownloadPng(): void   { this.exportPipelineModule.downloadPng(); }
+    /**
+     * @public
+     * @description Executes onDownloadImage functionality.
+     */
+    public onDownloadImage(): void { this.exportPipelineModule.downloadSvg(); }
+    /**
+     * @public
+     * @description Executes onDownloadSource functionality.
+     */
+    public onDownloadSource(): void{ this.exportPipelineModule.downloadSource(); }
+    /**
+     * @public
+     * @description Executes onCopySyntax functionality.
+     */
+    public onCopySyntax(): void    { this.exportPipelineModule.copySyntax(); }
 
     // ========================================================================
     // VIDEO RECORDING DELEGATIONS
     // ========================================================================
 
+    /**
+     * @public
+     * @description Executes onStartRecording functionality.
+     */
     public onStartRecording(): void  { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.startRecording(); }
+    /**
+     * @public
+     * @description Executes onStopRecording functionality.
+     */
     public onStopRecording(): void   { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.stopRecording(); }
+    /**
+     * @public
+     * @description Executes onPauseRecording functionality.
+     */
     public onPauseRecording(): void  { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.pauseRecording(); }
+    /**
+     * @public
+     * @description Executes onResumeRecording functionality.
+     */
     public onResumeRecording(): void { ToolboxManager.getVideoRecordHandler(this._getInstanceId())?.resumeRecording(); }
+
+    // ========================================================================
+    // APP CONFIGURATION / SETTINGS
+    // ========================================================================
 
     /**
      * @public
-     * @description Toggles UI Soundscapes and persists user preference to LocalStorage.
-     * @param {Event} oEvent - The toggle button event.
+     * @description Asynchronously loads the isolated Settings Dialog Fragment
+     * and binds it to the dedicated SettingsDialog Controller.
+     * @returns {Promise<void>}
      */
-    public onToggleAudio(oEvent: Event): void {
-        const oUiModel = this.getView()?.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel) {
-            const bNewState = !oUiModel.getProperty(UiState.ENABLE_AUDIO);
-            oUiModel.setProperty(UiState.ENABLE_AUDIO, bNewState);
-            localStorage.setItem("vdmAudioEnabled", bNewState ? "true" : "false");
+    public async onOpenSettings(): Promise<void> {
+        const activeView = this.getView();
+        if (!activeView) {
+            return;
         }
+
+        if (!this._pSettingsDialog) {
+            this._pSettingsDialog = Fragment.load({
+                id: activeView.getId(),
+                name: "nz.co.siliconstreet.vdmdiagrammer.view.fragments.SettingsDialog",
+                controller: new SettingsDialogController(activeView)
+            }).then((fragmentControl) => {
+                activeView.addDependent(fragmentControl as Control);
+                return fragmentControl as Control;
+            });
+        }
+
+        const settingsDialogControl = await this._pSettingsDialog;
+        (settingsDialogControl as any).open();
     }
 }

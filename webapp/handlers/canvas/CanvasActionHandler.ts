@@ -88,8 +88,8 @@ export default class CanvasActionHandler {
     public toggleMinimap(oEvent: Event): void {
         const bPressed = (oEvent.getSource() as ToggleButton).getPressed();
         (this.view.getModel("view") as JSONModel).setProperty(ViewState.SHOW_MINIMAP, bPressed);
-        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.toggleMinimap(this.getInstanceId(), sEngine, bPressed);
+        const engineId = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.toggleMinimap(this.getInstanceId(), engineId, bPressed);
     }
 
     /**
@@ -104,8 +104,8 @@ export default class CanvasActionHandler {
         const oViewModel = this.view.getModel("view") as JSONModel;
         oViewModel.setProperty(ViewState.IS_SELECT_MODE, bSelectMode);
         
-        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.setInteractionMode(this.getInstanceId(), sEngine, bSelectMode ? "select" : "pan");
+        const engineId = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.setInteractionMode(this.getInstanceId(), engineId, bSelectMode ? "select" : "pan");
     }
 
     /**
@@ -118,8 +118,8 @@ export default class CanvasActionHandler {
         const oViewModel = this.view.getModel("view") as JSONModel;
         if (oViewModel) oViewModel.setProperty(ViewState.TEMP_FOCUS_MODE, bPressed);
         
-        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.setTempFocusMode(this.getInstanceId(), sEngine, bPressed);
+        const engineId = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.setTempFocusMode(this.getInstanceId(), engineId, bPressed);
     }
 
     /**
@@ -128,15 +128,15 @@ export default class CanvasActionHandler {
      * @returns {void}
      */
     public changeSpacing(): void {
-        const oUiModel = this.view.getModel("ui") as JSONModel;
-        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        const uiModel = this.view.getModel("ui") as JSONModel;
+        const engineId = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
-        if (oUiModel && Renderer.supportsLiveUpdate(sEngine)) {
-            const oModelData = oUiModel.getData();
-            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+        if (uiModel && Renderer.supportsLiveUpdate(engineId)) {
+            const oModelData = uiModel.getData();
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`);
             if (sFormatKey) {
-                const oFormatConfig = Object.assign({}, oUiModel.getProperty(`/${sFormatKey}`));
-                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: sEngine, format: oFormatConfig });
+                const oFormatConfig = Object.assign({}, uiModel.getProperty(`/${sFormatKey}`));
+                EventManager.getInstance().publish("diagram:liveFormatUpdate", { engine: engineId, format: oFormatConfig });
                 
                 EventManager.getInstance().publish("canvas:formatSliderUpdate", { viewId: this.getInstanceId(), node_spacing: oFormatConfig.node_spacing });
             }
@@ -151,10 +151,10 @@ export default class CanvasActionHandler {
      */
     public showSpacingPopover(oEvent: Event): void {
         if (!this.spacingPopover) {
-            const oUiModel = this.view.getModel("ui") as JSONModel;
-            const sEngine = oUiModel ? oUiModel.getProperty("/activeEngine") : Renderer.getDefaultEngine();
-            const oModelData = oUiModel ? oUiModel.getData() : {};
-            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`) || "formatCytoscape";
+            const uiModel = this.view.getModel("ui") as JSONModel;
+            const engineId = uiModel ? uiModel.getProperty("/activeEngine") : Renderer.getDefaultEngine();
+            const oModelData = uiModel ? uiModel.getData() : {};
+            const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`) || "formatCytoscape";
 
             this.spacingPopover = new ResponsivePopover({
                 showHeader: false,
@@ -183,8 +183,8 @@ export default class CanvasActionHandler {
      */
     public searchCanvas(oEvent: SearchField$SearchEvent): void {
         const sQuery = oEvent.getParameter("query") || "";
-        const sEngine = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.searchCanvas(this.getInstanceId(), sEngine, sQuery);
+        const engineId = (this.view.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.searchCanvas(this.getInstanceId(), engineId, sQuery);
     }
 
     /**
@@ -245,14 +245,14 @@ export default class CanvasActionHandler {
     public onSliderUpdate(oPayload: { viewId?: string, node_spacing?: number }): void {
         if (oPayload?.viewId && oPayload.viewId !== this.getInstanceId()) return;
         if (oPayload?.node_spacing) {
-            const oUiModel = this.view.getModel("ui") as JSONModel;
-            if (oUiModel) {
-                const sEngine = oUiModel.getProperty("/activeEngine");
-                const oModelData = oUiModel.getData();
-                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${sEngine}`);
+            const uiModel = this.view.getModel("ui") as JSONModel;
+            if (uiModel) {
+                const engineId = uiModel.getProperty("/activeEngine");
+                const oModelData = uiModel.getData();
+                const sFormatKey = Object.keys(oModelData).find(sKey => sKey.toUpperCase() === `FORMAT${engineId}`);
                 if (sFormatKey) {
-                    oUiModel.setProperty(`/${sFormatKey}/node_spacing`, oPayload.node_spacing);
-                    oUiModel.setProperty("/variantDirty", true);
+                    uiModel.setProperty(`/${sFormatKey}/node_spacing`, oPayload.node_spacing);
+                    uiModel.setProperty("/variantDirty", true);
                 }
             }
         }

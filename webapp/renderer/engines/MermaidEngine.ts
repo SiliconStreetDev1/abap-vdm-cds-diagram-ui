@@ -24,12 +24,12 @@ export default class MermaidEngine {
      * @static
      * @description Renders a Mermaid syntax string into an SVG and injects it into the active UI view.
      * Leaves the original Fiori ID structure fully intact for the Zoom library.
-     * @param {string} sPayload - The raw Mermaid syntax.
-     * @param {string} sRenderId - The target DOM container ID.
-     * @param {Function} fnOnError - Error callback.
+     * @param {string} payload - The raw Mermaid syntax.
+     * @param {string} renderId - The target DOM container ID.
+     * @param {Function} onError - Error callback.
      * @returns {void}
      */
-    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void): void {
+    public static render(viewId: string, payload: string, renderId: string, onError: (msg: string) => void): void {
         const config = ConfigManager.get();
 
         NetworkManager.loadScript(config.localPaths?.mermaid, config.cdnPaths?.mermaid).then(() => {
@@ -51,21 +51,21 @@ export default class MermaidEngine {
                 }
 
                 const sSvgId = "mermaid-svg-" + Date.now();
-                const oTarget = document.getElementById(sRenderId);
+                const oTarget = document.getElementById(renderId);
                 
                 if (oTarget) {
                     oTarget.innerHTML = ""; 
                     
-                    mermaid.mermaidAPI.render(sSvgId, sPayload, (svgCode: string) => {
+                    mermaid.mermaidAPI.render(sSvgId, payload, (svgCode: string) => {
                         oTarget.innerHTML = svgCode;
-                        DomManager.attachStandardZoom(sRenderId);
+                        DomManager.attachStandardZoom(renderId);
                     });
                 }
             } catch (e: any) {
-                fnOnError(`Mermaid Syntax Error: ${e.str || e.message || e}`);
+                onError(`Mermaid Syntax Error: ${e.str || e.message || e}`);
             }
         }).catch((oNetworkError: any) => {
-            fnOnError(`Mermaid CDN Error: ${oNetworkError.message || oNetworkError}`);
+            onError(`Mermaid CDN Error: ${oNetworkError.message || oNetworkError}`);
         });
     }
 
@@ -91,7 +91,7 @@ export default class MermaidEngine {
      * @public
      * @description Destroys the Mermaid active context.
      */
-    public static destroy(sViewId: string): void {
+    public static destroy(viewId: string): void {
         this._bMermaidInit = false;
     }
 
@@ -100,10 +100,10 @@ export default class MermaidEngine {
      * @static
      * @description Headless execution context for Mermaid to generate a brand NEW raw SVG for export.
      * Operates completely independently of the screen DOM in a transient, off-screen wrapper.
-     * @param {string} sPayload - The raw Mermaid syntax.
+     * @param {string} payload - The raw Mermaid syntax.
      * @returns {Promise<string>} A promise resolving to the raw SVG string.
      */
-    public static async exportSvg(sPayload: string, sViewId?: string): Promise<string> {
+    public static async exportSvg(payload: string, viewId?: string): Promise<string> {
         const config = ConfigManager.get();
         await NetworkManager.loadScript(config.localPaths?.mermaid, config.cdnPaths?.mermaid);
 
@@ -136,7 +136,7 @@ export default class MermaidEngine {
 
             try {
                 // 3. Render directly into the hidden wrapper
-                mermaid.mermaidAPI.render(sExportId, sPayload, (sSvgCode: string) => {
+                mermaid.mermaidAPI.render(sExportId, payload, (sSvgCode: string) => {
                     // 4. Clean up the DOM instantly
                     if (oExportContainer.parentNode) {
                         document.body.removeChild(oExportContainer);

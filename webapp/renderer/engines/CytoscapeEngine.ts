@@ -9,6 +9,7 @@
 import ConfigManager from "../ConfigManager";
 import NetworkManager from "../../helpers/NetworkManager";
 import MinimapManager from "./MinimapManager";
+import EffectsManager from "./cytoscape/plugins/effects/EffectsManager";
 import CytoscapeConfigParser from "./cytoscape/CytoscapeConfigParser";
 import { IParsedCytoscapeConfig } from "./cytoscape/CytoscapeConfigParser";
 import CytoscapeStyleBuilder from "./cytoscape/CytoscapeStyleBuilder";
@@ -60,33 +61,49 @@ export default class CytoscapeEngine {
 
     /**
      * @public
+     * @description Exposes available gamification plugins from the EffectsManager.
+     */
+    public static getAvailableEffects(): { id: string; name: string; enabled: boolean }[] {
+        return EffectsManager.getInstance().getRegisteredPlugins();
+    }
+
+    /**
+     * @public
+     * @description Toggles specific plugins on or off at runtime.
+     */
+    public static toggleEffect(effectId: string, enabled: boolean): void {
+        EffectsManager.getInstance().togglePlugin(effectId, enabled);
+    }
+
+    /**
+     * @public
      * @static
      * @description Provides the baseline default configuration for the UI Model.
      */
     public static getDefaultConfig(): Record<string, any> {
-        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false, enableFocusMode: false, autoScale: true };
+        return { layout_algorithm: "dagre", rank_dir: "TB", theme: "fiori_light", line_style: "bezier", animate: true, node_spacing: 125, snapGuides: false, enableFocumode: false, autoScale: true };
     }
 
-    public static applyStateToConfig(oConfig: Record<string, any>, oState: any): Record<string, any> {
-        const oFormatCy = Object.assign({}, oConfig);
-        oFormatCy.presetPositions = oState || null;
-        if (oState) {
-            oFormatCy.layout_algorithm = "preset";
+    public static applyStateToConfig(config: Record<string, any>, state: any): Record<string, any> {
+        const formatCy = Object.assign({}, config);
+        formatCy.presetPositions = state || null;
+        if (state) {
+            formatCy.layout_algorithm = "preset";
         }
-        return oFormatCy;
+        return formatCy;
     }
 
-    public static extractStateForVariant(oConfig: Record<string, any>, oCanvasState: any, bSavePositions: boolean): Record<string, any> {
-        const oFormatCy = Object.assign({}, oConfig);
-        if (bSavePositions) {
-            oFormatCy.presetPositions = oCanvasState;
+    public static extractStateForVariant(config: Record<string, any>, canvasState: any, savePositions: boolean): Record<string, any> {
+        const formatCy = Object.assign({}, config);
+        if (savePositions) {
+            formatCy.presetPositions = canvasState;
         } else {
-            oFormatCy.presetPositions = null; // Prevent ghost coordinates from saving
-            if (oFormatCy.layout_algorithm === "preset") {
-                oFormatCy.layout_algorithm = "dagre"; // ENTERPRISE FIX: Reset layout if positions are explicitly dropped
+            formatCy.presetPositions = null; // Prevent ghost coordinates from saving
+            if (formatCy.layout_algorithm === "preset") {
+                formatCy.layout_algorithm = "dagre"; // ENTERPRISE FIX: Reset layout if positions are explicitly dropped
             }
         }
-        return oFormatCy;
+        return formatCy;
     }
 
     /**
@@ -94,37 +111,37 @@ export default class CytoscapeEngine {
      * @static
      * @description Formats the raw UI configuration for the backend payload.
      */
-    public static formatBackendConfig(oRawConfig: Record<string, any>): Record<string, any> {
-        const oFormatConfig = Object.assign({}, oRawConfig);
+    public static formatBackendConfig(rawConfig: Record<string, any>): Record<string, any> {
+        const formatConfig = Object.assign({}, rawConfig);
         // ARCHITECTURE FIX: Strip heavy frontend-only data (like massive X/Y coordinate dictionaries)
         // to ensure the OData GET URL string remains tiny and never hits the 2048-character limit.
-        delete oFormatConfig.presetPositions;
-        return oFormatConfig;
+        delete formatConfig.presetPositions;
+        return formatConfig;
     }
 
     /**
      * @public
      * @description Initializes and renders the Cytoscape graph inside the target DOM container.
      * Fetches dependencies using local-first/CDN-fallback strategies before execution.
-     * @param {string} sPayload - The JSON payload containing nodes, edges, and config.
-     * @param {string} sRenderId - The DOM element ID where the canvas will be injected.
-     * @param {function} fnOnError - Callback function to handle rendering errors.
-     * @param {Record<string, any>} [oConfig] - Cytoscape formatting config
+     * @param {string} payload - The JSON payload containing nodes, edges, and config.
+     * @param {string} renderId - The DOM element ID where the canvas will be injected.
+     * @param {function} onError - Callback function to handle rendering errors.
+     * @param {Record<string, any>} [config] - Cytoscape formatting config
      */
-    public static render(sViewId: string, sPayload: string, sRenderId: string, fnOnError: (msg: string) => void, oConfig?: Record<string, any>): void {
+    public static render(viewId: string, payload: string, renderId: string, onError: (msg: string) => void, config?: Record<string, any>): void {
         CytoscapeDependencyLoader.load().then(() => {
                 try {
-                    const oData = JSON.parse(sPayload);
+                    const oData = JSON.parse(payload);
                     
                     // Fiori UI binds to formatCytoscape. Fallback to format for legacy payloads.
-                    const oFormat = oConfig || oData.config?.formatCytoscape || oData.config?.format || {};
-                    const parsedConfig = CytoscapeConfigParser.parse(oFormat);
+                    const format = config || oData.config?.formatCytoscape || oData.config?.format || {};
+                    const parsedConfig = CytoscapeConfigParser.parse(format);
                     
                     const iNodeCount = oData.nodes ? oData.nodes.length : 0;
 
-                    const oContainer = document.getElementById(sRenderId);
+                    const oContainer = document.getElementById(renderId);
                     if (!oContainer) {
-                        fnOnError("Cytoscape Render Error: Target DOM container not found.");
+                        onError("Cytoscape Render Error: Target DOM container not found.");
                         return;
                     }
 
@@ -132,15 +149,15 @@ export default class CytoscapeEngine {
                 oContainer.style.backgroundColor = parsedConfig.theme === 'fiori_dark' ? '#29313a' : 'var(--sapBackgroundColor, #ffffff)';
 
                     // Destroy existing instance to prevent memory leaks and duplicate canvases
-                    this.destroy(sViewId);
+                    this.destroy(viewId);
 
                     // Unpack Arrays and format Labels for display
                     CytoscapeDataProcessor.process(oData.nodes || [], oData.edges || []);
 
                     // Prevent Cytoscape crash from invalid edges
                     if (oData.nodes && oData.edges) {
-                        const aNodeIds = new Set(oData.nodes.map((n: any) => n.data.id));
-                        oData.edges = oData.edges.filter((e: any) => aNodeIds.has(e.data.source) && aNodeIds.has(e.data.target));
+                        const nodeIds = new Set(oData.nodes.map((n: any) => n.data.id));
+                        oData.edges = oData.edges.filter((e: any) => nodeIds.has(e.data.source) && nodeIds.has(e.data.target));
                     }
 
                     // Initialize Graph
@@ -162,34 +179,36 @@ export default class CytoscapeEngine {
                         selectionType: 'single'
                     });
                     
-                    this._cyContexts.set(sViewId, {
+                    this._cyContexts.set(viewId, {
                         cy: cyInstance,
                         layout: parsedConfig.layout,
                         snapGuides: parsedConfig.snapGuides,
                         isViewerMode: !!parsedConfig.isViewerMode,
                         isDrillDown: !!parsedConfig.isDrillDown
                     });
-                    cyInstance.scratch('_enableFocusMode', !!oFormat.enableFocusMode);
+                    cyInstance.scratch('_enableFocumode', !!format.enableFocumode);
 
                     // Inject visual styling for Sticky Notes and Edges
                     CytoscapeStyleBuilder.injectAnnotationStyles(cyInstance);
 
                     CytoscapeLayoutManager.applyGridGuide(cyInstance, parsedConfig);
                     
-                    CytoscapeEventHandler.attachEvents(sViewId, cyInstance, () => this._cyContexts.get(sViewId)?.isDrillDown || false, () => this._cyContexts.get(sViewId)?.isViewerMode || false);
-                    CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(sViewId)?.snapGuides || false);
-                    CytoscapeContextMenu.attach(sViewId, cyInstance, () => this._cyContexts.get(sViewId)?.isDrillDown || false, () => this._cyContexts.get(sViewId)?.isViewerMode || false);
+                    CytoscapeEventHandler.attachEvents(viewId, cyInstance, () => this._cyContexts.get(viewId)?.isDrillDown || false, () => this._cyContexts.get(viewId)?.isViewerMode || false);
+                    CytoscapeEventHandler.attachGridSnapEvent(cyInstance, () => this._cyContexts.get(viewId)?.snapGuides || false);
+                    CytoscapeContextMenu.attach(viewId, cyInstance, () => this._cyContexts.get(viewId)?.isDrillDown || false, () => this._cyContexts.get(viewId)?.isViewerMode || false);
 
-                    MinimapManager.toggle(sViewId, cyInstance, MinimapManager.getShowState(sViewId));
+                    EffectsManager.getInstance().attachEvents(cyInstance);
+
+                    MinimapManager.toggle(viewId, cyInstance, MinimapManager.getShowState(viewId));
 
                     // ENTERPRISE FIX: Trigger the layout engine AFTER event handlers are bound so UndoHandler catches CANVAS_READY
-                    CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
+                    CytoscapeLayoutManager.applyHybridLayout(viewId, cyInstance, parsedConfig, iNodeCount);
 
                 } catch (e: any) {
-                    fnOnError(`Cytoscape Parsing Error. Details: ${e.message}`);
+                    onError(`Cytoscape Parsing Error. Details: ${e.message}`);
                 }
             }).catch((oNetworkError: any) => {
-                fnOnError(`Cytoscape Loading Error: ${oNetworkError.message || oNetworkError}`);
+                onError(`Cytoscape Loading Error: ${oNetworkError.message || oNetworkError}`);
             });
     }
 
@@ -197,13 +216,13 @@ export default class CytoscapeEngine {
      * @public
      * @static
      * @description Dynamically updates the active Cytoscape instance with new layout and style configurations without a full re-render.
-     * @param {Record<string, any>} oConfig - The updated formatting configuration.
+     * @param {Record<string, any>} config - The updated formatting configuration.
      */
-    public static updateFormat(sViewId: string, oConfig: Record<string, any>): void {
-        const context = this._cyContexts.get(sViewId);
+    public static updateFormat(viewId: string, config: Record<string, any>): void {
+        const context = this._cyContexts.get(viewId);
         if (context) {
             const cyInstance = context.cy;
-            const parsedConfig = CytoscapeConfigParser.parse(oConfig);
+            const parsedConfig = CytoscapeConfigParser.parse(config);
             const iNodeCount = cyInstance.nodes().length;
             
             const bIsLayoutChange = parsedConfig.layout !== context.layout;
@@ -212,8 +231,8 @@ export default class CytoscapeEngine {
             context.isViewerMode = !!parsedConfig.isViewerMode;
             context.isDrillDown = !!parsedConfig.isDrillDown;
             
-            const bFocusModeChanged = cyInstance.scratch('_enableFocusMode') !== !!oConfig.enableFocusMode;
-            cyInstance.scratch('_enableFocusMode', !!oConfig.enableFocusMode);
+            const bFocumodeChanged = cyInstance.scratch('_enableFocumode') !== !!config.enableFocumode;
+            cyInstance.scratch('_enableFocumode', !!config.enableFocumode);
             
             const oContainer = cyInstance.container();
             if (oContainer) {
@@ -234,10 +253,10 @@ export default class CytoscapeEngine {
             CytoscapeStyleBuilder.injectAnnotationStyles(cyInstance);
 
             // 4. Rerun the physical layout using the centralized hybrid rules
-            CytoscapeLayoutManager.applyHybridLayout(sViewId, cyInstance, parsedConfig, iNodeCount);
+            CytoscapeLayoutManager.applyHybridLayout(viewId, cyInstance, parsedConfig, iNodeCount);
 
             // 5. Re-evaluate focus mode if toggled dynamically
-            if (bFocusModeChanged) {
+            if (bFocumodeChanged) {
                 cyInstance.scratch('_tempFocusMode', false);
                 const selected = cyInstance.elements('node:selected');
                 if (selected.length > 0) {
@@ -247,7 +266,7 @@ export default class CytoscapeEngine {
                     cyInstance.scratch('_ignoreTempFocusWipe', false);
                 } else {
                     cyInstance.elements().removeClass('faded highlighted');
-                    EventManager.getInstance().publish("canvas:focusModeChanged", { viewId: sViewId, isFocused: false, nodeName: "", hasNodeSelected: false, tempFocusMode: false });
+                    EventManager.getInstance().publish("canvas:focusModeChanged", { viewId: viewId, isFocused: false, nodeName: "", hasNodeSelected: false, tempFocusMode: false });
                 }
             }
         }
@@ -258,11 +277,11 @@ export default class CytoscapeEngine {
      * @static
      * @description Applies a temporary neighborhood highlight around the current selection.
      */
-    public static setTempFocusMode(sViewId: string, bEnable: boolean): void {
-        const context = this._cyContexts.get(sViewId);
+    public static setTempFocusMode(viewId: string, enable: boolean): void {
+        const context = this._cyContexts.get(viewId);
         if (context) {
             const cyInstance = context.cy;
-            cyInstance.scratch('_tempFocusMode', bEnable);
+            cyInstance.scratch('_tempFocusMode', enable);
             
             const selected = cyInstance.elements('node:selected');
             if (selected.length > 0) {
@@ -279,19 +298,19 @@ export default class CytoscapeEngine {
      * @static
      * @description Modifies Cytoscape's internal event listeners to switch between standard 
      * canvas panning and node selection/dragging mode.
-     * @param {"pan" | "select"} sMode - The desired mouse behavior mode.
+     * @param {"pan" | "select"} mode - The desired mouse behavior mode.
      */
-    public static setInteractionMode(sViewId: string, sMode: "pan" | "select"): void {
-        const context = this._cyContexts.get(sViewId);
-        if (context) CytoscapeInteractionManager.setInteractionMode(context.cy, sMode);
+    public static setInteractionMode(viewId: string, mode: "pan" | "select"): void {
+        const context = this._cyContexts.get(viewId);
+        if (context) CytoscapeInteractionManager.setInteractionMode(context.cy, mode);
     }
 
     /**
      * @public
      * @description Drops all active selections from the graph.
      */
-    public static clearSelection(sViewId: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static clearSelection(viewId: string): void {
+        const context = this._cyContexts.get(viewId);
         if (context) CytoscapeInteractionManager.clearSelection(context.cy);
     }
 
@@ -299,8 +318,8 @@ export default class CytoscapeEngine {
      * @public
      * @description Selects all visible nodes on the graph.
      */
-    public static selectAll(sViewId: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static selectAll(viewId: string): void {
+        const context = this._cyContexts.get(viewId);
         if (context) CytoscapeInteractionManager.selectAll(context.cy);
     }
 
@@ -308,8 +327,8 @@ export default class CytoscapeEngine {
      * @public
      * @description Deletes selected sticky notes and hides selected diagram entities.
      */
-    public static deleteSelection(sViewId: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static deleteSelection(viewId: string): void {
+        const context = this._cyContexts.get(viewId);
         if (!context) return;
         
         const cyInstance = context.cy;
@@ -337,14 +356,14 @@ export default class CytoscapeEngine {
                 label: n.data('label') || n.id()
             }));
             EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
-                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+                viewId: viewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
             });
         }
 
         // Commit changes to the Ctrl+Z Undo Stack
         if (bChanged) {
             const payload = {
-                viewId: sViewId,
+                viewId: viewId,
                 notesJson: notes.length > 0 ? notes.jsons() : null,
                 hiddenNodeIds: entities.length > 0 ? entities.map((n: any) => n.id()) : [],
                 engine: EngineType.CYTOSCAPE
@@ -357,8 +376,8 @@ export default class CytoscapeEngine {
      * @public
      * @description Deletes specific notes and hides specific entities for Redo.
      */
-    public static deleteSpecificElements(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void {
-        const context = this._cyContexts.get(sViewId);
+    public static deleteSpecificElements(viewId: string, notesJson: any, hiddenNodeIds: string[]): void {
+        const context = this._cyContexts.get(viewId);
         if (!context) return;
 
         if (notesJson && notesJson.length > 0) {
@@ -378,7 +397,7 @@ export default class CytoscapeEngine {
                 label: n.data('label') || n.id()
             }));
             EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
-                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+                viewId: viewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
             });
         }
     }
@@ -387,8 +406,8 @@ export default class CytoscapeEngine {
      * @public
      * @description Restores previously deleted notes and unhides entities for Undo.
      */
-    public static restoreSelection(sViewId: string, notesJson: any, hiddenNodeIds: string[]): void {
-        const context = this._cyContexts.get(sViewId);
+    public static restoreSelection(viewId: string, notesJson: any, hiddenNodeIds: string[]): void {
+        const context = this._cyContexts.get(viewId);
         if (!context) return;
         
         if (notesJson && notesJson.length > 0) {
@@ -405,7 +424,7 @@ export default class CytoscapeEngine {
                 label: n.data('label') || n.id()
             }));
             EventManager.getInstance().publish("canvas:nodesVisibilityChanged", {
-                viewId: sViewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
+                viewId: viewId, hasHidden: hiddenNodes.length > 0, hiddenNodes: hiddenNodes
             });
         }
     }
@@ -413,24 +432,25 @@ export default class CytoscapeEngine {
     /**
      * @public
      * @description Toggles the visibility of the Cytoscape minimap (Bird's Eye View).
-     * @param {boolean} bShow - True to enable the minimap, false to destroy it.
+     * @param {boolean} show - True to enable the minimap, false to destroy it.
      */
-    public static toggleMinimap(sViewId: string, bShow: boolean): void {
-        const context = this._cyContexts.get(sViewId);
-        MinimapManager.toggle(sViewId, context?.cy, bShow);
+    public static toggleMinimap(viewId: string, show: boolean): void {
+        const context = this._cyContexts.get(viewId);
+        MinimapManager.toggle(viewId, context?.cy, show);
     }
 
     /**
      * @public
      * @description Destroys the active Cytoscape instance and cleans up memory.
      */
-    public static destroy(sViewId: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static destroy(viewId: string): void {
+        const context = this._cyContexts.get(viewId);
         if (context) {
-            MinimapManager.destroy(sViewId);
-            CytoscapeContextMenu.removeAll(sViewId);
+            MinimapManager.destroy(viewId);
+            CytoscapeContextMenu.removeAll(viewId);
+            EffectsManager.getInstance().detachEvents();
             context.cy.destroy();
-            this._cyContexts.delete(sViewId);
+            this._cyContexts.delete(viewId);
         }
     }
 
@@ -439,8 +459,8 @@ export default class CytoscapeEngine {
      * @description Exports the current canvas view as a base64 encoded PNG string.
      * @returns {string} Base64 PNG data URI.
      */
-    public static exportPng(sViewId: string): string {
-        const context = this._cyContexts.get(sViewId);
+    public static exportPng(viewId: string): string {
+        const context = this._cyContexts.get(viewId);
         return context ? CytoscapeExporter.exportPng(context.cy) : "";
     }
 
@@ -450,48 +470,48 @@ export default class CytoscapeEngine {
      * Applies internal CSS for centering while retaining physical dimensions to enable browser scroll-to-zoom.
      * @returns {string} Formatted SVG XML string.
      */
-    public static exportSvg(sPayload: string, sViewId?: string): string {
-        const context = sViewId ? this._cyContexts.get(sViewId) : undefined;
+    public static exportSvg(payload: string, viewId?: string): string {
+        const context = viewId ? this._cyContexts.get(viewId) : undefined;
         return context ? CytoscapeExporter.exportSvg(context.cy) : "";
     }
 
     /**
      * @public
      * @description Searches for nodes matching the query and focuses the camera on them.
-     * @param {string} sQuery - The text to search for
+     * @param {string} query - The text to search for
      */
-    public static search(sViewId: string, sQuery: string): void {
-        const context = this._cyContexts.get(sViewId);
-        if (context) CytoscapeSearchManager.search(context.cy, sQuery);
+    public static search(viewId: string, query: string): void {
+        const context = this._cyContexts.get(viewId);
+        if (context) CytoscapeSearchManager.search(context.cy, query);
     }
 
     /**
      * @public
      * @description Restores all hidden nodes to the canvas and notifies the UI.
      */
-    public static showHiddenNodes(sViewId: string): void {
-        const context = this._cyContexts.get(sViewId);
-        if (context) CytoscapeVisibilityManager.showHiddenNodes(sViewId, context.cy);
+    public static showHiddenNodes(viewId: string): void {
+        const context = this._cyContexts.get(viewId);
+        if (context) CytoscapeVisibilityManager.showHiddenNodes(viewId, context.cy);
     }
 
     /**
      * @public
      * @description Selectively restores specifically identified nodes to the canvas.
-     * @param {string[]} aNodeIds - Array of internal node IDs to restore.
+     * @param {string[]} nodeIds - Array of internal node IDs to restore.
      */
-    public static showSpecificNodes(sViewId: string, aNodeIds: string[]): void {
-        const context = this._cyContexts.get(sViewId);
-        if (context) CytoscapeVisibilityManager.showSpecificNodes(sViewId, context.cy, aNodeIds);
+    public static showSpecificNodes(viewId: string, nodeIds: string[]): void {
+        const context = this._cyContexts.get(viewId);
+        if (context) CytoscapeVisibilityManager.showSpecificNodes(viewId, context.cy, nodeIds);
     }
 
-    public static moveNode(sViewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(sViewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
+    public static moveNode(viewId: string, nodeId: string, position: {x: number, y: number}): void { const ctx = this._cyContexts.get(viewId); if (ctx && ctx.cy) { ctx.cy.$("#" + nodeId.replace(/\./g, "\\.")).position(position); } }
 
     /**
      * @public
      * @description Bulk updates multiple node coordinates in a single batched DOM repaint to eliminate O(N) performance bottlenecks.
      */
-    public static moveNodes(sViewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
-        const ctx = this._cyContexts.get(sViewId);
+    public static moveNodes(viewId: string, nodes: { nodeId: string; position: {x: number, y: number} }[]): void {
+        const ctx = this._cyContexts.get(viewId);
         if (ctx && ctx.cy) {
             ctx.cy.batch(() => {
                 nodes.forEach(n => {
@@ -506,8 +526,8 @@ export default class CytoscapeEngine {
      * @static
      * @description Extracts the live X/Y canvas coordinates for layout persistence.
      */
-    public static getCanvasState(sViewId: string): Record<string, any> {
-        const context = this._cyContexts.get(sViewId);
+    public static getCanvasState(viewId: string): Record<string, any> {
+        const context = this._cyContexts.get(viewId);
         return context ? CytoscapeStateManager.getCanvasState(context.cy) : {};
     }
 
@@ -516,8 +536,8 @@ export default class CytoscapeEngine {
      * @static
      * @description Add a new sticky note to the graph.
      */
-    public static addNote(sViewId: string, sText: string, sFontFamily: string): any {
-        const context = this._cyContexts.get(sViewId);
+    public static addNote(viewId: string, text: string, fontFamily: string): any {
+        const context = this._cyContexts.get(viewId);
         if (!context || !context.cy) return;
         const cyInstance = context.cy;
 
@@ -558,7 +578,7 @@ export default class CytoscapeEngine {
 
         const el = cyInstance.add({
             group: 'nodes',
-            data: { id: sId, label: sText, fontFamily: sFontFamily || "Marker", bgColor: '#fff9c4', borderColor: '#fbc02d', isNote: true },
+            data: { id: sId, label: text, fontFamily: fontFamily || "Marker", bgColor: '#fff9c4', borderColor: '#fbc02d', isNote: true },
             classes: 'annotation-note',
             position: { x: iX, y: iY }
         });
@@ -582,13 +602,13 @@ export default class CytoscapeEngine {
      * @static
      * @description Edit an existing sticky note.
      */
-    public static editNote(sViewId: string, sNoteId: string, sText: string, sFontFamily?: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static editNote(viewId: string, noteId: string, text: string, fontFamily?: string): void {
+        const context = this._cyContexts.get(viewId);
         if (!context || !context.cy) return;
-        const oNode = context.cy.getElementById(sNoteId);
+        const oNode = context.cy.getElementById(noteId);
         if (oNode.length > 0) {
-            oNode.data('label', sText);
-            if (sFontFamily) oNode.data('fontFamily', sFontFamily);
+            oNode.data('label', text);
+            if (fontFamily) oNode.data('fontFamily', fontFamily);
         }
     }
 
@@ -597,13 +617,13 @@ export default class CytoscapeEngine {
      * @static
      * @description Change the color of an existing sticky note.
      */
-    public static changeNoteColor(sViewId: string, sNoteId: string, sBgColor: string, sBorderColor: string): void {
-        const context = this._cyContexts.get(sViewId);
+    public static changeNoteColor(viewId: string, noteId: string, bgColor: string, borderColor: string): void {
+        const context = this._cyContexts.get(viewId);
         if (!context || !context.cy) return;
-        const oNode = context.cy.getElementById(sNoteId);
+        const oNode = context.cy.getElementById(noteId);
         if (oNode.length > 0) {
-            oNode.data('bgColor', sBgColor);
-            oNode.data('borderColor', sBorderColor);
+            oNode.data('bgColor', bgColor);
+            oNode.data('borderColor', borderColor);
         }
     }
 }

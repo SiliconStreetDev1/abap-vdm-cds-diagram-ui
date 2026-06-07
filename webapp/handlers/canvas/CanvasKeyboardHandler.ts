@@ -34,12 +34,12 @@ export default class CanvasKeyboardHandler {
 
     /**
      * @constructor
-     * @param {View} oView - Reference to the active UI5 view.
+     * @param {View} activeView - Reference to the active UI5 view.
      */
-    constructor(oView: View) {
-        this._oView = oView;
-        this._builderStrategy = new BuilderKeyboardStrategy(oView);
-        this._viewerStrategy = new ViewerKeyboardStrategy(oView);
+    constructor(activeView: View) {
+        this._oView = activeView;
+        this._builderStrategy = new BuilderKeyboardStrategy(activeView);
+        this._viewerStrategy = new ViewerKeyboardStrategy(activeView);
     }
 
     /**
@@ -48,8 +48,8 @@ export default class CanvasKeyboardHandler {
      * @returns {BaseKeyboardStrategy} The concrete strategy instance.
      */
     private _getActiveStrategy(): BaseKeyboardStrategy {
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        const isViewer = oUiModel ? oUiModel.getProperty(UiState.IS_VIEWER_MODE) : false;
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        const isViewer = uiModel ? uiModel.getProperty(UiState.IS_VIEWER_MODE) : false;
         return isViewer ? this._viewerStrategy : this._builderStrategy;
     }
 
@@ -103,8 +103,8 @@ export default class CanvasKeyboardHandler {
     private _onKeyDown(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
 
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel && oUiModel.getProperty(UiState.IS_FETCHING)) return;
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel && uiModel.getProperty(UiState.IS_FETCHING)) return;
 
         const bCtrl = e.ctrlKey || e.metaKey;
         const bShift = e.shiftKey;
@@ -149,8 +149,8 @@ export default class CanvasKeyboardHandler {
     private _onKeyUp(e: KeyboardEvent): void {
         if (!ViewStateHelper.isViewVisible(this._oView)) return;
         
-        const oUiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
-        if (oUiModel && oUiModel.getProperty(UiState.IS_FETCHING)) return;
+        const uiModel = this._oView.getModel(ModelNames.UI) as JSONModel;
+        if (uiModel && uiModel.getProperty(UiState.IS_FETCHING)) return;
         
         if ((e.key === " " || e.code === "Space") && this._bSpaceLock) {
             this._bSpaceLock = false;

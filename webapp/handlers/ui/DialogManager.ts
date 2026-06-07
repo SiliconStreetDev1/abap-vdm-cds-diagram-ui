@@ -23,7 +23,7 @@ import { DiagramData, ViewState } from "../../constants/StateConstants";
 
 export default class DialogManager {
     private static _mViews: Map<string, View> = new Map();
-    private static _subscriptions: any[] = [];
+    private static _subscriptions: { dispose: () => void }[] = [];
     private static _bIsAttached: boolean = false;
 
     /**
@@ -31,8 +31,8 @@ export default class DialogManager {
      * @static
      * @description Bootstraps the Dialog Manager with the active view.
      */
-    public static bootstrap(sViewId: string, oView: View): void {
-        this._mViews.set(sViewId, oView);
+    public static bootstrap(viewId: string, activeView: View): void {
+        this._mViews.set(viewId, activeView);
         this.attachEvents();
     }
 
@@ -65,12 +65,12 @@ export default class DialogManager {
      * But since destroy() doesn't take viewId right now, let's add it. Wait, ToolboxManager.destroy() was already updated to not call DialogManager.destroy() unless it's the last view.
      * Actually, let's just make a clear method for the specific view.
      */
-    public static destroy(sViewId?: string): void {
-        if (sViewId) {
-            this._mViews.delete(sViewId);
+    public static destroy(viewId?: string): void {
+        if (viewId) {
+            this._mViews.delete(viewId);
         }
         
-        if (!sViewId || this._mViews.size === 0) {
+        if (!viewId || this._mViews.size === 0) {
             if (!this._bIsAttached) return;
             this._bIsAttached = false;
             this._subscriptions.forEach((sub: any) => sub.dispose());
@@ -84,17 +84,17 @@ export default class DialogManager {
     // ========================================================================
 
     private static _handleOpenDialog(payload: any): void {
-        const sViewId = payload?.viewId;
-        if (!sViewId || !this._mViews.has(sViewId)) return;
-        if (payload.dialogType === "HiddenNodes") this._openHiddenNodesDialog(sViewId);
+        const viewId = payload?.viewId;
+        if (!viewId || !this._mViews.has(viewId)) return;
+        if (payload.dialogType === "HiddenNodes") this._openHiddenNodesDialog(viewId);
     }
 
     private static _handleCloseDialog(payload: any): void {
-        const sViewId = payload?.viewId;
-        if (!sViewId || !this._mViews.has(sViewId)) return;
+        const viewId = payload?.viewId;
+        if (!viewId || !this._mViews.has(viewId)) return;
         if (payload.dialogType === "HiddenNodes") {
-            const oView = this._mViews.get(sViewId);
-            const dialog = oView?.byId("popHiddenNodes") as Dialog;
+            const activeView = this._mViews.get(viewId);
+            const dialog = activeView?.byId("popHiddenNodes") as Dialog;
             if (dialog) dialog.close();
         }
     }
@@ -103,68 +103,68 @@ export default class DialogManager {
     // HIDDEN NODES LOGIC
     // ========================================================================
 
-    private static _openHiddenNodesDialog(sViewId: string): void {
-        const oView = this._mViews.get(sViewId);
-        if (!oView) return;
-        const dialog = oView.byId("popHiddenNodes") as Dialog;
+    private static _openHiddenNodesDialog(viewId: string): void {
+        const activeView = this._mViews.get(viewId);
+        if (!activeView) return;
+        const dialog = activeView.byId("popHiddenNodes") as Dialog;
         if (dialog) dialog.open();
     }
 
     private static _handleShowAllHidden(payload: any): void {
-        const sViewId = payload?.viewId;
-        const oView = this._mViews.get(sViewId);
-        if (!oView) return;
+        const viewId = payload?.viewId;
+        const activeView = this._mViews.get(viewId);
+        if (!activeView) return;
         
-        const sEngine = (oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
-        Renderer.showHiddenNodes(sViewId, sEngine);
-        (oView.getModel("view") as JSONModel).setProperty(ViewState.HAS_HIDDEN_NODES, false);
+        const engineId = (activeView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        Renderer.showHiddenNodes(viewId, engineId);
+        (activeView.getModel("view") as JSONModel).setProperty(ViewState.HAS_HIDDEN_NODES, false);
         MessageToast.show("All hidden nodes restored");
         
-        const dialog = oView.byId("popHiddenNodes") as Dialog;
+        const dialog = activeView.byId("popHiddenNodes") as Dialog;
         if (dialog) dialog.close();
         
-        (oView.byId("listHiddenNodes") as List)?.removeSelections(true);
+        (activeView.byId("listHiddenNodes") as List)?.removeSelections(true);
     }
 
     private static _handleRestoreSelected(payload: any): void {
-        const sViewId = payload?.viewId;
-        const oView = this._mViews.get(sViewId);
-        if (!oView) return;
+        const viewId = payload?.viewId;
+        const activeView = this._mViews.get(viewId);
+        if (!activeView) return;
         
-        const oList = oView.byId("listHiddenNodes") as List;
-        if (!oList) return;
+        const list = activeView.byId("listHiddenNodes") as List;
+        if (!list) return;
         
-        const aSelectedContexts = oList.getSelectedContexts();
-        if (aSelectedContexts.length === 0) {
+        const selectedContexts = list.getSelectedContexts();
+        if (selectedContexts.length === 0) {
             MessageToast.show("No entities selected");
             return;
         }
         
-        const aIds = aSelectedContexts.map((oCtx: Context) => oCtx.getProperty("id"));
-        const sEngine = (oView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
+        const ids = selectedContexts.map((ctx: Context) => ctx.getProperty("id"));
+        const engineId = (activeView.getModel("diagramData") as JSONModel).getProperty(DiagramData.ENGINE);
         
-        Renderer.showSpecificNodes(sViewId, sEngine, aIds);
-        oList.removeSelections(true);
+        Renderer.showSpecificNodes(viewId, engineId, ids);
+        list.removeSelections(true);
         
-        const oViewModel = oView.getModel("view") as JSONModel;
-        const aRemaining = oViewModel.getProperty(ViewState.HIDDEN_NODES_LIST) || [];
-        if (aRemaining.length <= aIds.length) {
-            const dialog = oView.byId("popHiddenNodes") as Dialog;
+        const viewModel = activeView.getModel("view") as JSONModel;
+        const remaining = viewModel.getProperty(ViewState.HIDDEN_NODES_LIST) || [];
+        if (remaining.length <= ids.length) {
+            const dialog = activeView.byId("popHiddenNodes") as Dialog;
             if (dialog) dialog.close();
         }
     }
 
     private static _onVisibilityChanged(payload: any): void {
-        const sViewId = payload?.viewId;
-        const oView = this._mViews.get(sViewId);
-        if (!oView) return;
+        const viewId = payload?.viewId;
+        const activeView = this._mViews.get(viewId);
+        if (!activeView) return;
         
-        const bHasHidden = payload?.hasHidden || false;
-        const aHiddenNodes = payload?.hiddenNodes || [];
-        const oViewModel = oView.getModel("view") as JSONModel;
-        if (oViewModel) {
-            oViewModel.setProperty(ViewState.HAS_HIDDEN_NODES, bHasHidden);
-            oViewModel.setProperty(ViewState.HIDDEN_NODES_LIST, aHiddenNodes);
+        const hasHidden = payload?.hasHidden || false;
+        const hiddenNodes = payload?.hiddenNodes || [];
+        const viewModel = activeView.getModel("view") as JSONModel;
+        if (viewModel) {
+            viewModel.setProperty(ViewState.HAS_HIDDEN_NODES, hasHidden);
+            viewModel.setProperty(ViewState.HIDDEN_NODES_LIST, hiddenNodes);
         }
     }
 
@@ -173,36 +173,36 @@ export default class DialogManager {
     // ========================================================================
 
     public static promptAddNote(payload: any): void {
-        const sViewId = payload?.viewId;
-        if (!sViewId) return;
+        const viewId = payload?.viewId;
+        if (!viewId) return;
         
-        this._openNoteDialog(sViewId, "Add Sticky Note", "", "Marker", (sText, sFont) => {
-            EventManager.getInstance().publish("canvas:addNoteRequest", { viewId: sViewId, text: sText, fontFamily: sFont });
+        this._openNoteDialog(viewId, "Add Sticky Note", "", "Marker", (sText, sFont) => {
+            EventManager.getInstance().publish("canvas:addNoteRequest", { viewId: viewId, text: sText, fontFamily: sFont });
         });
     }
 
     public static promptEditNote(payload: any): void {
-        const sViewId = payload?.viewId;
-        if (!sViewId) return;
+        const viewId = payload?.viewId;
+        if (!viewId) return;
         
         const sId = payload?.noteId || payload?.id;
         const sCurrentText = payload?.text || "";
         const sCurrentFont = payload?.fontFamily || "Marker";
         
-        this._openNoteDialog(sViewId, "Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
-            EventManager.getInstance().publish("canvas:editNoteRequest", { viewId: sViewId, noteId: sId, text: sText, fontFamily: sFont });
+        this._openNoteDialog(viewId, "Edit Sticky Note", sCurrentText, sCurrentFont, (sText, sFont) => {
+            EventManager.getInstance().publish("canvas:editNoteRequest", { viewId: viewId, noteId: sId, text: sText, fontFamily: sFont });
         });
     }
 
-    private static _openNoteDialog(sViewId: string, sTitle: string, sInitialText: string, sInitialFont: string, fnOnSave: (sText: string, sFont: string) => void): void {
-        const oView = this._mViews.get(sViewId);
-        if (!oView) return;
+    private static _openNoteDialog(viewId: string, title: string, initialText: string, initialFont: string, onSave: (text: string, font: string) => void): void {
+        const activeView = this._mViews.get(viewId);
+        if (!activeView) return;
 
-        const oTextArea = new TextArea({ width: "100%", rows: 5, value: sInitialText, placeholder: "Type your sticky note here..." });
+        const textArea = new TextArea({ width: "100%", rows: 5, value: initialText, placeholder: "Type your sticky note here..." });
         
-        const oFontSelect = new Select({
+        const fontSelect = new Select({
             width: "100%",
-            selectedKey: sInitialFont || "Marker",
+            selectedKey: initialFont || "Marker",
             items: [
                 new Item({ key: "Marker", text: "Marker (Handwritten)" }),
                 new Item({ key: "Standard", text: "Standard (Sans-Serif)" }),
@@ -211,28 +211,28 @@ export default class DialogManager {
             ]
         });
 
-        const oContent = new VBox({
-            items: [ new Label({ text: "Note Text" }), oTextArea, new Label({ text: "Typography" }).addStyleClass("sapUiSmallMarginTop"), oFontSelect ]
+        const content = new VBox({
+            items: [ new Label({ text: "Note Text" }), textArea, new Label({ text: "Typography" }).addStyleClass("sapUiSmallMarginTop"), fontSelect ]
         }).addStyleClass("sapUiTinyMargin");
 
-        const oDialog = new Dialog({
-            title: sTitle,
+        const dialog = new Dialog({
+            title: title,
             contentWidth: "300px",
-            content: [oContent],
+            content: [content],
             beginButton: new Button({
                 text: "Save",
                 type: "Emphasized",
                 press: () => {
-                    const sText = oTextArea.getValue().trim();
-                    if (sText) fnOnSave(sText, oFontSelect.getSelectedKey());
-                    oDialog.close();
+                    const text = textArea.getValue().trim();
+                    if (text) onSave(text, fontSelect.getSelectedKey());
+                    dialog.close();
                 }
             }),
-            endButton: new Button({ text: "Cancel", press: () => oDialog.close() }),
-            afterClose: () => oDialog.destroy()
+            endButton: new Button({ text: "Cancel", press: () => dialog.close() }),
+            afterClose: () => dialog.destroy()
         });
         
-        oView.addDependent(oDialog);
-        oDialog.open();
+        activeView.addDependent(dialog);
+        dialog.open();
     }
 }

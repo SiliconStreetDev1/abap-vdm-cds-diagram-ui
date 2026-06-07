@@ -10,6 +10,11 @@ import PastelTheme from "./PastelTheme";
 import NeonInvertedTheme from "./NeonInvertedTheme";
 import GlassmorphismTheme from "./GlassmorphismTheme";
 
+/**
+ * @namespace nz.co.siliconstreet.vdmdiagrammer.renderer.engines.cytoscape.themes
+ * @class ThemeRegistry
+ * @description Enterprise definition for ThemeRegistry.
+ */
 export default class ThemeRegistry {
     private static _themes: Map<string, ITheme> = new Map();
 

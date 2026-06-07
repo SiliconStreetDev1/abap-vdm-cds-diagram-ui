@@ -21,10 +21,10 @@ export default class DiagramStateActionHandler {
 
     /**
      * @public
-     * @param {View} oView - The active UI5 View.
+     * @param {View} activeView - The active UI5 View.
      */
-    constructor(oView: View) {
-        this._oView = oView;
+    constructor(activeView: View) {
+        this._oView = activeView;
     }
 
     /**
@@ -41,10 +41,10 @@ export default class DiagramStateActionHandler {
      * @description Resolves the current Diagram ID.
      */
     private _getDiagramId(): string {
-        const oDataModel = this._oView.getModel("diagramData") as JSONModel;
-        if (!oDataModel) return "DEFAULT";
-        const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
-        const sCurrent = oDataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || oDataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
+        const dataModel = this._oView.getModel("diagramData") as JSONModel;
+        if (!dataModel) return "DEFAULT";
+        const aLinks = dataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+        const sCurrent = dataModel.getProperty(DiagramData.CURRENT_BREADCRUMB) || dataModel.getProperty(DiagramData.CDS_NAME) || "DEFAULT";
         const aPath = aLinks.map((l: any) => l.name).concat(sCurrent).map((s: string) => s.toUpperCase());
         return aPath.join('|');
     }
@@ -117,8 +117,8 @@ export default class DiagramStateActionHandler {
         if (history.hasUndo()) {
             history.undo();
         } else {
-            const oDataModel = this._oView.getModel("diagramData") as JSONModel;
-            const aLinks = oDataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
+            const dataModel = this._oView.getModel("diagramData") as JSONModel;
+            const aLinks = dataModel.getProperty(DiagramData.BREADCRUMB_LINKS) || [];
             if (aLinks.length > 0) {
                 const sParentName = aLinks[aLinks.length - 1].name;
                 EventManager.getInstance().publish("diagram:nodeDrillDown", { viewName: sParentName });

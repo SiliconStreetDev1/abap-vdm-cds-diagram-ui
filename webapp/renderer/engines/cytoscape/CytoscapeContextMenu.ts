@@ -16,10 +16,10 @@ export default class CytoscapeContextMenu {
      * @static
      * @description Safely removes any active context menu and glass pane from the DOM.
      */
-    public static removeAll(sViewId: string): void {
-        const existing = document.getElementById(`vdm-cy-context-menu-${sViewId}`);
+    public static removeAll(viewId: string): void {
+        const existing = document.getElementById(`vdm-cy-context-menu-${viewId}`);
         if (existing) existing.remove();
-        const glass = document.getElementById(`vdm-cy-glass-pane-${sViewId}`);
+        const glass = document.getElementById(`vdm-cy-glass-pane-${viewId}`);
         if (glass) glass.remove();
     }
 
@@ -32,11 +32,11 @@ export default class CytoscapeContextMenu {
      * @param {() => boolean} getIsViewerMode - Callback to evaluate if the canvas is in viewer mode.
      * @returns {void}
      */
-    public static attach(sViewId: string, cyInstance: Core, getIsDrillDown: () => boolean, getIsViewerMode: () => boolean): void {
-        cyInstance.on('tap zoom pan', () => this.removeAll(sViewId));
+    public static attach(viewId: string, cyInstance: Core, getIsDrillDown: () => boolean, getIsViewerMode: () => boolean): void {
+        cyInstance.on('tap zoom pan', () => this.removeAll(viewId));
 
         cyInstance.on('cxttap', 'node', (evt: EventObject) => {
-            this.removeAll(sViewId); 
+            this.removeAll(viewId); 
             
             const node = evt.target as NodeSingular;
             const container = cyInstance.container();
@@ -56,7 +56,7 @@ export default class CytoscapeContextMenu {
             // ENTERPRISE UX: Glass Pane Protection
             // Invisible layer behind the menu that swallows missed clicks to prevent canvas deselection
             const glass = document.createElement("div");
-            glass.id = `vdm-cy-glass-pane-${sViewId}`;
+            glass.id = `vdm-cy-glass-pane-${viewId}`;
             glass.style.position = "absolute";
             glass.style.top = "0";
             glass.style.left = "0";
@@ -66,20 +66,20 @@ export default class CytoscapeContextMenu {
             const blockEvent = (e: Event) => {
                 e.stopPropagation();
                 e.preventDefault();
-                this.removeAll(sViewId);
+                this.removeAll(viewId);
             };
             
             // Asynchronously bind glass pane events to prevent the initial native right-click 
             // bubbling phase from instantly destroying the newly created menu.
             requestAnimationFrame(() => {
-                if (!document.getElementById(`vdm-cy-glass-pane-${sViewId}`)) return;
+                if (!document.getElementById(`vdm-cy-glass-pane-${viewId}`)) return;
                 glass.onmousedown = blockEvent;
                 glass.ontouchstart = blockEvent;
                 glass.oncontextmenu = blockEvent;
             });
             container.appendChild(glass);
 
-            const menu = this._buildMenuElement(sViewId, evt.renderedPosition.x, evt.renderedPosition.y);
+            const menu = this._buildMenuElement(viewId, evt.renderedPosition.x, evt.renderedPosition.y);
             
             const bIsNote = node.hasClass('annotation-note');
             if (bIsNote) {
@@ -93,21 +93,21 @@ export default class CytoscapeContextMenu {
 
             let strategy: BaseMenuStrategy;
             if (getIsViewerMode()) {
-                strategy = new ViewerMenuStrategy(sViewId);
+                strategy = new ViewerMenuStrategy(viewId);
             } else if (bIsNote) {
-                this.removeAll(sViewId); // No context menu for notes currently
+                this.removeAll(viewId); // No context menu for notes currently
                 return;
             } else if (getIsDrillDown()) {
-                strategy = new DrillDownMenuStrategy(sViewId);
+                strategy = new DrillDownMenuStrategy(viewId);
             } else {
-                strategy = new BuilderEntityMenuStrategy(sViewId);
+                strategy = new BuilderEntityMenuStrategy(viewId);
             }
             strategy.build(menu, targetNodes, node, cyInstance, suffix, totalCount);
 
             if (menu.childNodes.length > 0) {
                 container.appendChild(menu);
             } else {
-                this.removeAll(sViewId);
+                this.removeAll(viewId);
             }
         });
     }
@@ -120,9 +120,9 @@ export default class CytoscapeContextMenu {
      * @param {number} y - Mouse Client Y Coordinates via Cytoscape local rendering mapping.
      * @returns {HTMLDivElement} - The base Fiori-themed DIV Wrapper.
      */
-    private static _buildMenuElement(sViewId: string, x: number, y: number): HTMLDivElement {
+    private static _buildMenuElement(viewId: string, x: number, y: number): HTMLDivElement {
         const menu = document.createElement("div");
-        menu.id = `vdm-cy-context-menu-${sViewId}`;
+        menu.id = `vdm-cy-context-menu-${viewId}`;
         menu.style.position = "absolute";
         menu.style.left = `${x + 10}px`;
         menu.style.top = `${y + 10}px`;
@@ -141,7 +141,7 @@ export default class CytoscapeContextMenu {
         menu.oncontextmenu = (e) => e.preventDefault();
         
         // FIX: Ensure the menu destroys itself after any valid click action inside of it.
-        menu.onclick = () => this.removeAll(sViewId);
+        menu.onclick = () => this.removeAll(viewId);
 
         return menu;
     }

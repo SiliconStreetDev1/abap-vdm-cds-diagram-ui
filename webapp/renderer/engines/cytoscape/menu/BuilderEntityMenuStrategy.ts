@@ -11,6 +11,10 @@ export default class BuilderEntityMenuStrategy extends BaseMenuStrategy {
 
    
 
+    /**
+     * @public
+     * @description Executes build functionality.
+     */
     public build(menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string, totalCount: number): void {
         menu.appendChild(this._createMenuItem("📝", `Add Linked Note${suffix}`, "#f57c00", () => {
             // FIX: Instantly destroy the menu and glass pane before firing the background event
@@ -18,7 +22,7 @@ export default class BuilderEntityMenuStrategy extends BaseMenuStrategy {
 
             cyInstance.elements().unselect();
             targetNodes.select();
-            EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._sViewId });
+            EventManager.getInstance().publish("canvas:promptAddNoteRequest", { viewId: this._viewId });
         }));
 
         // Compose standard Pin/Hide commands

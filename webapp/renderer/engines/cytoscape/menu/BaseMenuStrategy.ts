@@ -7,18 +7,18 @@ import type { Core, NodeCollection, NodeSingular } from "cytoscape";
 import { EventManager } from "../../../../events/EventManager";
 
 export default abstract class BaseMenuStrategy {
-    protected _sViewId: string;
+    protected _viewId: string;
 
-    constructor(sViewId: string) {
-        this._sViewId = sViewId;
+    constructor(viewId: string) {
+        this._viewId = viewId;
     }
 
     public abstract build(menu: HTMLDivElement, targetNodes: NodeCollection, clickedNode: NodeSingular, cyInstance: Core, suffix: string, totalCount: number): void;
 
     protected _closeMenu(): void {
-        const menu = document.getElementById(`vdm-cy-context-menu-${this._sViewId}`);
+        const menu = document.getElementById(`vdm-cy-context-menu-${this._viewId}`);
         if (menu) menu.remove();
-        const glass = document.getElementById(`vdm-cy-glass-pane-${this._sViewId}`);
+        const glass = document.getElementById(`vdm-cy-glass-pane-${this._viewId}`);
         if (glass) glass.remove();
     }
 
@@ -59,22 +59,22 @@ export default abstract class BaseMenuStrategy {
         if (lockedCount < totalCount) {
             menu.appendChild(this._createMenuItem("📌", `Pin${suffix}`, "#d32f2f", () => { 
                 targetNodes.data('isPinned', true).lock(); 
-                EventManager.getInstance().publish("canvas:nodePinned", { viewId: this._sViewId }); 
+                EventManager.getInstance().publish("canvas:nodePinned", { viewId: this._viewId }); 
             }));
         } 
         if (lockedCount > 0) {
             menu.appendChild(this._createMenuItem("🔓", `Unlock${suffix}`, "#4caf50", () => { 
                 targetNodes.data('isPinned', false).unlock(); 
-                EventManager.getInstance().publish("canvas:nodePinned", { viewId: this._sViewId }); 
+                EventManager.getInstance().publish("canvas:nodePinned", { viewId: this._viewId }); 
             }));
         }
         menu.appendChild(this._createMenuItem("✖", `Hide${suffix}`, "#333333", () => {
             const linkedNotes = targetNodes.connectedEdges('.annotation-edge').connectedNodes('.annotation-note');
             const nodesToHide = targetNodes.union(linkedNotes);
             nodesToHide.addClass('hidden').data('isHidden', true).unselect();
-            EventManager.getInstance().publish("canvas:nodeHidden", { viewId: this._sViewId });
+            EventManager.getInstance().publish("canvas:nodeHidden", { viewId: this._viewId });
             const hiddenList = cyInstance.nodes('.hidden').map((n: NodeSingular) => ({ id: n.id(), label: n.data('label') || n.id() }));
-            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: this._sViewId, hasHidden: hiddenList.length > 0, hiddenNodes: hiddenList });
+            EventManager.getInstance().publish("canvas:nodesVisibilityChanged", { viewId: this._viewId, hasHidden: hiddenList.length > 0, hiddenNodes: hiddenList });
         }));
     }
 }
