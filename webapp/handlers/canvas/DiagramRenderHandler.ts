@@ -40,13 +40,13 @@ export default class DiagramRenderHandler {
      */
     public attachEvents(): void {
         if (this._bIsAttached) return;
-        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderRequest", this._onRenderRequest.bind(this)));
-        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:renderFailed", this._onRenderFailed.bind(this)));
-        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:liveFormatUpdate", this._onLiveFormatUpdate.bind(this)));
-        this._subscriptions.push(EventManager.getInstance().subscribe("diagram:viewerLoading", this._onViewerLoading.bind(this)));
+        EventManager.getInstance().subscribe("diagram:renderRequest", this._onRenderRequest.bind(this), this._oView);
+        EventManager.getInstance().subscribe("diagram:renderFailed", this._onRenderFailed.bind(this), this._oView);
+        EventManager.getInstance().subscribe("diagram:liveFormatUpdate", this._onLiveFormatUpdate.bind(this), this._oView);
+        EventManager.getInstance().subscribe("diagram:viewerLoading", this._onViewerLoading.bind(this), this._oView);
         this._fnCanvasReadyBind = this._onCanvasReady.bind(this) as any;
         if (typeof document !== "undefined") {
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:ready", this._fnCanvasReadyBind));
+            EventManager.getInstance().subscribe("canvas:ready", this._fnCanvasReadyBind, this._oView);
         }
         this._bIsAttached = true;
     }
@@ -57,8 +57,8 @@ export default class DiagramRenderHandler {
      */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
-        this._subscriptions.forEach(sub => sub.dispose());
-        this._subscriptions = [];
+
+
         if (typeof document !== "undefined") {
             /* removed */
         }

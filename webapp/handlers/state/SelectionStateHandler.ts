@@ -34,11 +34,11 @@ export default class SelectionStateHandler {
         if (this._bIsAttached) return;
         this._fnCanvasStateChangedBind = this.onCanvasStateChanged.bind(this) as any;
         if (typeof document !== "undefined") {
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePositionChanged", this._fnCanvasStateChangedBind));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:variantDirty", this._fnCanvasStateChangedBind));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePinned", this._fnCanvasStateChangedBind));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeHidden", this._fnCanvasStateChangedBind));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeUnhidden", this._fnCanvasStateChangedBind));
+            EventManager.getInstance().subscribe("canvas:nodePositionChanged", this._fnCanvasStateChangedBind, this._oView);
+            EventManager.getInstance().subscribe("canvas:variantDirty", this._fnCanvasStateChangedBind, this._oView);
+            EventManager.getInstance().subscribe("canvas:nodePinned", this._fnCanvasStateChangedBind, this._oView);
+            EventManager.getInstance().subscribe("canvas:nodeHidden", this._fnCanvasStateChangedBind, this._oView);
+            EventManager.getInstance().subscribe("canvas:nodeUnhidden", this._fnCanvasStateChangedBind, this._oView);
         }
         this._bIsAttached = true;
     }
@@ -50,9 +50,9 @@ export default class SelectionStateHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            this._subscriptions.forEach((sub: any) => sub.dispose());
+
         }
-        this._subscriptions = [];
+
         this._bIsAttached = false;
     }
 

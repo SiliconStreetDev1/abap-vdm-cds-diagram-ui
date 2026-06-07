@@ -61,10 +61,10 @@ export default class DiagramGenerationHandler {
     public attachEvents(): void {
         if (this._bIsAttached) return;
         const em = EventManager.getInstance();
-        this.subscriptions.push(em.subscribe("diagram:nodeDrillDown", this._onNodeDrillDown.bind(this)));
-        this.subscriptions.push(EventManager.getInstance().subscribe("diagram:applyVariantState", this._restoreWorkspaceState.bind(this)));
+        em.subscribe("diagram:nodeDrillDown", this._onNodeDrillDown.bind(this), this.view);
+        EventManager.getInstance().subscribe("diagram:applyVariantState", this._restoreWorkspaceState.bind(this), this.view);
         this._fnNodeDrillDownRequestBind = this._onNodeDrillDownDOM.bind(this) as any;
-        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeDrillDownRequest", this._fnNodeDrillDownRequestBind));
+        EventManager.getInstance().subscribe("canvas:nodeDrillDownRequest", this._fnNodeDrillDownRequestBind, this.view);
         this._bIsAttached = true;
     }
 
@@ -74,8 +74,8 @@ export default class DiagramGenerationHandler {
      */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
-        this.subscriptions.forEach(sub => sub.dispose());
-        this.subscriptions = [];
+
+
         this._bIsAttached = false;
     }
 

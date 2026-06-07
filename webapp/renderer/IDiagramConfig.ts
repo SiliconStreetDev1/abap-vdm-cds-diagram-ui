@@ -18,6 +18,7 @@ export interface IConfigPaths {
     elk?: string;
     cytoscapeElk?: string;
     gridGuideJs?: string;
+    rloEngine?: string;
 }
 
 export interface IDiagramConfig {

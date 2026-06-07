@@ -54,8 +54,8 @@ export default class CanvasActionHandler {
     public attachEvents(): void {
         if (this.isAttached) return;
 
-        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:closeMinimapRequest", this.onCloseMinimapRequest.bind(this)));
-        this.subscriptions.push(EventManager.getInstance().subscribe("canvas:focusModeChanged", this.onFocusModeChanged.bind(this)));
+        EventManager.getInstance().subscribe("canvas:closeMinimapRequest", this.onCloseMinimapRequest.bind(this), this.view);
+        EventManager.getInstance().subscribe("canvas:focusModeChanged", this.onFocusModeChanged.bind(this), this.view);
         
         this.isAttached = true;
     }
@@ -68,8 +68,8 @@ export default class CanvasActionHandler {
     public detachEvents(): void {
         if (!this.isAttached) return;
 
-        this.subscriptions.forEach(sub => sub.dispose());
-        this.subscriptions = [];
+
+
 
         if (this.spacingPopover) {
             this.spacingPopover.destroy();

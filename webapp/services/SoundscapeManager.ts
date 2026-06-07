@@ -28,13 +28,30 @@ export default class SoundscapeManager {
         const eventManager = EventManager.getInstance();
 
         this.subscriptions.push(
-            eventManager.subscribe("diagram:renderRequest", this.onRenderRequest.bind(this)),
-            eventManager.subscribe("canvas:nodePinned", this.onNodePinned.bind(this)),
-            eventManager.subscribe("canvas:undoRequest", this.onUndoRequest.bind(this)),
-            eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this)),
-            eventManager.subscribe("canvas:nodeDragging", this.onNodeDragged.bind(this)),
-            eventManager.subscribe("canvas:nodePositionChanged", this.onNodeDropped.bind(this))
+            eventManager.subscribe("diagram:renderRequest", this.onRenderRequest.bind(this), { attachEventOnce: () => {} }),
+            eventManager.subscribe("canvas:nodePinned", this.onNodePinned.bind(this), { attachEventOnce: () => {} }),
+            eventManager.subscribe("canvas:undoRequest", this.onUndoRequest.bind(this), { attachEventOnce: () => {} }),
+            eventManager.subscribe("canvas:ready", this.onCanvasReady.bind(this), { attachEventOnce: () => {} }),
+            eventManager.subscribe("canvas:nodeDragging", this.onNodeDragged.bind(this), { attachEventOnce: () => {} }),
+            eventManager.subscribe("canvas:nodePositionChanged", this.onNodeDropped.bind(this), { attachEventOnce: () => {} })
         );
+
+        // ENTERPRISE FIX: The ultimate Autoplay Policy resolution.
+        // UI5's EventProvider notoriously delays synthetic `press` events to the next microtask or setTimeout queue.
+        // This strips the native browser "user gesture" context, causing Safari/Chrome to firmly reject Web Audio API resumes.
+        // We bypass UI5 entirely by attaching a one-time native global capture listener to the document.
+        const fnUnlock = () => {
+            this.unlockAudio();
+            document.removeEventListener("click", fnUnlock, true);
+            document.removeEventListener("touchstart", fnUnlock, true);
+            document.removeEventListener("keydown", fnUnlock, true);
+        };
+
+        if (typeof document !== "undefined") {
+            document.addEventListener("click", fnUnlock, true);
+            document.addEventListener("touchstart", fnUnlock, { capture: true, passive: true });
+            document.addEventListener("keydown", fnUnlock, true);
+        }
 
         this.isAttached = true;
     }
@@ -98,6 +115,51 @@ export default class SoundscapeManager {
     }
 
     /**
+     * @public
+     * @static
+     * @description Public hook to explicitly unlock the AudioContext during a direct user gesture.
+     * Prevents the browser Autoplay Policy from blocking sounds triggered asynchronously later.
+     */
+    public static unlockAudio(): void {
+        if (!this.isAudioEnabled()) return;
+        
+        // ENTERPRISE FIX: Everything MUST happen synchronously in the exact same call stack as the physical click.
+        // We cannot use await or .then(), otherwise the browser execution frame shifts to a microtask, stripping the user gesture context.
+        
+        if (!this.audioCtx) {
+            const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtxClass) {
+                this.audioCtx = new AudioCtxClass();
+            }
+        }
+
+        if (this.audioCtx) {
+            try {
+                // Instantly play a silent dummy sound in the synchronous stack
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                gain.gain.value = 0;
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+                osc.start(0);
+                osc.stop(this.audioCtx.currentTime + 0.001);
+                
+                // Fire and forget the resume command (DO NOT AWAIT)
+                if (this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume().catch(() => {});
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        }
+            
+        // Pre-fetch the procedural engine script so it's instantly ready for the first real sound
+        this.lazyInitEngine();
+    }
+
+    private static engineInitPromise: Promise<void> | null = null;
+
+    /**
      * @private
      * @static
      * @description Lazy-loads the procedural audio engine only when required.
@@ -108,30 +170,51 @@ export default class SoundscapeManager {
     private static async lazyInitEngine(): Promise<void> {
         if (this.engine || !this.isAudioEnabled()) return;
 
-        try {
-            await this.ensureAudioContext();
-            
-            const config = ConfigManager.get();
-            
-            const nativeImport = new Function('url', 'return import(url)');
-            let rlo: any;
-            
-            try {
-                const sLocalUrl = sap.ui.require.toUrl("nz/co/siliconstreet/vdmdiagrammer/lib/rlo-engine.min.js");
-                rlo = await nativeImport(sLocalUrl);
-            } catch (e) {
-                const cdnPath = (config.cdnPaths as any)?.rloEngine;
-                if (!cdnPath) return; // Silent exit if no CDN fallback available
-                rlo = await nativeImport(cdnPath);
-            }
-
-            if (rlo && rlo.RLOGameEngine) {
-                this.engine = new rlo.RLOGameEngine(this.audioCtx);
-                this.engine.setSFXVolume(0.15); 
-            }
-        } catch (e) {
-            // Silently suppress audio initialization errors to keep the console clean
+        // ENTERPRISE FIX: Memoize the initialization Promise.
+        // Prevents a race condition where the rapid synchronous unlockAudio() call 
+        // and the asynchronous onRenderRequest() call spawn duplicate concurrent network fetches,
+        // which causes the engine to overwrite itself mid-initialization and drop the first sound.
+        if (this.engineInitPromise) {
+            return this.engineInitPromise;
         }
+
+        this.engineInitPromise = (async () => {
+            try {
+                // ENTERPRISE FIX: Must await initialize() instead of synchronous get().
+                // If the user clicks the document immediately on page load, get() returns an empty object 
+                // and aborts the pre-fetch. We must wait for the config to fully resolve.
+                const config = await ConfigManager.initialize();
+                
+                const nativeImport = new Function('url', 'return import(url)');
+                let rlo: any;
+                
+                try {
+                    let sLocalUrl = config.localPaths?.rloEngine;
+                    if (sLocalUrl && sLocalUrl.startsWith("./")) {
+                        const sModulePath = "nz/co/siliconstreet/vdmdiagrammer/" + sLocalUrl.substring(2);
+                        sLocalUrl = sap.ui.require.toUrl(sModulePath);
+                    }
+                    if (!sLocalUrl) throw new Error("No local path configured for rloEngine");
+                    
+                    rlo = await nativeImport(sLocalUrl);
+                } catch (e) {
+                    const cdnPath = (config.cdnPaths as any)?.rloEngine;
+                    if (!cdnPath) return; // Silent exit if no CDN fallback available
+                    rlo = await nativeImport(cdnPath);
+                }
+
+                if (rlo && rlo.RLOGameEngine) {
+                    this.engine = new rlo.RLOGameEngine(this.audioCtx);
+                    this.engine.setSFXVolume(0.15); 
+                }
+            } catch (e) {
+                // Silently suppress audio initialization errors to keep the console clean
+            } finally {
+                this.engineInitPromise = null;
+            }
+        })();
+
+        return this.engineInitPromise;
     }
 
     /**

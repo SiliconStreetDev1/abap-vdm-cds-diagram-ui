@@ -47,9 +47,9 @@ export default class AnnotationHandler {
         if (this.isAttached) return;
 
         const em = EventManager.getInstance();
-        this.subscriptions.push(em.subscribe("canvas:addNoteRequest", this.onAddNoteRequest.bind(this)));
-        this.subscriptions.push(em.subscribe("canvas:editNoteRequest", this.onEditNoteRequest.bind(this)));
-        this.subscriptions.push(em.subscribe("canvas:changeNoteColorRequest", this.onChangeNoteColorRequest.bind(this)));
+        em.subscribe("canvas:addNoteRequest", this.onAddNoteRequest.bind(this), this.view);
+        em.subscribe("canvas:editNoteRequest", this.onEditNoteRequest.bind(this), this.view);
+        em.subscribe("canvas:changeNoteColorRequest", this.onChangeNoteColorRequest.bind(this), this.view);
         
         this.isAttached = true;
     }
@@ -61,8 +61,8 @@ export default class AnnotationHandler {
     public detachEvents(): void {
         if (!this.isAttached) return;
 
-        this.subscriptions.forEach(sub => sub.dispose());
-        this.subscriptions = [];
+
+
         this.isAttached = false;
     }
 

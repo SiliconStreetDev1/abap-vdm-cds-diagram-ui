@@ -17,7 +17,7 @@
     "navigatorCss": "./libs/cytoscape.js-navigator.css",
     "elk": "./libs/elk.bundled.js",
     "cytoscapeElk": "./libs/cytoscape-elk.js",
-    "rloEngine": "./lib/rlo-engine.min.js"
+    "rloEngine": "./libs/rlo-engine.min.js"
   },
   "cdnPaths": {
     "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js",

@@ -29,6 +29,7 @@ import { ModelNames } from "../constants/StateConstants";
 import ContextHelpManager from "../helpers/ContextHelpManager";
 import DiagramCache from "../services/DiagramCache";
 import { EventManager } from "../events/EventManager";
+import SoundscapeManager from "../services/SoundscapeManager";
 
 export default class Selection extends Controller {
 
@@ -102,7 +103,7 @@ export default class Selection extends Controller {
                 uiModel.setProperty("/hasCache", !!e?.hasCache);
             }
         };
-        this._cacheSubscription = EventManager.getInstance().subscribe("cache:updated", this._cacheUpdatedBind);
+        this._cacheSubscription = EventManager.getInstance().subscribe("cache:updated", this._cacheUpdatedBind, this);
 
         this.generationHandler.attachEvents();
         this.uiHandler.attachEvents();
@@ -125,8 +126,8 @@ export default class Selection extends Controller {
         }
         
         if (this._cacheSubscription) {
-            this._cacheSubscription.dispose();
-            this._cacheSubscription = null;
+            
+            
         }
 
         ContextHelpManager.destroy(this.getInstanceId());
@@ -166,7 +167,9 @@ export default class Selection extends Controller {
 
     public async onSaveVariant(): Promise<void> { await this.variantOrchestrator.saveVariant(); }
     public async onDeleteVariant(): Promise<void> { await this.variantOrchestrator.deleteVariant(); }
-    public async onVariantChange(e: Event): Promise<void> { await this.variantOrchestrator.changeVariant(e); }
+    public async onVariantChange(e: Event): Promise<void> { 
+        await this.variantOrchestrator.changeVariant(e); 
+    }
     public async onRevertVariant(): Promise<void> { await this.variantOrchestrator.revertVariant(); }
     public onClearVariant(): void { this.variantOrchestrator.clearVariant(); }
     public async onShareVariant(): Promise<void> { await this.variantOrchestrator.shareVariant(); }

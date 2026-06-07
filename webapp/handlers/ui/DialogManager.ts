@@ -45,13 +45,13 @@ export default class DialogManager {
         if (this._bIsAttached) return;
 
         this._subscriptions = [
-            EventManager.getInstance().subscribe("ui:openDialog", (e: any) => this._handleOpenDialog(e)),
-            EventManager.getInstance().subscribe("ui:closeDialog", (e: any) => this._handleCloseDialog(e)),
-            EventManager.getInstance().subscribe("ui:restoreSelectedNodes", (e: any) => this._handleRestoreSelected(e)),
-            EventManager.getInstance().subscribe("ui:showAllHiddenNodes", (e: any) => this._handleShowAllHidden(e)),
-            EventManager.getInstance().subscribe("canvas:nodesVisibilityChanged", (e: any) => this._onVisibilityChanged(e)),
-            EventManager.getInstance().subscribe("canvas:promptAddNoteRequest", (e: any) => this.promptAddNote(e)),
-            EventManager.getInstance().subscribe("canvas:promptEditNoteRequest", (e: any) => this.promptEditNote(e))
+            EventManager.getInstance().subscribe("ui:openDialog", (e: any) => this._handleOpenDialog(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("ui:closeDialog", (e: any) => this._handleCloseDialog(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("ui:restoreSelectedNodes", (e: any) => this._handleRestoreSelected(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("ui:showAllHiddenNodes", (e: any) => this._handleShowAllHidden(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("canvas:nodesVisibilityChanged", (e: any) => this._onVisibilityChanged(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("canvas:promptAddNoteRequest", (e: any) => this.promptAddNote(e), { attachEventOnce: () => {} }),
+            EventManager.getInstance().subscribe("canvas:promptEditNoteRequest", (e: any) => this.promptEditNote(e), { attachEventOnce: () => {} })
         ];
 
         this._bIsAttached = true;

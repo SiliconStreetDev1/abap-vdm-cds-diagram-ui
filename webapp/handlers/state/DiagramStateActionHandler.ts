@@ -57,11 +57,11 @@ export default class DiagramStateActionHandler {
         if (this._bIsAttached) return;
 
         if (typeof document !== "undefined") {
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:undoRequest", this._onUndoRequest.bind(this)));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:redoRequest", this._onRedoRequest.bind(this)));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodePositionChanged", this._onNodePositionChanged.bind(this)));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodesPositionChanged", this._onNodesPositionChanged.bind(this)));
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:nodeHidden", this._onNodeHidden.bind(this)));
+            EventManager.getInstance().subscribe("canvas:undoRequest", this._onUndoRequest.bind(this), this._oView);
+            EventManager.getInstance().subscribe("canvas:redoRequest", this._onRedoRequest.bind(this), this._oView);
+            EventManager.getInstance().subscribe("canvas:nodePositionChanged", this._onNodePositionChanged.bind(this), this._oView);
+            EventManager.getInstance().subscribe("canvas:nodesPositionChanged", this._onNodesPositionChanged.bind(this), this._oView);
+            EventManager.getInstance().subscribe("canvas:nodeHidden", this._onNodeHidden.bind(this), this._oView);
         }
         
         this._bIsAttached = true;
@@ -73,8 +73,8 @@ export default class DiagramStateActionHandler {
      */
     public detachEvents(): void {
         if (!this._bIsAttached) return;
-        this._subscriptions.forEach(sub => sub.dispose());
-        this._subscriptions = [];
+
+
         this._bIsAttached = false;
     }
 

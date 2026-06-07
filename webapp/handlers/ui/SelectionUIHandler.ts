@@ -58,16 +58,16 @@ export default class SelectionUIHandler {
         if (this._bIsAttached) return;
         this._fnSliderUpdateBind = this.onSliderUpdate.bind(this) as EventListener;
         if (typeof document !== "undefined") {
-            this._subscriptions.push(EventManager.getInstance().subscribe("canvas:formatSliderUpdate", this._fnSliderUpdateBind));
+            EventManager.getInstance().subscribe("canvas:formatSliderUpdate", this._fnSliderUpdateBind, this._oView);
         }
         this._bIsAttached = true;
     }
     public detachEvents(): void {
         if (!this._bIsAttached) return;
         if (typeof document !== "undefined") {
-            this._subscriptions.forEach((sub: any) => sub.dispose());
+
         }
-        this._subscriptions = [];
+
         this._bIsAttached = false;
     }
 

@@ -93,10 +93,11 @@ export class EventManager {
      * @description Subscribes a listener to a specific strongly typed event.
      * @param {K} event - The specific event identifier from IAppEventMap.
      * @param {(payload: IAppEventMap[K]) => void} callback - The function to execute when the event fires.
+     * @param {any} [context] - Optional UI5 object context (e.g., `this`). Automates memory cleanup on destruction.
      * @returns {Subscription} A disposable subscription object to prevent memory leaks.
      * @template K The expected event key type.
      */
-    public subscribe<K extends keyof IAppEventMap>(event: K, callback: (payload: IAppEventMap[K]) => void): Subscription {
+    public subscribe<K extends keyof IAppEventMap>(event: K, callback: (payload: IAppEventMap[K]) => void, context?: any): Subscription {
         if (!this.registry[event]) {
             this.registry[event] = [];
         }
@@ -104,9 +105,22 @@ export class EventManager {
         this.registry[event].push(callback as EventCallback);
 
         // Return a disposable wrapper implementing the closure for memory safety
-        return new Subscription(() => {
+        const sub = new Subscription(() => {
             this.unsubscribe(event, callback as EventCallback);
         });
+
+        // Automate memory cleanup if a UI5 Context was passed
+        if (context) {
+            if (typeof context.attachEventOnce === "function") {
+                context.attachEventOnce("destroy", () => sub.dispose());
+            } else {
+                console.warn(`⚠️ [EventManager] Memory Lease Warning: Context passed for event [${event as string}] lacks attachEventOnce() and cannot be auto-disposed.`);
+            }
+        } else {
+            console.warn(`⚠️ [EventManager] Memory Lease Warning: No UI5 context passed for event [${event as string}]. Potential memory leak.`);
+        }
+
+        return sub;
     }
 
     /**

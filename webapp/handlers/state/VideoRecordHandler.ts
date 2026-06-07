@@ -57,13 +57,13 @@ export default class VideoRecordHandler {
     public attachEvents(): void {
         if (this._bIsAttached) return;
 
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:autoPause", this.autoPauseBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:autoResume", this.autoResumeBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:stop", this.stopBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:pause", this.pauseBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:resume", this.resumeBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:start", this.startBind));
-        this.subscriptions.push(EventManager.getInstance().subscribe("video:toggleStealth", this.toggleStealthBind));
+        EventManager.getInstance().subscribe("video:autoPause", this.autoPauseBind, this.view);
+        EventManager.getInstance().subscribe("video:autoResume", this.autoResumeBind, this.view);
+        EventManager.getInstance().subscribe("video:stop", this.stopBind, this.view);
+        EventManager.getInstance().subscribe("video:pause", this.pauseBind, this.view);
+        EventManager.getInstance().subscribe("video:resume", this.resumeBind, this.view);
+        EventManager.getInstance().subscribe("video:start", this.startBind, this.view);
+        EventManager.getInstance().subscribe("video:toggleStealth", this.toggleStealthBind, this.view);
         
         this._bIsAttached = true;
     }
@@ -75,8 +75,8 @@ export default class VideoRecordHandler {
     public detachEvents(): void {
         if (!this._bIsAttached) return;
 
-        this.subscriptions.forEach(sub => sub.dispose());
-        this.subscriptions = [];
+
+
         
         this._bIsAttached = false;
     }
