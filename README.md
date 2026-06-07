@@ -28,59 +28,62 @@ This application utilizes four distinct visual engines to render CDS relationshi
 The Cytoscape engine transforms the diagram from a static map into a "Discovery Environment."
 <img width="1500" height="815" alt="image" src="https://github.com/user-attachments/assets/ad8bafb6-8bb9-4414-a7ab-487a48d52aa7" />
 
-### 1. Focus Mode
-Select an Entity (Node) to isolate its dependencies.
-- **Effect:** Unrelated tables and associations fade to **15% opacity**.
-- **Focus:** The selected table and its direct neighborhood (Compositions and Associations) remain at **100% opacity**.
-- **Highlighting:** Connected lines thicken while maintaining their semantic ABAP colors (e.g., Green for Associations, Blue for Compositions).
-
-<img width="1510" height="815" alt="image" src="https://github.com/user-attachments/assets/a55baae8-cf56-4dd9-ba65-3c599f51b7c5" />
-
-### 2. "Springs & Magnets" Physics (`cose`)
+### 1. "Springs & Magnets" Physics (`cose`)
 Cytoscape uses a physics-based layout for the VDM.
 * **Elasticity:** Association lines act like springs, pulling related entities closer together.
 * **Live Updates:** Moving the **Node Spacing** slider in the UI recalculates these forces in real-time to adjust the graph layout.
 
-### 3. Hierarchical Routing (`dagre`)
+### 2. Hierarchical Routing (`dagre`)
 The engine uses the **Dagre** layout algorithm to present a hierarchical view of the CDS architecture.
 * **Structured Flow:** Organizes views into logical tiers (e.g., Base, Composite, Consumption) flowing from top-to-bottom or left-to-right.
 * **Minimized Crossings:** Calculates edge routing to reduce visual clutter and overlapping lines.
 
-### 4. Association Edge Labels
+### 3. Association Edge Labels
 To conserve space inside the entity boxes, association names (e.g., `_Items`) are placed on the **Bezier curved lines** next to the cardinality. This reduces redundancy and clarifies the data flow.
 
-### 5. Drill-Down & Breadcrumbs
+### 4. Drill-Down & Breadcrumbs
 * **Double-Click to Drill:** Double-clicking any entity (Node) executes a backend fetch, setting that entity as the new root. This allows you to navigate through the VDM hierarchy. *(Note: Drill-down enforces a hierarchical layout to ensure newly discovered child entities route without overlapping).*
 * **Breadcrumb Trail:** As you navigate deeper into the VDM hierarchy using the drill-down feature, a breadcrumb navigation trail dynamically builds at the top of the canvas. You can click any previous node in the trail to instantly jump back up the architecture.
 
-### 6. Minimap
+### 5. Minimap
 When exploring large models, use the **Minimap Toggle** in the toolbar to open a draggable, resizable Navigator window. This provides a high-level overview of the entire graph and allows for panning across complex diagrams.
 
 
-### 7. Custom Layouts & Variant Persistence
+### 6. Custom Layouts & Variant Persistence
 * **Drag and Drop Positioning:** Entities can now be freely dragged and positioned anywhere on the canvas.
 * **Layout Snapshots (Fiori Variants):** Physical canvas X/Y coordinates, pinned states, and visibility states can be saved directly to the SAP ABAP Backend as View Variants.
 * **Deep Link Sharing:** Generate shareable URLs for specific diagrams that open in a locked-down, read-only Viewer Mode.
 * **Undo/Redo Stack:** Integrated `Ctrl+Z` support (and a dedicated UI toolbar button) utilizing a Memento pattern to safely rollback accidental canvas movements, layout changes, or note deletions.
 * **Grid Snapping:** Toggleable alignment guides and strict snap-to-grid constraints for precise architectural mapping.
 
-### 8. Visual Annotations (Sticky Notes)
-* **Interactive Sticky Notes:** Add, edit, and delete draggable sticky notes directly over the CDS diagram. Supports typography switching and semantic color-coding.
-* **Entity Linking:** Visually anchor sticky notes to specific CDS views. Linked notes automatically travel with the entity when dragged, and will intelligently hide/restore if the parent entity's visibility is toggled.
+### 7. Visual Annotations (Sticky Notes)
+* **Interactive Sticky Notes:** Add, edit, and delete draggable sticky notes directly over the CDS diagram. Notes feature automatic robust text-wrapping for exceptionally long strings, typography switching, and semantic color-coding.
+* **Smart Multi-Node Linking:** Visually anchor sticky notes to single or multiple CDS views simultaneously. The engine calculates the optimal placement using a collision-avoidance spiral search to prevent overlapping. Linked notes automatically travel with their entity cluster and inherit visibility toggles.
 
-### 9. Contextual Actions & Visibility
+### 8. Contextual Actions & Visibility
 * **Right-Click Fiori Context Menu:** Pin/Unlock specific nodes in place while allowing the physics engine to route other entities around them.
 * **Hidden Node Manager:** Hide irrelevant CDS views via the context menu (or the `Delete`/`Backspace` keys), and use the dedicated manager Dialog to review and selectively restore hidden entities. Hiding a node will automatically cascade and hide any sticky notes specifically linked to it.
 
-### 10. Search & Export
-* **Graph Search:** A dedicated search bar allows you to locate, zoom, and highlight specific entities within large architectures.
+### 9. Focus Mode
+Select any table to instantly isolate its connections.
+- **Effect:** Unrelated areas of the diagram fade into the background.
+- **Focus:** The selected table and its direct connections remain fully visible.
+- **Highlighting:** The specific relationship lines leading to your selected table are thickened so you can easily trace the data flow.
+
+<img width="1510" height="815" alt="image" src="https://github.com/user-attachments/assets/a55baae8-cf56-4dd9-ba65-3c599f51b7c5" />
+
+### 10. Deep Search & Export
+* **Graph Search:** A dedicated search bar allows you to locate specific text across the entire diagram—whether it's a CDS view name, a field name, or an association name. Matching views are instantly highlighted and zoomed into focus.
 * **High-Res Export:** Native support for exporting the current viewport or the entire graph as a high-resolution PNG or a scalable SVG (with built-in zoom/pan browser support).
 
 ### 11. Layout Algorithms
-The Cytoscape engine supports switching between distinct layout algorithms in real-time:
-* **ELK (Eclipse Layout Kernel):** Advanced orthogonal and layered routing.
-* **Grid & Circular:** Structured topology generation for strict alignment.
-* **Breadthfirst:** Interactive tree expansion representations.
+The Cytoscape engine supports switching between 6 distinct layout algorithms in real-time, depending on your architectural needs:
+* **Cose (Physics):** A force-directed layout where association lines act like springs, pulling related entities closer together.
+* **Dagre (Hierarchical):** A strict top-to-bottom or left-to-right network flow that minimizes edge crossings.
+* **ELK (Eclipse Layout Kernel):** Advanced orthogonal and layered routing tailored for complex architectures.
+* **Grid:** Structured topology generation that forces nodes into a strict mathematical grid alignment.
+* **Circular:** Calculates exact circumferences to arrange all entities in a perfect ring topology.
+* **Breadthfirst:** An interactive tree expansion that pushes data outward from the root.
 
 ### 12. Keyboard Shortcuts
 The canvas supports several native keyboard shortcuts for rapid architecture modeling:
@@ -121,8 +124,8 @@ When a user opens a Share Link, the application loads into **Viewer Mode**. The 
 
 If the recipient wishes to modify the architecture or use it as a starting point, they can click the **Clone to Workspace** button. This instantly detaches the diagram from your shared UUID, restores the interactive builder UI panels, and allows them to freely modify the canvas and save it as their own private variant.
 
-### 14. Procedural UI Soundscapes (Haptics)
-The application provides subtle acoustic feedback (wooden ticks, mechanical snaps, and digital chimes) for interactive actions like dropping nodes, pinning, undoing, and rendering completion. 
+### 14. Procedural UI Soundscapes & Haptics
+The application features a custom gamified plugin architecture (e.g., Acoustic Pluck, Impact Shockwave, Radar Ping) that provides subtle audio-visual feedback when nodes collide, snap, or move. 
 * **Zero-Bloat Audio:** Powered by a decoupled procedural Web Audio engine (`rlo-engine`) that synthesizes sounds mathematically, eliminating the need to download heavy `.mp3` or `.wav` files.
 * **Non-Intrusive:** Designed for enterprise environments with very low volume profiles and acoustic debouncing. Can be instantly muted via the speaker icon in the toolbar (preference persists across sessions).
 

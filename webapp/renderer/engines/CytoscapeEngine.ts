@@ -543,34 +543,39 @@ export default class CytoscapeEngine {
         let iX = 0, iY = 0;
         const aSelectedEntities = cyInstance.nodes(':selected').difference('.annotation-note');
 
-        if (aSelectedEntities.length > 0) {
-            const oTargetPos = aSelectedEntities[0].position();
-            iX = oTargetPos.x + 150;
-            iY = oTargetPos.y - 100;
-        } else {
-            const oExtent = cyInstance.extent();
-            const iCenterX = oExtent.x1 + (oExtent.w / 2);
-            const iCenterY = oExtent.y1 + (oExtent.h / 2);
-            
-            const aExistingBoxes = cyInstance.nodes().map((n: any) => n.boundingBox());
+        let iCenterX = 0, iCenterY = 0;
 
-            let iRadius = 0;
-            let iAngle = 0;
-            let bFoundEmpty = false;
+        if (aSelectedEntities.length > 0) {
+            // Get the bounding box of ALL selected nodes to find the true center
+            const bb = aSelectedEntities.boundingBox();
+            iCenterX = bb.x1 + (bb.w / 2);
+            iCenterY = bb.y1 - 100; // Start searching just above the top edge of the selection
+        } else {
+            // If nothing is selected, start at the center of the current camera view
+            const oExtent = cyInstance.extent();
+            iCenterX = oExtent.x1 + (oExtent.w / 2);
+            iCenterY = oExtent.y1 + (oExtent.h / 2);
+        }
+        
+        const aExistingBoxes = cyInstance.nodes().map((n: any) => n.boundingBox());
+
+        let iRadius = 0;
+        let iAngle = -Math.PI / 2; // Start searching upwards (12 o'clock)
+        let bFoundEmpty = false;
+        
+        // Spiral outward until an empty spot is found that doesn't overlap any existing nodes
+        while (!bFoundEmpty && iRadius < 3000) {
+            iX = iCenterX + iRadius * Math.cos(iAngle);
+            iY = iCenterY + iRadius * Math.sin(iAngle);
             
-            while (!bFoundEmpty && iRadius < 3000) {
-                iX = iCenterX + iRadius * Math.cos(iAngle);
-                iY = iCenterY + iRadius * Math.sin(iAngle);
-                
-                const bOverlaps = aExistingBoxes.some((oBox: any) => {
-                    return !(iX + 90 < oBox.x1 || iX - 90 > oBox.x2 || iY + 50 < oBox.y1 || iY - 50 > oBox.y2);
-                });
-                
-                if (!bOverlaps) bFoundEmpty = true;
-                else {
-                    iAngle += 0.5;
-                    iRadius += 20;
-                }
+            const bOverlaps = aExistingBoxes.some((oBox: any) => {
+                return !(iX + 90 < oBox.x1 || iX - 90 > oBox.x2 || iY + 50 < oBox.y1 || iY - 50 > oBox.y2);
+            });
+            
+            if (!bOverlaps) bFoundEmpty = true;
+            else {
+                iAngle += 0.5;
+                iRadius += 20;
             }
         }
 
@@ -581,17 +586,21 @@ export default class CytoscapeEngine {
             position: { x: iX, y: iY }
         });
 
+        const newEles = cyInstance.collection().add(el);
+
         if (aSelectedEntities.length > 0) {
-            cyInstance.add({
-                group: 'edges',
-                data: { id: `edge_${sId}`, source: aSelectedEntities[0].id(), target: sId },
-                classes: 'annotation-edge'
+            aSelectedEntities.forEach((node: any) => {
+                const edgeId = `edge_${sId}_${node.id()}`;
+                const edge = cyInstance.add({
+                    group: 'edges',
+                    data: { id: edgeId, source: node.id(), target: sId },
+                    classes: 'annotation-edge'
+                });
+                newEles.merge(edge);
             });
         }
         
         // Return JSON of all newly added elements so Undo commands can track them
-        const newEles = cyInstance.collection().add(el);
-        if (aSelectedEntities.length > 0) newEles.merge(cyInstance.getElementById(`edge_${sId}`));
         return newEles.jsons();
     }
 
