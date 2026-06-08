@@ -1,5 +1,7 @@
 # SAP VDM CDS Diagrammer UI (FIORI)
 
+👉 **[View the latest Release Notes / Changelog (v1.8.0)](CHANGELOG.md)**
+
 ## What it is
 A Fiori application for visualizing SAP Virtual Data Models (VDM) / CDS Views. It turns complex Core Data Services (CDS) hierarchies into interactive, zoomable and interactive class diagrams.
 
